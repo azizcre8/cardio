@@ -470,31 +470,81 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 #proc-log{font-family:monospace;font-size:0.72rem;color:var(--text-tertiary);background:var(--bg-sunken);border-radius:var(--radius-sm);padding:10px;max-height:180px;overflow-y:auto;margin-top:14px;text-align:left}
 
 /* ── Mindmap ─────────────────────────────────────────────────── */
-#view-mindmap{padding:0;max-width:100%;background:#060708;min-height:100vh}
+/* ── Processing view ─────────────────────────────────────────── */
+#view-processing{background:var(--bg);padding:0;display:flex;flex-direction:column;min-height:100vh}
+.proc-outer{max-width:680px;margin:0 auto;width:100%;padding:32px 24px 60px;display:flex;flex-direction:column;gap:20px}
+.proc-header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.proc-header-left{display:flex;align-items:center;gap:14px}
+.proc-icon{width:40px;height:40px;background:var(--bg-raised);border:1px solid var(--border-med);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--accent);letter-spacing:0.08em;font-weight:700;flex-shrink:0}
+.proc-file-name{font-size:0.95rem;font-weight:600;color:var(--text-primary);letter-spacing:-0.01em}
+.proc-file-sub{font-size:0.72rem;color:var(--text-secondary);margin-top:2px}
+.proc-elapsed{font-size:2rem;font-weight:200;color:var(--accent);letter-spacing:-0.05em;font-family:var(--font-sans);flex-shrink:0;min-width:60px;text-align:right}
+.proc-pipeline{display:flex;align-items:flex-start;gap:0;padding:4px 0}
+.proc-phase-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:54px;position:relative}
+.proc-phase-dot{width:10px;height:10px;border-radius:50%;background:var(--bg-raised);border:2px solid var(--border);transition:all .3s;position:relative;z-index:1;flex-shrink:0}
+.proc-phase-connector{position:absolute;top:4px;left:calc(50% + 5px);right:calc(-50% + 5px);height:2px;background:var(--border);transition:background .4s;z-index:0}
+.proc-phase-item:last-child .proc-phase-connector{display:none}
+.proc-phase-name{font-size:0.56rem;color:var(--text-dim);text-align:center;margin-top:6px;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;transition:color .3s}
+.proc-phase-item.done .proc-phase-dot{background:var(--green);border-color:var(--green)}
+.proc-phase-item.done .proc-phase-connector{background:var(--green)}
+.proc-phase-item.done .proc-phase-name{color:var(--green)}
+.proc-phase-item.active .proc-phase-dot{background:var(--accent);border-color:var(--accent);animation:procPulse 1.2s ease-in-out infinite}
+.proc-phase-item.active .proc-phase-name{color:var(--accent)}
+@keyframes procPulse{0%,100%{box-shadow:0 0 4px rgba(0,242,255,0.4)}50%{box-shadow:0 0 12px rgba(0,242,255,0.9)}}
+.proc-bar-outer{height:4px;background:var(--bg-raised);border-radius:999px;overflow:hidden}
+.proc-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:999px;transition:width .6s ease}
+.proc-status-line{font-size:0.78rem;color:var(--text-secondary);text-align:center;min-height:18px}
+.proc-stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.proc-stat-card{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 10px;text-align:center}
+.proc-cost-card{border-color:rgba(0,255,163,0.15)}
+.proc-stat-num{font-size:1.5rem;font-weight:200;color:var(--accent);letter-spacing:-0.03em;font-family:var(--font-sans);line-height:1;transition:all .2s}
+.proc-stat-lbl{font-size:0.62rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.07em;margin-top:4px}
+.proc-cost-card .proc-stat-num{color:var(--green);font-size:1.05rem}
+.proc-log-panel{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.proc-log-hdr{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--bg-sunken);border-bottom:1px solid var(--border);font-size:0.6rem;color:var(--text-dim);letter-spacing:0.12em;font-weight:700;font-family:monospace}
+.proc-log-pulse{width:6px;height:6px;border-radius:50%;background:var(--green);animation:procPulse 1.2s ease-in-out infinite;flex-shrink:0}
+.proc-log{height:300px;overflow-y:auto;padding:10px 14px;font-family:monospace;font-size:0.72rem;color:var(--text-secondary);line-height:1.75}
+.proc-log-entry .ts{color:var(--text-dim);margin-right:8px}
+.proc-log-entry.writer{color:#7dd3fc}
+.proc-log-entry.auditor{color:#c4b5fd}
+.proc-log-entry.success{color:var(--green)}
+.proc-log-entry.error{color:var(--red)}
+
+/* ── Flowchart (replaces SVG galaxy mindmap) ─────────────────── */
+#view-mindmap{padding:0;background:var(--bg);min-height:100vh}
 #view-mindmap.active{display:flex;flex-direction:column}
-.mm-header{
-  padding:14px 24px;
-  display:flex;align-items:center;gap:16px;
-  background:rgba(8,9,11,0.95);
-  border-bottom:1px solid var(--border);
-  position:sticky;top:0;z-index:10;flex-wrap:wrap;
-}
-.mm-title{font-family:var(--font-serif);font-size:1.05rem;font-weight:400;color:var(--text-primary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mm-subtitle{font-size:0.7rem;color:var(--text-tertiary);margin-top:1px;text-transform:uppercase;letter-spacing:0.05em}
-.mm-stats{display:flex;align-items:center;gap:20px;flex-shrink:0}
-.mm-stat{text-align:center}
-.mm-stat-val{font-family:var(--font-serif);font-size:1.1rem;font-weight:400;color:var(--accent)}
-.mm-stat-lbl{font-size:0.62rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em}
-.mm-svg-wrap{flex:1;overflow:auto;cursor:grab;position:relative}
-.mm-svg-wrap:active{cursor:grabbing}
-#mm-svg{display:block;margin:0 auto}
-.mm-legend{display:flex;gap:18px;padding:10px 24px;background:rgba(8,9,11,0.95);border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;justify-content:center}
-.mm-legend-item{display:flex;align-items:center;gap:6px;font-size:0.68rem;color:var(--text-tertiary)}
-.mm-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
-@keyframes mmPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
-@keyframes mmGlow{0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 10px currentColor)}}
-.mm-node-mastered{animation:mmGlow 2.5s ease-in-out infinite}
-.mm-tooltip{position:fixed;background:var(--bg-surface);border:1px solid var(--border-med);border-radius:var(--radius-md);padding:14px 16px;pointer-events:none;z-index:9999;max-width:240px;box-shadow:var(--shadow-lg);transition:opacity .15s}
+.fc-header{padding:14px 24px;display:flex;align-items:center;gap:16px;background:var(--bg-surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.fc-title{font-size:0.95rem;font-weight:600;color:var(--text-primary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc-stats{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.fc-stat{text-align:center}
+.fc-stat-val{font-size:1.05rem;font-weight:300;color:var(--accent)}
+.fc-stat-lbl{font-size:0.6rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em}
+.fc-body{padding:24px;overflow-y:auto;flex:1}
+.fc-chapter-node{background:rgba(0,242,255,0.04);border:1px solid rgba(0,242,255,0.18);border-radius:var(--radius-md);padding:16px 20px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.fc-chapter-label{font-size:0.95rem;font-weight:600;color:var(--accent);letter-spacing:-0.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc-chapter-meta{font-size:0.72rem;color:var(--text-secondary);flex-shrink:0;text-align:right}
+.fc-connector{text-align:center;color:rgba(0,242,255,0.18);font-size:1rem;margin-bottom:10px;letter-spacing:2px}
+.fc-cat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;margin-bottom:4px}
+.fc-cat-card{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;cursor:pointer;transition:all .15s;position:relative}
+.fc-cat-card:hover{border-color:var(--border-med)}
+.fc-cat-card.active{border-color:rgba(0,242,255,0.3);background:rgba(0,242,255,0.04)}
+.fc-cat-name{font-size:0.8rem;font-weight:500;color:var(--text-primary);margin-bottom:4px;line-height:1.3;padding-right:16px}
+.fc-cat-count{font-size:0.67rem;color:var(--text-secondary)}
+.fc-cat-bar{height:2px;background:var(--bg-sunken);border-radius:999px;overflow:hidden;margin-top:8px}
+.fc-cat-bar-fill{height:100%;border-radius:999px;transition:width .4s}
+.fc-cat-chevron{position:absolute;top:10px;right:11px;font-size:0.65rem;color:var(--text-dim);transition:transform .2s}
+.fc-cat-card.active .fc-cat-chevron{transform:rotate(180deg);color:var(--accent)}
+.fc-concept-panel{background:var(--bg-surface);border:1px solid var(--border);border-left:2px solid rgba(0,242,255,0.2);border-radius:var(--radius-md);margin:6px 0 14px 0;overflow:hidden;display:none}
+.fc-concept-panel.open{display:block}
+.fc-concept-panel-title{font-size:0.62rem;color:var(--text-secondary);padding:7px 14px;background:var(--bg-sunken);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.08em}
+.fc-concept-row{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.fc-concept-row:last-child{border-bottom:none}
+.fc-concept-row:hover{background:rgba(255,255,255,0.02)}
+.fc-concept-name{flex:1;font-size:0.8rem;color:var(--text-primary)}
+.fc-mastery-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.fc-mastery-pct{font-size:0.67rem;min-width:28px;text-align:right}
+.fc-study-sm{font-size:0.67rem;padding:3px 9px;border-radius:999px;border:1px solid var(--border-med);background:none;color:var(--text-secondary);cursor:pointer;white-space:nowrap;transition:all .12s;font-family:var(--font-sans)}
+.fc-study-sm:hover{color:var(--accent);border-color:rgba(0,242,255,0.3)}
 
 /* ── Today view ──────────────────────────────────────────────── */
 .today-hero{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
@@ -572,17 +622,6 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 .cd-concept-bar{flex:1;max-width:100px;height:3px;background:var(--bg-sunken);border-radius:999px;overflow:hidden}
 .cd-concept-bar-fill{height:100%;border-radius:999px;transition:width .3s}
 
-/* ── Mindmap improvements ────────────────────────────────────── */
-.mm-search-bar{display:flex;align-items:center;gap:8px;padding:10px 24px;background:rgba(8,9,11,0.9);border-bottom:1px solid var(--border)}
-.mm-search-input{flex:1;background:var(--bg-raised);border:1px solid var(--border-med);color:var(--text-primary);padding:7px 12px;border-radius:var(--radius-sm);font-size:0.82rem;font-family:var(--font-sans);outline:none}
-.mm-search-input:focus{border-color:var(--accent)}
-.mm-search-input::placeholder{color:var(--text-dim)}
-.mm-zoom-btns{display:flex;gap:4px;flex-shrink:0}
-.mm-zoom-btn{background:var(--bg-raised);border:1px solid var(--border-med);color:var(--text-secondary);width:30px;height:30px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;transition:all .12s;font-family:var(--font-sans)}
-.mm-zoom-btn:hover{color:var(--accent);border-color:rgba(0,242,255,0.3)}
-.mm-cat-filter{display:flex;gap:6px;padding:8px 24px;background:rgba(8,9,11,0.9);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
-.mm-cat-chip{padding:3px 10px;border-radius:999px;border:1px solid var(--border);font-size:0.67rem;font-weight:500;color:var(--text-secondary);background:none;cursor:pointer;white-space:nowrap;transition:all .12s;font-family:var(--font-sans)}
-.mm-cat-chip.active{border-color:currentColor;background:rgba(255,255,255,0.05)}
 
 /* ── Responsive ──────────────────────────────────────────────── */
 @media(max-width:580px){
@@ -734,63 +773,62 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 
 <!-- MINDMAP -->
 <div id="view-mindmap" class="view">
-  <div class="mm-header">
+  <div class="fc-header">
     <button class="nav-btn" onclick="openChapterDetail(STATE.currentPdfId)" style="flex-shrink:0">← Chapter</button>
-    <div style="flex:1;min-width:0">
-      <div class="mm-title" id="mm-title">Chapter Map</div>
-      <div class="mm-subtitle" id="mm-subtitle"></div>
+    <div class="fc-title" id="mm-title">Concept Map</div>
+    <div class="fc-stats">
+      <div class="fc-stat"><div class="fc-stat-val" id="mm-unlocked">0</div><div class="fc-stat-lbl">Studied</div></div>
+      <div class="fc-stat"><div class="fc-stat-val" id="mm-mastered">0</div><div class="fc-stat-lbl">Mastered</div></div>
+      <div class="fc-stat"><div class="fc-stat-val" id="mm-total">0</div><div class="fc-stat-lbl">Concepts</div></div>
     </div>
-    <div class="mm-stats">
-      <div class="mm-stat"><div class="mm-stat-val" id="mm-unlocked">0</div><div class="mm-stat-lbl">Studied</div></div>
-      <div class="mm-stat"><div class="mm-stat-val" id="mm-mastered">0</div><div class="mm-stat-lbl">Mastered</div></div>
-      <div class="mm-stat"><div class="mm-stat-val" id="mm-total">0</div><div class="mm-stat-lbl">Concepts</div></div>
-    </div>
-    <button class="btn btn-primary btn-sm" id="mm-study-btn" onclick="" style="flex-shrink:0">Study →</button>
+    <button class="btn btn-primary btn-sm" id="mm-study-btn" onclick="">Study All →</button>
   </div>
-  <!-- Search + zoom toolbar -->
-  <div class="mm-search-bar">
-    <input class="mm-search-input" id="mm-search" placeholder="Search concepts…" oninput="mmSearch(this.value)"/>
-    <div class="mm-zoom-btns">
-      <button class="mm-zoom-btn" onclick="mmZoom(1.25)" title="Zoom in">+</button>
-      <button class="mm-zoom-btn" onclick="mmZoom(0.8)" title="Zoom out">−</button>
-      <button class="mm-zoom-btn" onclick="mmZoomReset()" title="Reset" style="font-size:0.7rem">⊡</button>
-    </div>
-  </div>
-  <!-- Category filter chips -->
-  <div class="mm-cat-filter" id="mm-cat-filter">
-    <button class="mm-cat-chip active" onclick="mmCatFilter('all',this)" style="color:var(--text-secondary)">All</button>
-  </div>
-  <div class="mm-svg-wrap" id="mm-svg-wrap">
-    <svg id="mm-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-  </div>
-  <div class="mm-legend">
-    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:#10121A;border:1px solid rgba(60,65,90,0.6)"></div>Not Started</div>
-    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(255,61,113,0.12);border:1px solid #FF3D71"></div>Weak</div>
-    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(255,173,51,0.12);border:1px solid #FFAD33"></div>Learning</div>
-    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(0,255,163,0.12);border:1px solid #00FFA3"></div>Strong</div>
-    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(0,242,255,0.15);border:1px solid #00F2FF;box-shadow:0 0 6px rgba(0,242,255,0.5)"></div>Mastered ◆</div>
-    <div style="width:1px;height:14px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
-    <div style="font-size:0.7rem;color:#6b7080">Node size = importance · Click node to study · Scroll to zoom · Drag to pan</div>
-  </div>
+  <div class="fc-body" id="fc-body"></div>
 </div>
-<div id="mm-tooltip" class="mm-tooltip" style="display:none"></div>
 
 <!-- PROCESSING -->
 <div id="view-processing" class="view">
-  <div class="card">
-    <h1 id="proc-title" style="margin-bottom:6px">Processing PDF</h1>
-    <p class="text-muted" style="margin-bottom:28px" id="proc-subtitle">This takes 10–15 minutes. Keep this tab open.</p>
-    <div class="progress-bar" style="margin-bottom:8px">
-      <div class="progress-fill" id="proc-bar" style="width:0%"></div>
+  <div class="proc-outer">
+    <!-- Header -->
+    <div class="proc-header">
+      <div class="proc-header-left">
+        <div class="proc-icon">PDF</div>
+        <div>
+          <div class="proc-file-name" id="proc-title">Analyzing PDF…</div>
+          <div class="proc-file-sub" id="proc-subtitle">Keep this tab open — takes 10–15 min</div>
+        </div>
+      </div>
+      <div class="proc-elapsed" id="pc-time">0s</div>
     </div>
-    <p id="proc-status" class="text-muted" style="margin-bottom:24px;font-size:0.8rem">Starting…</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:0">
-      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-chunks">0</div><div class="stat-label" style="margin-top:4px">Chunks</div></div>
-      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-concepts">0</div><div class="stat-label" style="margin-top:4px">Concepts</div></div>
-      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-questions">0</div><div class="stat-label" style="margin-top:4px">Questions</div></div>
-      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-time">0s</div><div class="stat-label" style="margin-top:4px">Elapsed</div></div>
+
+    <!-- Phase pipeline -->
+    <div class="proc-pipeline">
+      <div class="proc-phase-item" id="proc-ph-1"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Extract</div></div>
+      <div class="proc-phase-item" id="proc-ph-2"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Embed</div></div>
+      <div class="proc-phase-item" id="proc-ph-3"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Inventory</div></div>
+      <div class="proc-phase-item" id="proc-ph-4"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Concepts</div></div>
+      <div class="proc-phase-item" id="proc-ph-5"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Write Qs</div></div>
+      <div class="proc-phase-item" id="proc-ph-6"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Audit</div></div>
+      <div class="proc-phase-item" id="proc-ph-7"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Save</div></div>
     </div>
-    <div id="proc-log"></div>
+
+    <!-- Progress -->
+    <div class="proc-bar-outer"><div class="proc-bar-fill" id="proc-bar" style="width:0%"></div></div>
+    <div class="proc-status-line" id="proc-status">Starting…</div>
+
+    <!-- Stats -->
+    <div class="proc-stats-grid">
+      <div class="proc-stat-card"><div class="proc-stat-num" id="pc-chunks">0</div><div class="proc-stat-lbl">Chunks</div></div>
+      <div class="proc-stat-card"><div class="proc-stat-num" id="pc-concepts">0</div><div class="proc-stat-lbl">Concepts</div></div>
+      <div class="proc-stat-card"><div class="proc-stat-num" id="pc-questions">0</div><div class="proc-stat-lbl">Questions</div></div>
+      <div class="proc-stat-card proc-cost-card"><div class="proc-stat-num" id="pc-cost">$0.000</div><div class="proc-stat-lbl">Cost</div></div>
+    </div>
+
+    <!-- Agent log -->
+    <div class="proc-log-panel">
+      <div class="proc-log-hdr"><div class="proc-log-pulse"></div>AGENT LOG</div>
+      <div class="proc-log" id="proc-log"></div>
+    </div>
   </div>
 </div>
 
@@ -1057,9 +1095,9 @@ function showMindMap(pdfId){
   const pdf=S.pdfs().find(p=>p.id===pdfId);
   const concepts=S.concepts(pdfId);
   const questions=S.questions(pdfId);
-  if(!pdf||!concepts.length){alert('No concept data — process the PDF first.');return;}
+  if(!pdf||!concepts.length){alert('No concept data.');return;}
 
-  // Header info
+  // Header stats
   document.getElementById('mm-title').textContent=pdf.name.replace(/\.pdf$/i,'');
   const masteryMap={};
   concepts.forEach(c=>{ masteryMap[c.id]=getMasteryStatus(c.id,questions); });
@@ -1068,13 +1106,73 @@ function showMindMap(pdfId){
   document.getElementById('mm-unlocked').textContent=studied;
   document.getElementById('mm-mastered').textContent=mastered;
   document.getElementById('mm-total').textContent=concepts.length;
-  document.getElementById('mm-subtitle').textContent=`${questions.length} questions across ${concepts.length} concepts`;
   document.getElementById('mm-study-btn').setAttribute('onclick',`openStudy('${pdfId}')`);
 
-  // Layout
-  const W=Math.max(900, window.innerWidth*0.9);
-  const H=Math.max(700, window.innerHeight*0.75);
-  const {nodes,edges}=buildMindMapLayout(concepts,W,H);
+  // Group by category
+  const catMap={};
+  concepts.forEach(c=>{
+    const cat=c.category||'General';
+    if(!catMap[cat]) catMap[cat]=[];
+    catMap[cat].push(c);
+  });
+  const catKeys=Object.keys(catMap);
+  const masteryColors={new:'rgba(60,65,144,0.5)',weak:'#FF3D71',medium:'#FFAD33',strong:'#00FFA3',mastered:'#00F2FF'};
+  const shortName=pdf.name.replace(/\.pdf$/i,'');
+
+  // Chapter root
+  let html=`<div class="fc-chapter-node">
+    <div class="fc-chapter-label">${escHtml(shortName)}</div>
+    <div class="fc-chapter-meta">${concepts.length} concepts · ${questions.length} questions</div>
+  </div>
+  <div class="fc-connector">│</div>
+  <div class="fc-cat-grid">`;
+
+  catKeys.forEach((cat,catIdx)=>{
+    const cats=catMap[cat];
+    const catStudied=cats.filter(c=>masteryMap[c.id].status!=='new').length;
+    const catPct=cats.length?Math.round(catStudied/cats.length*100):0;
+    const col=mmCatColor(cat);
+    html+=`<div class="fc-cat-card" id="fc-cat-${catIdx}" onclick="fcToggleCat(${catIdx})">
+      <div class="fc-cat-chevron">▾</div>
+      <div class="fc-cat-name">${escHtml(cat)}</div>
+      <div class="fc-cat-count">${cats.length} concept${cats.length!==1?'s':''} · ${catStudied} studied</div>
+      <div class="fc-cat-bar"><div class="fc-cat-bar-fill" style="width:${catPct}%;background:${col}"></div></div>
+    </div>`;
+  });
+  html+='</div>';
+
+  // Concept panels (hidden by default, one per category)
+  catKeys.forEach((cat,catIdx)=>{
+    const cats=catMap[cat];
+    const sorted=[...cats].sort((a,b)=>{
+      const ma=masteryMap[a.id], mb=masteryMap[b.id];
+      const order={mastered:0,strong:1,medium:2,weak:3,new:4};
+      return (order[ma.status]||4)-(order[mb.status]||4);
+    });
+    html+=`<div class="fc-concept-panel" id="fc-panel-${catIdx}">
+      <div class="fc-concept-panel-title">${escHtml(cat)} — ${cats.length} concepts</div>
+      <div class="fc-concept-list">`;
+    sorted.forEach(c=>{
+      const m=masteryMap[c.id]||{status:'new',pct:0};
+      const col=masteryColors[m.status]||'rgba(60,65,144,0.5)';
+      const pctLabel=m.status==='new'?'—':m.pct+'%';
+      html+=`<div class="fc-concept-row" onclick="studyConceptDirect('${pdfId}','${c.id}')">
+        <div class="fc-mastery-dot" style="background:${col};box-shadow:0 0 5px ${col}66"></div>
+        <div class="fc-concept-name">${escHtml(c.concept)}</div>
+        <div class="fc-mastery-pct" style="color:${col}">${pctLabel}</div>
+        <button class="fc-study-sm" onclick="event.stopPropagation();studyConceptDirect('${pdfId}','${c.id}')">Study →</button>
+      </div>`;
+    });
+    html+='</div></div>';
+  });
+
+  const body=document.getElementById('fc-body');
+  body.innerHTML=html;
+  body._catKeys=catKeys;
+  showView('mindmap');
+
+  // Old SVG mindmap code below (no longer executed — kept for reference)
+  if(false){
 
   // Build id→node map
   const nodeMap={};
@@ -1220,8 +1318,29 @@ function showMindMap(pdfId){
   wrap.addEventListener('mouseleave',onUp);
   wrap.addEventListener('wheel',onWheel,{passive:false});
   wrap._mmCleanup=()=>{ wrap.removeEventListener('mousedown',onDown); wrap.removeEventListener('mousemove',onMove); wrap.removeEventListener('mouseup',onUp); wrap.removeEventListener('mouseleave',onUp); wrap.removeEventListener('wheel',onWheel); };
+  } // end if(false) — old SVG galaxy code
+}
 
-  showView('mindmap');
+function fcToggleCat(idx) {
+  const body=document.getElementById('fc-body');
+  const keys=body?body._catKeys||[]:[];
+  const panel=document.getElementById('fc-panel-'+idx);
+  const card=document.getElementById('fc-cat-'+idx);
+  if(!panel||!card) return;
+  const isOpen=panel.classList.contains('open');
+  // Close all
+  keys.forEach((_,i)=>{
+    const c=document.getElementById('fc-cat-'+i);
+    const p=document.getElementById('fc-panel-'+i);
+    if(c) c.classList.remove('active');
+    if(p) p.classList.remove('open');
+  });
+  // Toggle clicked
+  if(!isOpen){
+    card.classList.add('active');
+    panel.classList.add('open');
+    setTimeout(()=>panel.scrollIntoView({behavior:'smooth',block:'nearest'}),50);
+  }
 }
 
 function mmShowTooltip(e, el){
@@ -1636,7 +1755,17 @@ async function processNewPDF(file) {
   S.savePDFs([...S.pdfs(),{id,name:file.name,uploadDate:new Date().toISOString(),
     processingComplete:false,conceptCount:0,questionCount:0,density:STATE.density}]);
 
-  renderLibrary(); showView('library');
+  // Show rich processing view
+  STATE._procCost=0;
+  document.getElementById('proc-title').textContent=file.name.replace(/\.pdf$/i,'');
+  document.getElementById('proc-log').innerHTML='';
+  document.getElementById('proc-bar').style.width='0%';
+  document.getElementById('pc-cost').textContent='$0.000';
+  ['pc-chunks','pc-concepts','pc-questions'].forEach(i=>{
+    const el=document.getElementById(i); if(el) el.textContent='0';
+  });
+  setPhase(1);
+  showView('processing');
 
   _startTime=Date.now();
   _timer=setInterval(()=>{
@@ -1646,58 +1775,65 @@ async function processNewPDF(file) {
   },1000);
 
   try {
-    // ── Phase 1: Extract text (returns [{page, text}])
-    plog('Phase 1: Extracting text…');
+    // ── Phase 1: Extract text
+    plog('Extracting text from PDF…');
+    setProcStatus('Extracting text…',2);
     setProcStatusInline(id,'Extracting text…',2);
     const pages=await extractText(file);
     const totalWords=pages.reduce((s,p)=>s+p.text.split(/\s+/).length,0);
-    plog(`Extracted ${pages.length} pages (~${totalWords} words)`);
+    plog(`✓ ${pages.length} pages · ~${totalWords} words`,'success');
 
-    // ── Phase 2: Chunk with page tracking
+    // ── Phase 2: Chunk
+    setPhase(2);
     const rawChunks=chunkText(pages,dc.words,dc.overlap);
-    plog(`Phase 2: ${rawChunks.length} chunks (${dc.words} words, ${Math.round(dc.overlap*100)}% overlap, ${STATE.density} mode)`);
-    setProcStatusInline(id,'Chunked — embedding…',3);
+    plog(`Chunked → ${rawChunks.length} chunks (${dc.words}w, ${Math.round(dc.overlap*100)}% overlap, ${STATE.density})`);
+    document.getElementById('pc-chunks').textContent=rawChunks.length;
+    setProcStatus('Chunked — embedding…',3);
+    setProcStatusInline(id,'Embedding…',3);
 
     // ── Phase 2.5: Embed all chunks (Coverage-First RAG)
-    plog('Phase 2.5: Embedding chunks for semantic retrieval (text-embedding-3-small)…');
-    setProcStatusInline(id,'Embedding chunks…',4);
+    plog('Embedding chunks for semantic RAG (text-embedding-3-small)…');
     let chunkRecords=[];
     try {
       chunkRecords=await embedAllChunks(rawChunks,id);
       S.saveChunks(id,chunkRecords);
       const embedded=chunkRecords.filter(c=>c.embedding.length>0).length;
-      plog(`Phase 2.5: ${embedded}/${chunkRecords.length} chunks embedded (${EMBED_DIMS}-dim vectors, ${Math.round(JSON.stringify(chunkRecords).length/1024)}KB stored)`);
+      plog(`✓ ${embedded}/${chunkRecords.length} chunks embedded (${EMBED_DIMS}-dim, ${Math.round(JSON.stringify(chunkRecords).length/1024)}KB)`,'success');
     } catch(e) {
-      // Fall back: create records without embeddings so pipeline still runs
       chunkRecords=rawChunks.map((c,i)=>({id:id+'_ch_'+i,pdfId:id,...c,chunkIndex:i,embedding:[]}));
-      plog(`Phase 2.5 skipped: ${e.message} — generation will use keyFacts only`);
+      plog(`Embedding skipped: ${e.message} — using keyFacts fallback`,'error');
     }
 
     // ── Phase 3: Content inventory per chunk
-    plog('Phase 3: Running content inventory across all chunks…');
+    setPhase(3);
+    plog('Running content inventory across all chunks…');
     const inventories=[];
-    const BATCH=3; // 3 chunks per API call → ~3x fewer quota requests
+    const BATCH=3;
     const batches=[];
     for(let i=0;i<chunkRecords.length;i+=BATCH) batches.push(chunkRecords.slice(i,i+BATCH));
     for(let b=0;b<batches.length;b++) {
       const chunkNums=`${b*BATCH+1}–${Math.min((b+1)*BATCH,chunkRecords.length)}`;
-      setProcStatusInline(id,`Inventory ${b+1}/${batches.length}…`,20+(b/batches.length)*30);
-      plog(`Chunks ${chunkNums}: extracting inventory…`);
+      const pct=20+(b/batches.length)*30;
+      setProcStatus(`Inventory batch ${b+1}/${batches.length}…`,pct);
+      setProcStatusInline(id,`Inventory ${b+1}/${batches.length}…`,pct);
       if(b>0) await sleep(3500);
       try {
         const inv=await extractInventory(batches[b],STATE.density,b,batches.length,chunkRecords.length);
         inventories.push(inv);
         const tot=inventories.reduce((s,inv)=>s+inv.concepts.length,0);
-        const heads=inv.headings.join(', ').slice(0,60)||'—';
-        plog(`Chunks ${chunkNums}: ${inv.concepts.length} concepts (topics: ${heads})`);
-      } catch(e) { plog(`Chunks ${chunkNums} inventory error: ${e.message}`); }
+        document.getElementById('pc-concepts').textContent=tot;
+        plog(`Chunks ${chunkNums}: ${inv.concepts.length} concepts (${inv.headings.slice(0,3).join(', ')||'—'})`);
+      } catch(e) { plog(`Chunks ${chunkNums} error: ${e.message}`,'error'); }
     }
 
     // ── Phase 4: Merge into master concept list
-    plog('Phase 4: Merging deduplicated master concept list…');
-    setProcStatusInline(id,'Building concept list…',52);
+    setPhase(4);
+    plog('Merging deduplicated master concept list…');
+    setProcStatus('Building concept list…',52);
+    setProcStatusInline(id,'Building concepts…',52);
     let master=mergeInventory(inventories,id);
-    plog(`Master list: ${master.length} unique concepts (${master.filter(c=>c.importance==='high').length} high-yield)`);
+    plog(`✓ ${master.length} unique concepts (${master.filter(c=>c.importance==='high').length} high-yield)`,'success');
+    document.getElementById('pc-concepts').textContent=master.length;
     S.saveConcepts(id,master);
 
     // Fix 6: Consolidate near-duplicate concepts before capping
@@ -1765,15 +1901,17 @@ async function processNewPDF(file) {
     const batchSize=3;
     let auditPassed=0, auditRevised=0, auditHardRejected=0;
 
+    setPhase(5);
     for(let i=0;i<capped.length;i+=batchSize) {
       const batch=capped.slice(i,i+batchSize);
       const pct=53+(i/capped.length)*38;
-      setProcStatusInline(id,`Generating ${i+1}–${Math.min(i+batchSize,capped.length)} of ${capped.length}…`,pct);
+      const label=`${i+1}–${Math.min(i+batchSize,capped.length)} of ${capped.length}`;
+      setProcStatus(`Writer: concepts ${label}…`,pct);
+      setProcStatusInline(id,`Writing ${label}…`,pct);
+      plog(`Writer Agent → concepts ${label}…`,'writer');
       try {
-        // Generate initial questions via Writer Agent (gpt-4o via generateCoverageQuestions)
         const qs=await generateCoverageQuestions(batch,id,STATE.density,chunkRecords);
 
-        // Build per-concept RAG passages string (for REVISE feedback to Writer)
         const ragPassagesMap={};
         if(ragEnabled) {
           try {
@@ -1783,56 +1921,62 @@ async function processNewPDF(file) {
               const topChunks=retrieveTopChunks(chunkRecords,qVecs[bi],3);
               ragPassagesMap[c.id]=topChunks.map(ch=>`> "${ch.text.slice(0,300)}" [page ${ch.startPage||'?'}]`).join('\n');
             });
-          } catch(_) {} // non-fatal
+          } catch(_) {}
         }
 
-        // ── Phase 6: Multi-Agent Clinical Audit (Writer↔Auditor loop)
+        setPhase(6);
+        plog(`Auditor Agent → reviewing ${qs.length} questions…`,'auditor');
+        setProcStatus(`Auditing ${qs.length} questions…`,pct+1);
         setProcStatusInline(id,`Auditing ${qs.length} Qs…`,pct+1);
         const audited=await auditQuestions(qs, batch, id, ragPassagesMap);
 
         audited.passed.forEach(q=>allQuestions.push(q));
         auditPassed+=audited.passed.length;
-
-        // Count revisions (questions that went through ≥1 revise cycle before passing)
         const revisedCount=audited.passed.filter(q=>q._auditIterations>0).length;
         auditRevised+=revisedCount;
+        document.getElementById('pc-questions').textContent=allQuestions.length;
 
-        // Persist hard-rejected questions for human review
         if(audited.hardRejected.length) {
           auditHardRejected+=audited.hardRejected.length;
           audited.hardRejected.forEach(r=>allHardRejected.push(r));
-          const rNames=audited.hardRejected.map(r=>`${r.conceptName} L${r.level}`).join(', ');
-          plog(`⚠ Hard rejected (${audited.hardRejected.length}): ${rNames}`);
+          plog(`⚠ Hard rejected (${audited.hardRejected.length}): ${audited.hardRejected.map(r=>`${r.conceptName} L${r.level}`).join(', ')}`,'error');
         }
-
-        if((i/batchSize)%3===0) plog(`Writer+Auditor: ${allQuestions.length} banked · ${auditHardRejected} flagged…`);
-      } catch(e) { plog(`Batch ${i} error: ${e.message}`); }
+        if((i/batchSize)%3===0) plog(`Banked: ${allQuestions.length} · Flagged: ${auditHardRejected}`,'auditor');
+        setPhase(5); // back to write for next batch
+      } catch(e) { plog(`Batch ${i} error: ${e.message}`,'error'); }
     }
 
+    setPhase(7);
+    setProcStatus('Finalizing…',93);
     setProcStatusInline(id,'Finalizing…',93);
-    plog(`Phase 6 complete — Passed: ${auditPassed} · Revised+Passed: ${auditRevised} · Hard-Rejected: ${auditHardRejected}`);
+    plog(`Audit complete — Passed: ${auditPassed} · Revised: ${auditRevised} · Hard-Rejected: ${auditHardRejected}`,'auditor');
     if(allHardRejected.length) {
-      plog(`⚠ ${allHardRejected.length} questions flagged for human review (stored in library)`);
+      plog(`⚠ ${allHardRejected.length} flagged for review`,'error');
       S.saveFlagged(id, allHardRejected);
     }
 
-    // ── Phase 7: Dedup and save
     const uQuestions=dedupQuestions(allQuestions);
-    plog(`Final: ${master.length} concepts · ${uQuestions.length} questions · ${allHardRejected.length} flagged`);
     S.saveQuestions(id,uQuestions);
     S.savePDFs(S.pdfs().map(p=>p.id===id
       ?{...p,processingComplete:true,conceptCount:master.length,
-          questionCount:uQuestions.length,flaggedCount:allHardRejected.length}
+          questionCount:uQuestions.length,flaggedCount:allHardRejected.length,
+          procCost:STATE._procCost}
       :p));
 
     clearInterval(_timer);
+    setProcStatus('Complete ✓',100);
     setProcStatusInline(id,'Ready to study ✓',100);
-    renderLibrary();
+    const finalCost='$'+STATE._procCost.toFixed(3);
+    plog(`✓ Done — ${master.length} concepts · ${uQuestions.length} questions · Cost: ${finalCost}`,'success');
+    // Brief pause so user can see completion, then go to Today
+    setTimeout(()=>{ renderLibrary(); showView('library'); }, 1800);
 
   } catch(err) {
     clearInterval(_timer);
+    plog('FATAL: '+err.message,'error');
+    setProcStatus('❌ Error',0);
     setProcStatusInline(id,'❌ '+err.message,0);
-    renderLibrary();
+    setTimeout(()=>{ renderLibrary(); showView('library'); }, 3000);
   }
 }
 
@@ -1847,9 +1991,22 @@ function setProcStatusInline(pdfId,msg,pct) {
   if(s) s.textContent=msg;
   if(b) b.style.width=Math.min(100,pct)+'%';
 }
-function plog(msg) {
+function plog(msg, type='system') {
   const el=document.getElementById('proc-log');
-  if(el){el.innerHTML+=`<div>[${new Date().toLocaleTimeString()}] ${escHtml(msg)}</div>`;el.scrollTop=el.scrollHeight;}
+  if(!el) return;
+  const div=document.createElement('div');
+  div.className='proc-log-entry '+(type||'system');
+  div.innerHTML=`<span class="ts">[${new Date().toLocaleTimeString()}]</span>${escHtml(msg)}`;
+  el.appendChild(div);
+  el.scrollTop=el.scrollHeight;
+}
+
+function setPhase(n) {
+  for(let i=1;i<=7;i++){
+    const el=document.getElementById('proc-ph-'+i);
+    if(!el) continue;
+    el.className='proc-phase-item'+(i<n?' done':i===n?' active':'');
+  }
 }
 
 async function extractText(file) {
@@ -1914,6 +2071,12 @@ function chunkText(pages,wordsPerChunk,overlapFraction) {
 // ── GEMINI API ───────────────────────────────────────────────
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
+// OpenAI pricing per 1M tokens (USD)
+const MODEL_PRICING={
+  'gpt-4o-mini':{in:0.15,out:0.60},
+  'gpt-4o':{in:2.50,out:10.0},
+};
+
 async function callGemini(prompt,maxTokens=8192,model=OPENAI_MODEL) {
   for(let attempt=0;attempt<4;attempt++){
     const r=await fetch(OPENAI_URL,{
@@ -1929,6 +2092,14 @@ async function callGemini(prompt,maxTokens=8192,model=OPENAI_MODEL) {
     if(r.ok){
       const d=await r.json();
       if(!d.choices?.[0]?.message?.content) throw new Error('Empty API response');
+      // Track cost from usage
+      if(d.usage){
+        const p=MODEL_PRICING[model]||MODEL_PRICING['gpt-4o'];
+        const c=(d.usage.prompt_tokens/1e6)*p.in+(d.usage.completion_tokens/1e6)*p.out;
+        STATE._procCost=(STATE._procCost||0)+c;
+        const el=document.getElementById('pc-cost');
+        if(el) el.textContent='$'+STATE._procCost.toFixed(3);
+      }
       return d.choices[0].message.content;
     }
     const e=await r.json();
@@ -3080,7 +3251,6 @@ function renderQCard(q, mode) {
   return `<div class="question-card">
     <div class="concept-meta-bar" id="qmeta_${q.id}" style="margin-bottom:16px">
       <span class="badge badge-level${q.level}">${lvlLabel[q.level]||'Recall'}</span>
-      <span style="font-size:0.78rem;color:var(--text-secondary)">${escHtml(q.conceptName||'')}</span>
       <div class="importance-dot ${impClass}" title="Yield: ${q.importance||'medium'}"></div>
     </div>
     <div class="question-text" id="qt_${q.id}">${escHtml(q.question)}</div>
