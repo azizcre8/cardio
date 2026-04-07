@@ -2233,6 +2233,9 @@ TELL-SIGN RULES (strictly enforced — these allow guessing without medical know
 13. NO KEYWORD MIRRORING: If your correct answer contains a rare or specific term from the stem, at least 2 distractors must also contain that same term (applied incorrectly) — otherwise remove it from the correct answer.
 14. SPECIFICITY MATCHING: If the correct answer names a specific pathway or receptor, distractors must also name specific (but wrong) pathways or receptors — not vague categories.
 15. THE BLINDFOLD TEST: Before finalizing, ask yourself: "Could a smart test-taker eliminate 2 distractors using only test-taking strategy and no medical knowledge?" If yes, rewrite until the answer is no.
+16. NO DISTRACTOR CLUSTERING: Before finalizing, scan all distractors for shared keywords longer than 5 letters. If any word appears in 2 or more distractors but NOT in the correct answer, replace one of those distractors with a conceptually distinct alternative.
+17. NO POLARITY CLUSTERING: Do not write distractors that all describe the same directional change (e.g., all "increased X," all "decreased Y") unless the correct answer also fits that pattern. Mixed polarities across options are required.
+18. THE OUTLIER TEST: Before finalizing, ask yourself: "Does the correct answer stand out as the odd one out among the options — different word, different domain, different polarity?" If yes, redesign the distractor set so no single option is the obvious outlier.
 
 DISTRACTOR RULES (strictly enforced):
 8. Distractors must belong to the SAME conceptual category as the correct answer.
@@ -2379,13 +2382,20 @@ EVALUATE EACH QUESTION strictly against these 4 criteria:
    - SPECIFICITY ASYMMETRY: The correct answer names a specific mechanism, drug, or pathway while distractors are generic/vague categories.
    Fail: ANY single cue above is present. A student with no medical knowledge could eliminate distractors or select the correct answer based on surface features alone.
 
+6. CONVERGENCE — Distractors must not cluster around a shared keyword, concept, or physiological domain that the correct answer does not share.
+   - Fail example: correct answer is about "fibrosis" and all 3 distractors contain the word "inflammation" — a student picks the non-inflammation outlier with zero medical knowledge.
+   - Fail example: correct answer is about "decreased resistance" and all distractors describe "increased" versions of various parameters — the polarity mismatch is the tell.
+   - Pass requires: each distractor represents a distinct concept or mechanism. No single word or theme should appear in more than one distractor unless it also appears in the correct answer.
+
 VERDICT RULES:
-- PASS: Meets all 5 criteria. No significant flaws.
+- PASS: Meets all 6 criteria. No significant flaws.
 - REVISE: Has exactly ONE fixable flaw in a single criterion. The critique must name the criterion and give a specific 1-sentence fix instruction.
 - REVISE if any distractor (wrong answer option) belongs to a completely different organ system or physiological domain than the correct answer AND could be ruled out without any subject-specific knowledge (e.g., in a neuroscience question, distractors like "regulation of heart rate", "insulin secretion", "kidney filtration" that have nothing to do with the nervous system — these make the question trivially easy).
 - REVISE if the correct answer is more than ~20% longer (in word count) than the average distractor length.
 - REVISE if only the correct answer contains mechanistic connector phrases ("via," "due to," "leading to," "caused by," "resulting in") while distractors lack them.
 - REVISE if the correct answer mirrors an uncommon keyword from the stem that no distractor shares.
+- REVISE if 2 or more distractors share a keyword longer than 5 letters that does not appear in the correct answer — this makes the correct answer the obvious outlier.
+- REVISE if all distractors describe the same directional change (all "increased" or all "decreased") while the correct answer describes the opposite — polarity clustering is a convergence cue.
 - REVISE if a Level 2 question begins with "What is the [primary/main/key/significance/role/function/pathophysiology/mechanism] of [concept name]" where the stem adds no additional clinical context beyond the concept name itself — this is disguised Level 1 recall. Critique must say: "Rewrite as a mechanism/comparison/why question: explain WHY [X] occurs or HOW [X] leads to [Y]."
 - REJECT: Has multiple simultaneous failures, a factually incorrect correct answer, or the stem is irreparably ambiguous.
 
@@ -2443,6 +2453,9 @@ TELL-SIGN RULES (strictly enforced — these allow guessing without medical know
 12. NO KEYWORD MIRRORING: If your correct answer contains a rare or specific term from the stem, at least 2 distractors must also contain that same term (applied incorrectly) — otherwise remove it from the correct answer.
 13. SPECIFICITY MATCHING: If the correct answer names a specific pathway or receptor, distractors must also name specific (but wrong) pathways or receptors — not vague categories.
 14. THE BLINDFOLD TEST: Before finalizing, ask yourself: "Could a smart test-taker eliminate 2 distractors using only test-taking strategy and no medical knowledge?" If yes, rewrite until the answer is no.
+15. NO DISTRACTOR CLUSTERING: Before finalizing, scan all distractors for shared keywords longer than 5 letters. If any word appears in 2 or more distractors but NOT in the correct answer, replace one of those distractors with a conceptually distinct alternative.
+16. NO POLARITY CLUSTERING: Do not write distractors that all describe the same directional change (e.g., all "increased X," all "decreased Y") unless the correct answer also fits that pattern. Mixed polarities across options are required.
+17. THE OUTLIER TEST: Before finalizing, ask yourself: "Does the correct answer stand out as the odd one out among the options — different word, different domain, different polarity?" If yes, redesign the distractor set so no single option is the obvious outlier.
 
 Return a single JSON object only — no markdown, no prose:
 L1: {"conceptName":"${concept.concept}","level":${level},"question":"...","options":["...","...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate||''}"}
