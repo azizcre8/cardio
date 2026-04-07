@@ -812,7 +812,10 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
           <div class="proc-file-sub" id="proc-subtitle">Keep this tab open — takes 10–15 min</div>
         </div>
       </div>
-      <div class="proc-elapsed" id="pc-time">0s</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn btn-secondary btn-sm" onclick="gotoLibrary()" style="opacity:0.7">← Study Existing</button>
+        <div class="proc-elapsed" id="pc-time">0s</div>
+      </div>
     </div>
 
     <!-- Phase pipeline -->
