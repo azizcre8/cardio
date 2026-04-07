@@ -2321,6 +2321,27 @@ correctAnswer is the 0-based index of the correct option. sourceQuote and pageEs
 //   REVISE — fixable flaw identified; feed critique back to Writer for revision
 //   REJECT — unfixable or failed MAX_REVISE_ITERATIONS revisions; flag for human review
 
+// ── Programmatic length-tell audit (no API call) ─────────────
+function runLengthAudit(questions) {
+  return questions.map((q, idx) => {
+    const correct = q.options[q.correctAnswer] || '';
+    const distractors = q.options.filter((_, i) => i !== q.correctAnswer);
+    const correctWords = correct.trim().split(/\s+/).length;
+    const avgDistractorWords = distractors.reduce((s, d) => s + d.trim().split(/\s+/).length, 0) / distractors.length;
+    const ratio = avgDistractorWords > 0 ? correctWords / avgDistractorWords : 1;
+
+    if (ratio > 1.25) {
+      return {
+        idx,
+        status: 'REVISE',
+        criterion: 'TELL-SIGNS',
+        critique: `Correct answer (${correctWords} words) is ${ratio.toFixed(1)}x longer than average distractor (${avgDistractorWords.toFixed(1)} words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.`
+      };
+    }
+    return { idx, status: 'PASS' };
+  });
+}
+
 // ── Auditor Agent: single-call batch audit ───────────────────
 // Returns [{idx, status:'PASS'|'REVISE'|'REJECT', criterion, critique}]
 async function runAuditAgent(questions) {
@@ -2512,7 +2533,14 @@ async function auditQuestions(questions, conceptBatch, pdfId='', ragPassages={})
     if(!inFlight.length) break;
 
     // Run Auditor Agent on current batch
-    const verdicts=await runAuditAgent(inFlight.map(e=>e.q));
+    let verdicts=await runAuditAgent(inFlight.map(e=>e.q));
+
+    // Merge programmatic length audit — catches length tells the LLM auditor misses
+    const lengthResults=runLengthAudit(inFlight.map(e=>e.q));
+    verdicts=verdicts.map((r,i)=>{
+      if(r.status==='PASS'&&lengthResults[i].status==='REVISE') return lengthResults[i];
+      return r;
+    });
 
     const nextRound=[];
     for(let i=0;i<inFlight.length;i++) {
