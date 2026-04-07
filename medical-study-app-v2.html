@@ -2246,7 +2246,11 @@ DISTRACTOR RULES (strictly enforced):
 10. Never write near-duplicate questions within a batch
 
 EXPLANATION RULES:
-11. The "explanation" field: state WHY the correct answer is right (mechanism/key fact) AND why the most tempting distractor is wrong.
+11. The "explanation" field MUST contain three parts in this order:
+    - WHY CORRECT: One sentence stating why the correct answer is right (key mechanism or fact).
+    - WHY WRONG: For each distractor, one clause explaining why it is wrong FOR THIS SPECIFIC QUESTION — not just that it is incorrect in general, but what specific feature of this question makes it wrong. Use contrast language: "whereas," "however," "unlike," "in contrast," "not because."
+    - DISTINCTION: One final sentence stating the single most important conceptual distinction that separates the correct answer from the most tempting distractor.
+    Example format: "[Correct answer] because [mechanism]. [Distractor A], however, applies only when [context]. [Distractor B] is incorrect here because [reason], whereas the correct answer requires [specific condition]. The key distinction is [X] vs [Y]."
 12. The "sourceQuote" field: write the single most relevant sentence from the key information provided above that DIRECTLY proves the correct answer is true. Precise, factual, and concise — quote or closely paraphrase the specific fact that settles the question.
 13. The "pageEstimate" field: use only the starting page number from the concept spec as a plain integer (e.g. "12", never "~12–17" or ranges).
 
@@ -2396,6 +2400,8 @@ VERDICT RULES:
 - REVISE if the correct answer mirrors an uncommon keyword from the stem that no distractor shares.
 - REVISE if 2 or more distractors share a keyword longer than 5 letters that does not appear in the correct answer — this makes the correct answer the obvious outlier.
 - REVISE if all distractors describe the same directional change (all "increased" or all "decreased") while the correct answer describes the opposite — polarity clustering is a convergence cue.
+- REVISE if the explanation contains no contrast language ("however," "whereas," "unlike," "in contrast," "not because") — it must address at least one wrong answer explicitly, not just restate why the correct answer is right.
+- REVISE if the explanation could apply to a different question on the same concept — it must be specific enough that removing the question stem would make it incomplete.
 - REVISE if a Level 2 question begins with "What is the [primary/main/key/significance/role/function/pathophysiology/mechanism] of [concept name]" where the stem adds no additional clinical context beyond the concept name itself — this is disguised Level 1 recall. Critique must say: "Rewrite as a mechanism/comparison/why question: explain WHY [X] occurs or HOW [X] leads to [Y]."
 - REJECT: Has multiple simultaneous failures, a factually incorrect correct answer, or the stem is irreparably ambiguous.
 
@@ -2456,6 +2462,13 @@ TELL-SIGN RULES (strictly enforced — these allow guessing without medical know
 15. NO DISTRACTOR CLUSTERING: Before finalizing, scan all distractors for shared keywords longer than 5 letters. If any word appears in 2 or more distractors but NOT in the correct answer, replace one of those distractors with a conceptually distinct alternative.
 16. NO POLARITY CLUSTERING: Do not write distractors that all describe the same directional change (e.g., all "increased X," all "decreased Y") unless the correct answer also fits that pattern. Mixed polarities across options are required.
 17. THE OUTLIER TEST: Before finalizing, ask yourself: "Does the correct answer stand out as the odd one out among the options — different word, different domain, different polarity?" If yes, redesign the distractor set so no single option is the obvious outlier.
+
+EXPLANATION RULES:
+18. The "explanation" field MUST contain three parts in this order:
+    - WHY CORRECT: One sentence stating why the correct answer is right (key mechanism or fact).
+    - WHY WRONG: For each distractor, one clause explaining why it is wrong FOR THIS SPECIFIC QUESTION — not just that it is incorrect in general, but what specific feature of this question makes it wrong. Use contrast language: "whereas," "however," "unlike," "in contrast," "not because."
+    - DISTINCTION: One final sentence stating the single most important conceptual distinction that separates the correct answer from the most tempting distractor.
+    Example format: "[Correct answer] because [mechanism]. [Distractor A], however, applies only when [context]. [Distractor B] is incorrect here because [reason], whereas the correct answer requires [specific condition]. The key distinction is [X] vs [Y]."
 
 Return a single JSON object only — no markdown, no prose:
 L1: {"conceptName":"${concept.concept}","level":${level},"question":"...","options":["...","...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate||''}"}
