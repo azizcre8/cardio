@@ -1607,6 +1607,7 @@ function renderLibrary() {
         <div class="chapter-bar" style="margin-top:8px"><div class="chapter-bar-fill" style="width:${avg}%"></div></div>
       </div>
       ${due>0?`<span class="chapter-due-badge">${due} due</span>`:''}
+      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openStudy('${pdf.id}')">Study →</button>
     </div>`;
   }).join('');
 
