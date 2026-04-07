@@ -1,0 +1,3662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
+<style>
+/* ── Design tokens ── Obsidian & Ether ─────────────────────── */
+:root{
+  --bg:         #07080B;
+  --bg-raised:  #10121A;
+  --bg-surface: #12141C;
+  --bg-sunken:  #050608;
+  --bg-glass:   rgba(16,18,26,0.6);
+  --border:     rgba(255,255,255,0.05);
+  --border-med: rgba(255,255,255,0.09);
+  --accent:     #00F2FF;            /* vivid cyan — active data */
+  --accent-dim: rgba(0,242,255,0.08);
+  --accent-glow:rgba(0,242,255,0.20);
+  --high-yield: #FF3D71;            /* crimson — high-yield alerts */
+  --high-yield-dim: rgba(255,61,113,0.10);
+  --mastered-c: #00FFA3;            /* emerald — mastered state */
+  --text-primary:   #E2E4E9;
+  --text-secondary: #7A7F94;
+  --text-tertiary:  #3E4155;
+  --green:  #00FFA3;
+  --red:    #FF3D71;
+  --amber:  #FFAD33;
+  --blue:   #4D9FFF;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.5);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+  --font-serif: 'Source Serif 4', Georgia, serif;
+  --font-sans:  'Inter', -apple-system, sans-serif;
+  --type-scale: 1.25;
+}
+
+/* ── Reset & base ───────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font-sans);
+  font-size:15px;
+  line-height:1.6;
+  background:var(--bg);
+  color:var(--text-primary);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.view{display:none;padding:28px 24px;max-width:860px;margin:0 auto}
+.view.active{display:block}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.app-header{
+  background:rgba(7,8,11,0.72);
+  backdrop-filter:blur(28px) saturate(160%);
+  -webkit-backdrop-filter:blur(28px) saturate(160%);
+  border-bottom:0.5px solid rgba(0,242,255,0.08);
+  padding:0 32px;
+  height:62px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.app-title{
+  font-family:var(--font-sans);
+  font-size:1.1rem;
+  font-weight:600;
+  color:var(--accent);
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+}
+.app-subtitle{font-size:0.65rem;color:var(--text-tertiary);margin-top:1px;letter-spacing:0.12em;text-transform:uppercase}
+.header-nav{margin-left:auto;display:flex;gap:2px;align-items:center}
+.nav-btn{
+  background:none;
+  border:none;
+  color:var(--text-secondary);
+  padding:7px 16px;
+  border-radius:var(--radius-sm);
+  cursor:pointer;
+  font-size:0.78rem;
+  font-family:var(--font-sans);
+  font-weight:400;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  transition:color .15s, background .15s;
+}
+.nav-btn:hover{color:var(--accent);background:var(--accent-dim)}
+
+/* ── Cards / surfaces ───────────────────────────────────────── */
+.card{
+  background:var(--bg-glass);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  border:0.5px solid var(--border-med);
+  border-radius:var(--radius-lg);
+  padding:28px;
+  margin-bottom:20px;
+}
+
+/* ── Buttons ────────────────────────────────────────────────── */
+.btn{
+  padding:11px 22px;
+  border-radius:var(--radius-sm);
+  border:none;
+  cursor:pointer;
+  font-size:0.85rem;
+  font-family:var(--font-sans);
+  font-weight:500;
+  letter-spacing:0.025em;
+  transition:all .15s ease;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+}
+.btn-primary{
+  background:var(--accent);
+  color:#07080B;
+  font-weight:600;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  font-size:0.78rem;
+}
+.btn-primary:hover{
+  background:#2af6ff;
+  transform:translateY(-1px);
+  box-shadow:0 4px 20px var(--accent-glow);
+}
+.btn-primary:active{transform:translateY(0)}
+.btn-secondary{
+  background:var(--bg-surface);
+  border:1px solid var(--border-med);
+  color:var(--text-secondary);
+}
+.btn-secondary:hover{color:var(--text-primary);border-color:rgba(255,255,255,0.2);background:rgba(255,255,255,0.04)}
+.btn-success{background:var(--green);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-sm{padding:6px 14px;font-size:0.78rem;border-radius:var(--radius-sm)}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+
+/* ── Forms ──────────────────────────────────────────────────── */
+.input{
+  width:100%;
+  background:var(--bg-sunken);
+  border:1px solid var(--border-med);
+  color:var(--text-primary);
+  padding:11px 14px;
+  border-radius:var(--radius-sm);
+  font-size:0.88rem;
+  font-family:var(--font-sans);
+  outline:none;
+  transition:border-color .2s;
+}
+.input:focus{border-color:var(--accent)}
+.label{display:block;font-size:0.75rem;color:var(--text-secondary);margin-bottom:7px;letter-spacing:0.04em;text-transform:uppercase}
+.form-group{margin-bottom:22px}
+
+/* ── Progress ───────────────────────────────────────────────── */
+.progress-bar{background:var(--bg-sunken);border-radius:999px;height:3px;overflow:hidden;margin:8px 0}
+.progress-fill{background:var(--accent);height:100%;border-radius:999px;transition:width .5s ease}
+
+/* ── Badges ─────────────────────────────────────────────────── */
+.badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:0.68rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase}
+.badge-level1{background:rgba(77,159,255,0.10);color:#6db0ff;border:1px solid rgba(77,159,255,0.20)}
+.badge-level2{background:rgba(0,242,255,0.07);color:var(--accent);border:1px solid rgba(0,242,255,0.15)}
+.badge-level3{background:rgba(0,255,163,0.07);color:var(--mastered-c);border:1px solid rgba(0,255,163,0.18)}
+.badge-weak{background:rgba(255,61,113,0.10);color:#ff7090;border:1px solid rgba(255,61,113,0.20)}
+.badge-medium{background:rgba(255,173,51,0.08);color:#ffbd5e;border:1px solid rgba(255,173,51,0.18)}
+.badge-strong{background:rgba(0,242,255,0.07);color:var(--accent);border:1px solid rgba(0,242,255,0.15)}
+.badge-mastered{background:rgba(0,255,163,0.10);color:var(--mastered-c);border:1px solid rgba(0,255,163,0.25)}
+.badge-new{background:rgba(255,255,255,0.03);color:var(--text-tertiary);border:1px solid var(--border)}
+
+/* ── Question card ──────────────────────────────────────────── */
+.question-card{
+  background:var(--bg-glass);
+  backdrop-filter:blur(16px);
+  -webkit-backdrop-filter:blur(16px);
+  border:0.5px solid var(--border-med);
+  border-radius:var(--radius-lg);
+  padding:36px;
+}
+.question-meta{display:flex;gap:8px;margin-bottom:22px;align-items:center;flex-wrap:wrap}
+.question-text{
+  font-family:var(--font-serif);
+  font-size:1.15rem;
+  line-height:1.85;
+  margin-bottom:32px;
+  color:var(--text-primary);
+  font-weight:400;
+  letter-spacing:-0.01em;
+}
+.options-list{display:flex;flex-direction:column;gap:10px}
+.option-btn{
+  background:rgba(255,255,255,0.02);
+  border:1px solid rgba(255,255,255,0.05);
+  color:var(--text-primary);
+  padding:18px 22px;
+  border-radius:var(--radius-md);
+  text-align:left;
+  cursor:pointer;
+  font-size:0.9rem;
+  font-family:var(--font-sans);
+  font-weight:400;
+  line-height:1.55;
+  transition:all 0.3s cubic-bezier(0.16,1,0.3,1);
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  width:100%;
+}
+.option-btn:hover:not(:disabled){
+  background:var(--accent-dim);
+  border-color:rgba(0,242,255,0.3);
+  transform:translateX(4px);
+  box-shadow:0 0 0 1px rgba(0,242,255,0.08);
+}
+.option-btn.correct{
+  border-color:rgba(0,255,163,0.4)!important;
+  background:rgba(0,255,163,0.06)!important;
+  transform:none!important;
+}
+.option-btn.incorrect{
+  border-color:rgba(255,61,113,0.4)!important;
+  background:rgba(255,61,113,0.06)!important;
+  transform:none!important;
+}
+.option-btn:disabled{cursor:default;transform:none!important}
+.option-letter{
+  font-weight:600;
+  font-size:0.78rem;
+  color:var(--accent);
+  min-width:18px;
+  flex-shrink:0;
+  margin-top:3px;
+  letter-spacing:0.06em;
+  font-family:var(--font-sans);
+}
+
+/* ── Explanation / Evidence ─────────────────────────────────── */
+.explanation-box{
+  background:rgba(0,242,255,0.03);
+  border:0.5px solid rgba(0,242,255,0.12);
+  border-left:2px solid var(--accent);
+  border-radius:var(--radius-md);
+  padding:20px 22px;
+  margin-top:22px;
+  font-family:var(--font-serif);
+  font-size:0.9rem;
+  line-height:1.8;
+  color:var(--text-secondary);
+  font-weight:400;
+}
+.evidence-box{
+  background:var(--bg-sunken);
+  border:1px solid rgba(90,158,111,0.15);
+  border-left:2px solid var(--green);
+  border-radius:var(--radius-md);
+  padding:14px 18px;
+  margin-top:10px;
+  font-size:0.85rem;
+  line-height:1.7;
+}
+.evidence-box .ev-label{font-size:0.68rem;font-weight:600;color:var(--green);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.evidence-box .ev-quote{color:#c8e6d4;font-style:italic;font-weight:300;margin-bottom:4px}
+.evidence-box .ev-cite{font-size:0.7rem;color:var(--text-tertiary);margin-top:4px}
+.source-quote-box{background:var(--bg-sunken);border:1px solid var(--border);border-left:2px solid var(--green);border-radius:var(--radius-md);padding:14px;margin-top:10px;font-size:0.83rem;line-height:1.6;color:#c8e6d4}
+
+/* ── Highlight toolbar ──────────────────────────────────────── */
+mark.hl{background:#d4a85340;color:var(--text-primary);border-radius:2px;padding:0 2px;cursor:pointer;border-bottom:1px solid var(--accent)}
+mark.hl:hover{background:#d4a85360}
+#hl-toolbar{position:fixed;z-index:9999;display:none;align-items:center;gap:4px;background:var(--bg-surface);border:1px solid var(--border-med);border-radius:20px;padding:5px 12px;box-shadow:var(--shadow-lg);pointer-events:auto;white-space:nowrap}
+#hl-toolbar button{background:none;border:none;cursor:pointer;font-size:0.78rem;font-weight:500;padding:2px 6px;border-radius:10px;transition:background .15s;font-family:var(--font-sans)}
+#hl-toolbar .hl-do{color:var(--accent)}
+#hl-toolbar .hl-do:hover{background:var(--accent-dim)}
+#hl-toolbar .hl-cancel{color:var(--text-tertiary);font-size:0.85rem}
+#hl-toolbar .hl-cancel:hover{color:var(--text-secondary)}
+
+/* ── Toggles ────────────────────────────────────────────────── */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)}
+.toggle-switch{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--bg-sunken);border:1px solid var(--border-med);border-radius:24px;cursor:pointer;transition:.25s}
+.toggle-slider:before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:var(--text-tertiary);border-radius:50%;transition:.25s}
+input:checked+.toggle-slider{background:var(--accent);border-color:var(--accent)}
+input:checked+.toggle-slider:before{transform:translateX(20px);background:#0c0d0e}
+
+/* ── Quality buttons ────────────────────────────────────────── */
+.quality-row{margin-top:16px;display:flex;gap:6px;flex-wrap:wrap}
+.quality-row button{
+  flex:1;min-width:64px;
+  padding:9px 4px;
+  font-size:0.75rem;
+  border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  cursor:pointer;
+  font-weight:500;
+  font-family:var(--font-sans);
+  letter-spacing:0.03em;
+  transition:all .15s;
+  position:relative;
+  background:var(--bg-raised);
+}
+.q-key{position:absolute;top:3px;right:5px;font-size:0.58rem;opacity:0.4;font-weight:400}
+.q-wrong{color:#ff7090;border-color:rgba(255,61,113,0.2)!important}
+.q-wrong:hover{background:rgba(255,61,113,0.10)!important;border-color:rgba(255,61,113,0.35)!important}
+.q-hard{color:#ffbd5e;border-color:rgba(255,173,51,0.2)!important}
+.q-hard:hover{background:rgba(255,173,51,0.08)!important;border-color:rgba(255,173,51,0.35)!important}
+.q-good{color:#6db0ff;border-color:rgba(77,159,255,0.2)!important}
+.q-good:hover{background:rgba(77,159,255,0.08)!important;border-color:rgba(77,159,255,0.35)!important}
+.q-easy{color:var(--mastered-c);border-color:rgba(0,255,163,0.2)!important}
+.q-easy:hover{background:rgba(0,255,163,0.08)!important;border-color:rgba(0,255,163,0.35)!important}
+
+/* ── Mastery mini ───────────────────────────────────────────── */
+.mastery-mini{display:flex;flex-direction:column;gap:4px}
+.mastery-row{display:flex;align-items:center;gap:8px;font-size:0.72rem;color:var(--text-tertiary)}
+.mini-bar{flex:1;background:var(--bg-sunken);border-radius:999px;height:3px;overflow:hidden}
+.mini-fill{height:100%;border-radius:999px;transition:width .4s}
+.fill-l1{background:var(--blue)}.fill-l2{background:var(--accent)}.fill-l3{background:var(--green)}
+
+/* ── Density selector ───────────────────────────────────────── */
+.density-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.density-opt{
+  background:var(--bg-raised);
+  border:1px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:16px 12px;
+  cursor:pointer;
+  transition:all .15s;
+  text-align:center;
+}
+.density-opt:hover{border-color:var(--border-med)}
+.density-opt.selected{
+  background:var(--accent-dim);
+  border-color:var(--accent);
+}
+.density-label{font-weight:500;font-size:0.85rem;margin-bottom:3px;color:var(--text-primary)}
+.density-desc{font-size:0.7rem;color:var(--text-tertiary)}
+
+/* ── Stats ──────────────────────────────────────────────────── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px;text-align:center}
+.stat-value{font-size:1.75rem;font-weight:300;color:var(--accent);font-family:var(--font-sans);letter-spacing:-0.04em}
+.stat-label{font-size:0.7rem;color:var(--text-tertiary);margin-top:5px;text-transform:uppercase;letter-spacing:0.06em}
+.stats-hero{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-lg);padding:28px;margin-bottom:24px}
+.stats-hero-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:16px;margin-top:20px}
+.hero-stat{text-align:center}
+.hero-val{font-size:2.2rem;font-weight:200;color:var(--accent);line-height:1;font-family:var(--font-sans);letter-spacing:-0.05em}
+.hero-lbl{font-size:0.68rem;color:var(--text-tertiary);margin-top:6px;text-transform:uppercase;letter-spacing:.07em}
+
+/* ── Mastery distribution ───────────────────────────────────── */
+.mastery-dist-bar{display:flex;height:4px;border-radius:999px;overflow:hidden;margin:12px 0 8px}
+.dist-seg{transition:width .4s}
+.dist-new{background:#1e2030}.dist-weak{background:#6b1830}.dist-medium{background:#6b3d00}.dist-strong{background:#005a40}.dist-mastered{background:#006080}
+.dist-legend{display:flex;gap:14px;flex-wrap:wrap;font-size:0.68rem;color:var(--text-tertiary);margin-bottom:4px}
+.dist-leg-item{display:flex;align-items:center;gap:4px}
+.dist-leg-dot{width:7px;height:7px;border-radius:50%}
+
+/* ── PDF stat cards ─────────────────────────────────────────── */
+.pdf-stat-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;overflow:hidden}
+.pdf-stat-header{padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .15s}
+.pdf-stat-header:hover{background:rgba(255,255,255,0.02)}
+.pdf-stat-body{padding:0 20px 18px;display:none}
+.pdf-stat-body.open{display:block}
+.level-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:0.78rem}
+.level-bar-track{flex:1;background:var(--bg-sunken);border-radius:999px;height:5px;overflow:hidden}
+.level-bar-fill{height:100%;border-radius:999px}
+.priority-concept-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.priority-concept-row:last-child{border-bottom:none}
+
+/* ── Countdown chips ────────────────────────────────────────── */
+.countdown-chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;font-size:0.78rem;font-weight:500}
+.countdown-urgent{background:rgba(176,85,85,0.1);color:#cc7777;border:1px solid rgba(176,85,85,0.2)}
+.countdown-warning{background:rgba(192,138,58,0.1);color:#d4a360;border:1px solid rgba(192,138,58,0.2)}
+.countdown-ok{background:rgba(90,158,111,0.1);color:#7abb8f;border:1px solid rgba(90,158,111,0.2)}
+.priority-section{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:18px;margin-bottom:18px}
+
+/* ── Upload area ────────────────────────────────────────────── */
+.upload-area{
+  border:1px dashed rgba(255,255,255,0.07);
+  border-radius:var(--radius-lg);
+  padding:52px 28px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .25s cubic-bezier(0.16,1,0.3,1);
+  color:var(--text-tertiary);
+  background:rgba(255,255,255,0.01);
+}
+.upload-area:hover,.upload-area.dragover{
+  border-color:var(--accent);
+  color:var(--accent);
+  background:var(--accent-dim);
+  box-shadow:0 0 40px rgba(0,242,255,0.05) inset;
+}
+
+/* ── PDF list item (shard) ──────────────────────────────────── */
+.pdf-item{
+  background:var(--bg-raised);
+  border:0.5px solid var(--border);
+  border-radius:var(--radius-md);
+  padding:18px 22px;
+  margin-bottom:6px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  transition:all .2s cubic-bezier(0.16,1,0.3,1);
+  position:relative;
+}
+.pdf-item:hover{
+  border-color:rgba(0,242,255,0.15);
+  background:rgba(0,242,255,0.03);
+  transform:translateX(2px);
+}
+.pdf-item .pdf-actions{
+  opacity:0;
+  transition:opacity .2s;
+  display:flex;gap:6px;align-items:center;
+}
+.pdf-item:hover .pdf-actions{opacity:1}
+/* pulse dot for due items */
+.due-pulse{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 8px var(--accent);
+  animation:pulseDue 2s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes pulseDue{
+  0%,100%{box-shadow:0 0 4px var(--accent),0 0 8px var(--accent)}
+  50%{box-shadow:0 0 8px var(--accent),0 0 18px rgba(0,242,255,0.3)}
+}
+
+/* ── Alerts ─────────────────────────────────────────────────── */
+.alert{padding:12px 16px;border-radius:var(--radius-sm);margin-bottom:16px;font-size:0.83rem}
+.alert-info{background:rgba(90,130,176,0.1);color:#7fa5cc;border:1px solid rgba(90,130,176,0.2)}
+.alert-warning{background:rgba(192,138,58,0.1);color:#d4a360;border:1px solid rgba(192,138,58,0.2)}
+.alert-success{background:rgba(90,158,111,0.1);color:#7abb8f;border:1px solid rgba(90,158,111,0.2)}
+
+/* ── Typography ─────────────────────────────────────────────── */
+.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+h1{font-family:var(--font-serif);font-size:1.6rem;font-weight:300;margin-bottom:6px;color:var(--text-primary);line-height:1.25;letter-spacing:-0.02em}
+h2{font-family:var(--font-sans);font-size:1.05rem;font-weight:500;margin-bottom:8px;color:var(--text-primary);letter-spacing:0.01em}
+h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary);letter-spacing:0.01em}
+.text-muted{color:var(--text-tertiary);font-size:0.83rem}
+
+/* ── Session header ─────────────────────────────────────────── */
+.session-header{display:flex;align-items:flex-start;gap:16px;margin-bottom:24px}
+.session-counter{font-size:0.8rem;color:var(--text-tertiary);text-align:right;letter-spacing:0.02em}
+
+/* ── Utility ────────────────────────────────────────────────── */
+.w-full{width:100%}
+.flex{display:flex}.gap-2{gap:8px}.gap-3{gap:12px}.items-center{align-items:center}.justify-between{justify-content:space-between}
+.mt-2{margin-top:8px}.mt-3{margin-top:12px}.mt-4{margin-top:16px}.mb-2{margin-bottom:8px}.mb-4{margin-bottom:16px}
+.text-center{text-align:center}
+.concept-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+@media(max-width:580px){.mode-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr 1fr}.quality-row button{padding:6px 2px;font-size:0.68rem}.view{padding:18px 16px}.app-subtitle{display:none}.app-header{padding:0 18px}}
+
+/* ── Processing log ─────────────────────────────────────────── */
+#proc-log{font-family:monospace;font-size:0.72rem;color:var(--text-tertiary);background:var(--bg-sunken);border-radius:var(--radius-sm);padding:10px;max-height:180px;overflow-y:auto;margin-top:14px;text-align:left}
+
+/* ── Mindmap ─────────────────────────────────────────────────── */
+#view-mindmap{padding:0;max-width:100%;background:#060708;min-height:100vh}
+#view-mindmap.active{display:flex;flex-direction:column}
+.mm-header{
+  padding:14px 24px;
+  display:flex;align-items:center;gap:16px;
+  background:rgba(8,9,11,0.95);
+  border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:10;flex-wrap:wrap;
+}
+.mm-title{font-family:var(--font-serif);font-size:1.05rem;font-weight:400;color:var(--text-primary);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mm-subtitle{font-size:0.7rem;color:var(--text-tertiary);margin-top:1px;text-transform:uppercase;letter-spacing:0.05em}
+.mm-stats{display:flex;align-items:center;gap:20px;flex-shrink:0}
+.mm-stat{text-align:center}
+.mm-stat-val{font-family:var(--font-serif);font-size:1.1rem;font-weight:400;color:var(--accent)}
+.mm-stat-lbl{font-size:0.62rem;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:0.06em}
+.mm-svg-wrap{flex:1;overflow:auto;cursor:grab;position:relative}
+.mm-svg-wrap:active{cursor:grabbing}
+#mm-svg{display:block;margin:0 auto}
+.mm-legend{display:flex;gap:18px;padding:10px 24px;background:rgba(8,9,11,0.95);border-top:1px solid var(--border);flex-wrap:wrap;align-items:center;justify-content:center}
+.mm-legend-item{display:flex;align-items:center;gap:6px;font-size:0.68rem;color:var(--text-tertiary)}
+.mm-legend-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+@keyframes mmPulse{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
+@keyframes mmGlow{0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 10px currentColor)}}
+.mm-node-mastered{animation:mmGlow 2.5s ease-in-out infinite}
+.mm-tooltip{position:fixed;background:var(--bg-surface);border:1px solid var(--border-med);border-radius:var(--radius-md);padding:14px 16px;pointer-events:none;z-index:9999;max-width:240px;box-shadow:var(--shadow-lg);transition:opacity .15s}
+
+/* ── Today view ──────────────────────────────────────────────── */
+.today-hero{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.today-stat-card{background:var(--bg-raised);border:1px solid var(--border-med);border-radius:var(--radius-md);padding:20px;cursor:pointer;transition:border-color .15s}
+.today-stat-card:hover{border-color:rgba(0,242,255,0.2)}
+.today-stat-card.primary{border-color:rgba(0,242,255,0.2);background:rgba(0,242,255,0.04)}
+.today-stat-num{font-size:2.4rem;font-weight:200;color:var(--accent);line-height:1;letter-spacing:-0.05em;font-family:var(--font-sans)}
+.today-stat-label{font-size:0.7rem;color:var(--text-secondary);margin-top:6px;text-transform:uppercase;letter-spacing:0.07em}
+.today-section-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.today-section-lbl{font-size:0.72rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.07em;font-weight:600}
+
+/* ── Chapter rows ────────────────────────────────────────────── */
+.chapter-row{display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:6px;cursor:pointer;transition:all .15s}
+.chapter-row:hover{border-color:var(--border-med);background:rgba(255,255,255,0.02)}
+.chapter-row.has-due{border-color:rgba(0,242,255,0.15)}
+.chapter-progress{flex:1;min-width:0}
+.chapter-name{font-size:0.9rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
+.chapter-bar{height:3px;background:var(--bg-sunken);border-radius:999px;overflow:hidden;margin-bottom:6px}
+.chapter-bar-fill{height:100%;border-radius:999px;background:var(--accent);transition:width .4s}
+.chapter-meta{font-size:0.72rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.chapter-due-badge{font-size:0.7rem;font-weight:600;color:var(--accent);background:var(--accent-dim);border:1px solid rgba(0,242,255,0.2);border-radius:var(--radius-sm);padding:2px 8px;white-space:nowrap;flex-shrink:0}
+.chapter-processing{color:var(--amber);display:flex;align-items:center;gap:6px}
+.chapter-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
+.upload-row{border:1px dashed var(--border-med);border-radius:var(--radius-md);padding:20px;text-align:center;cursor:pointer;color:var(--text-secondary);font-size:0.85rem;transition:all .2s;margin-top:8px}
+.upload-row:hover,.upload-row.dragover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* ── Study topbar ────────────────────────────────────────────── */
+.study-topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-shrink:0}
+.study-progress-track{flex:1;height:3px;background:var(--bg-surface);border-radius:999px;overflow:hidden}
+.study-progress-fill{height:100%;background:var(--accent);border-radius:999px;transition:width .3s ease}
+.study-score-txt{font-size:0.78rem;color:var(--text-secondary);white-space:nowrap;flex-shrink:0}
+.study-body{padding:24px 24px 120px;max-width:760px;margin:0 auto;width:100%}
+.study-nav-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+
+/* ── Concept meta bar (always visible) ───────────────────────── */
+.concept-meta-bar{display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap}
+.concept-name-tag{font-size:0.72rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em}
+.importance-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.importance-dot.high{background:var(--red)}
+.importance-dot.medium{background:var(--amber)}
+.importance-dot.low{background:var(--text-dim)}
+
+/* ── Reveal hint ─────────────────────────────────────────────── */
+.reveal-hint{margin-top:20px;text-align:center;font-size:0.72rem;color:var(--text-dim);letter-spacing:0.04em;padding:10px}
+.reveal-hint kbd{display:inline-block;background:var(--bg-raised);border:1px solid var(--border-med);border-radius:4px;padding:2px 6px;font-family:var(--font-sans);font-size:0.68rem;color:var(--text-secondary);margin:0 1px}
+
+/* ── Quality bar (new) ───────────────────────────────────────── */
+.quality-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:20px}
+.quality-btn{display:flex;flex-direction:column;align-items:center;gap:5px;padding:11px 8px;border-radius:var(--radius-md);border:1px solid var(--border);cursor:pointer;font-family:var(--font-sans);background:var(--bg-raised);transition:all .12s}
+.quality-btn .q-lbl{font-size:0.8rem;font-weight:500}
+.quality-btn .q-khint{font-size:0.6rem;color:var(--text-dim);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-family:monospace}
+.quality-btn.qb-1{color:#ff7090;border-color:rgba(255,61,113,0.15)}
+.quality-btn.qb-1:hover{background:rgba(255,61,113,0.1);border-color:rgba(255,61,113,0.3)}
+.quality-btn.qb-2{color:#ffbd5e;border-color:rgba(255,173,51,0.15)}
+.quality-btn.qb-2:hover{background:rgba(255,173,51,0.08);border-color:rgba(255,173,51,0.3)}
+.quality-btn.qb-3{color:#6db0ff;border-color:rgba(77,159,255,0.15)}
+.quality-btn.qb-3:hover{background:rgba(77,159,255,0.08);border-color:rgba(77,159,255,0.3)}
+.quality-btn.qb-4{color:var(--mastered-c);border-color:rgba(0,255,163,0.15)}
+.quality-btn.qb-4:hover{background:rgba(0,255,163,0.08);border-color:rgba(0,255,163,0.3)}
+.quality-btn:disabled{opacity:.3;cursor:default}
+
+/* ── Chapter detail ──────────────────────────────────────────── */
+.chapter-action-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.chapter-stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.level-stat-pill{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px;text-align:center}
+.level-stat-num{font-size:1.4rem;font-weight:300;color:var(--accent);letter-spacing:-0.04em}
+.level-stat-lbl{font-size:0.65rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.07em;margin-top:3px}
+.needs-work-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.needs-work-item:last-child{border-bottom:none}
+.concept-filter-bar{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:2px}
+.filter-chip{padding:4px 12px;border-radius:999px;border:1px solid var(--border-med);font-size:0.72rem;font-weight:500;color:var(--text-secondary);background:none;cursor:pointer;white-space:nowrap;transition:all .12s;font-family:var(--font-sans)}
+.filter-chip.active{color:var(--accent);border-color:rgba(0,242,255,0.3);background:var(--accent-dim)}
+.cd-concept-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.cd-concept-row:last-child{border-bottom:none}
+.cd-concept-bar{flex:1;max-width:100px;height:3px;background:var(--bg-sunken);border-radius:999px;overflow:hidden}
+.cd-concept-bar-fill{height:100%;border-radius:999px;transition:width .3s}
+
+/* ── Mindmap improvements ────────────────────────────────────── */
+.mm-search-bar{display:flex;align-items:center;gap:8px;padding:10px 24px;background:rgba(8,9,11,0.9);border-bottom:1px solid var(--border)}
+.mm-search-input{flex:1;background:var(--bg-raised);border:1px solid var(--border-med);color:var(--text-primary);padding:7px 12px;border-radius:var(--radius-sm);font-size:0.82rem;font-family:var(--font-sans);outline:none}
+.mm-search-input:focus{border-color:var(--accent)}
+.mm-search-input::placeholder{color:var(--text-dim)}
+.mm-zoom-btns{display:flex;gap:4px;flex-shrink:0}
+.mm-zoom-btn{background:var(--bg-raised);border:1px solid var(--border-med);color:var(--text-secondary);width:30px;height:30px;border-radius:var(--radius-sm);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;transition:all .12s;font-family:var(--font-sans)}
+.mm-zoom-btn:hover{color:var(--accent);border-color:rgba(0,242,255,0.3)}
+.mm-cat-filter{display:flex;gap:6px;padding:8px 24px;background:rgba(8,9,11,0.9);border-bottom:1px solid var(--border);overflow-x:auto;flex-shrink:0}
+.mm-cat-chip{padding:3px 10px;border-radius:999px;border:1px solid var(--border);font-size:0.67rem;font-weight:500;color:var(--text-secondary);background:none;cursor:pointer;white-space:nowrap;transition:all .12s;font-family:var(--font-sans)}
+.mm-cat-chip.active{border-color:currentColor;background:rgba(255,255,255,0.05)}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media(max-width:580px){
+  .today-hero{grid-template-columns:1fr 1fr}
+  .study-body{padding:16px 16px 100px}
+  .quality-bar{gap:4px}
+  .quality-btn .q-lbl{font-size:0.72rem}
+  .chapter-stat-row{grid-template-columns:1fr}
+  .chapter-action-row{flex-direction:column}
+  .app-subtitle{display:none}
+  .app-header{padding:0 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- Floating highlight toolbar -->
+<div id="hl-toolbar">
+  <button class="hl-do" onclick="commitHighlight()">🖊 Highlight</button>
+  <button class="hl-cancel" onclick="dismissHlToolbar()">✕</button>
+</div>
+
+<div class="app-header">
+  <div style="cursor:pointer;display:flex;align-items:baseline;gap:10px" onclick="gotoLibrary()">
+    <div class="app-title">Cardio</div>
+    <div class="app-subtitle">Clinical Spaced Repetition</div>
+  </div>
+  <div class="header-nav" id="header-nav" style="display:none">
+    <button class="nav-btn" onclick="gotoLibrary()">Library</button>
+    <button class="nav-btn" onclick="gotoStats()">Stats</button>
+    <button class="nav-btn" onclick="showView('setup')">Settings</button>
+  </div>
+</div>
+
+<!-- SETUP -->
+<div id="view-setup" class="view active">
+  <div class="card">
+    <h1>Welcome to Cardio</h1>
+    <p class="text-muted" style="margin-bottom:28px;font-size:0.9rem;line-height:1.6">AI-generated question banks from your own materials. Upload any medical PDF and master it with spaced repetition.</p>
+    <div class="form-group">
+      <label class="label">OpenAI API Key</label>
+      <input type="password" id="api-key-input" class="input" placeholder="sk-..."/>
+      <p class="text-muted" style="margin-top:5px">Get your key at platform.openai.com/api-keys</p>
+    </div>
+    <div class="form-group">
+      <label class="label">Exam Date</label>
+      <input type="date" id="exam-date-input" class="input"/>
+    </div>
+    <div class="form-group">
+      <label class="label">Coverage Density</label>
+      <div class="density-grid">
+        <div class="density-opt" id="d-standard" onclick="setDensity('standard')">
+          <div class="density-label">Standard</div>
+          <div class="density-desc">High-yield focus · faster</div>
+        </div>
+        <div class="density-opt selected" id="d-comprehensive" onclick="setDensity('comprehensive')">
+          <div class="density-label">Comprehensive</div>
+          <div class="density-desc">All topics · recommended</div>
+        </div>
+        <div class="density-opt" id="d-boards" onclick="setDensity('boards')">
+          <div class="density-label">Boards</div>
+          <div class="density-desc">Total coverage · thorough</div>
+        </div>
+      </div>
+    </div>
+    <div id="setup-error" style="display:none;background:rgba(176,85,85,0.1);color:#cc7777;border:1px solid rgba(176,85,85,0.25);border-radius:var(--radius-sm);padding:10px 14px;font-size:0.83rem;margin-bottom:12px"></div>
+    <button class="btn btn-primary w-full" onclick="saveSetup()">Save &amp; Get Started</button>
+  </div>
+</div>
+
+<!-- TODAY (replaces Library) -->
+<div id="view-library" class="view">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
+    <div>
+      <h1 style="font-family:var(--font-sans);font-size:1.4rem;font-weight:500;letter-spacing:-0.01em">Today</h1>
+      <p style="font-size:0.78rem;color:var(--text-secondary);margin-top:3px" id="exam-countdown"></p>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="showView('setup')">Settings</button>
+  </div>
+
+  <!-- Due hero cards -->
+  <div class="today-hero" id="today-hero"></div>
+
+  <!-- Chapter list header -->
+  <div class="today-section-hdr">
+    <span class="today-section-lbl">Chapters</span>
+    <label style="cursor:pointer">
+      <span class="btn btn-secondary btn-sm">Upload PDF +</span>
+      <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handleFileSelect(event)"/>
+    </label>
+  </div>
+
+  <!-- Chapter rows -->
+  <div id="pdf-list"></div>
+
+  <!-- Empty state -->
+  <div id="today-empty" style="display:none">
+    <div class="upload-row" id="upload-area" onclick="document.getElementById('pdf-input').click()">
+      Drop a PDF here or click to upload your first chapter
+    </div>
+  </div>
+
+  <!-- Hidden banner (kept for JS compat) -->
+  <div id="all-due-banner" style="display:none"></div>
+</div>
+
+<!-- CHAPTER DETAIL (replaces Stats) -->
+<div id="view-chapter-detail" class="view">
+  <button class="btn btn-secondary btn-sm" onclick="gotoLibrary()" style="margin-bottom:16px">← Today</button>
+  <h1 id="cd-title" style="font-family:var(--font-sans);font-size:1.2rem;font-weight:600;margin-bottom:4px;letter-spacing:-0.01em"></h1>
+  <p id="cd-subtitle" style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:20px"></p>
+
+  <!-- Actions -->
+  <div class="chapter-action-row">
+    <button class="btn btn-primary" id="cd-study-due-btn">Study Due</button>
+    <button class="btn btn-secondary" id="cd-study-btn">Study Adaptive</button>
+    <button class="btn btn-secondary" id="cd-map-btn">Map</button>
+    <button class="btn btn-secondary btn-sm" id="cd-delete-btn" style="margin-left:auto;color:var(--red);border-color:rgba(255,61,113,0.2)">Delete</button>
+  </div>
+
+  <!-- Overall stats -->
+  <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);padding:20px;margin-bottom:20px">
+    <div style="display:flex;align-items:flex-end;gap:12px;margin-bottom:10px">
+      <div id="cd-overall-pct" style="font-size:2rem;font-weight:200;color:var(--accent);letter-spacing:-0.05em;line-height:1">0%</div>
+      <div id="cd-counts" style="font-size:0.75rem;color:var(--text-secondary);padding-bottom:3px"></div>
+    </div>
+    <div class="chapter-bar" style="margin-bottom:0"><div class="chapter-bar-fill" id="cd-overall-bar" style="width:0%"></div></div>
+    <div class="chapter-stat-row" id="cd-level-stats"></div>
+  </div>
+
+  <!-- Needs Work -->
+  <div id="cd-needs-work" style="display:none;margin-bottom:24px">
+    <div style="font-size:0.72rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.07em;font-weight:600;margin-bottom:12px">Needs Work</div>
+    <div id="cd-weak-list"></div>
+  </div>
+
+  <!-- All concepts with filter -->
+  <div style="font-size:0.72rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.07em;font-weight:600;margin-bottom:10px">All Concepts</div>
+  <div class="concept-filter-bar">
+    <button class="filter-chip active" onclick="cdFilterConcepts('all',this)">All</button>
+    <button class="filter-chip" onclick="cdFilterConcepts('weak',this)">Weak</button>
+    <button class="filter-chip" onclick="cdFilterConcepts('medium',this)">Learning</button>
+    <button class="filter-chip" onclick="cdFilterConcepts('strong',this)">Strong</button>
+    <button class="filter-chip" onclick="cdFilterConcepts('mastered',this)">Mastered</button>
+    <button class="filter-chip" onclick="cdFilterConcepts('new',this)">New</button>
+  </div>
+  <div id="cd-concept-list"></div>
+</div>
+
+<!-- MINDMAP -->
+<div id="view-mindmap" class="view">
+  <div class="mm-header">
+    <button class="nav-btn" onclick="openChapterDetail(STATE.currentPdfId)" style="flex-shrink:0">← Chapter</button>
+    <div style="flex:1;min-width:0">
+      <div class="mm-title" id="mm-title">Chapter Map</div>
+      <div class="mm-subtitle" id="mm-subtitle"></div>
+    </div>
+    <div class="mm-stats">
+      <div class="mm-stat"><div class="mm-stat-val" id="mm-unlocked">0</div><div class="mm-stat-lbl">Studied</div></div>
+      <div class="mm-stat"><div class="mm-stat-val" id="mm-mastered">0</div><div class="mm-stat-lbl">Mastered</div></div>
+      <div class="mm-stat"><div class="mm-stat-val" id="mm-total">0</div><div class="mm-stat-lbl">Concepts</div></div>
+    </div>
+    <button class="btn btn-primary btn-sm" id="mm-study-btn" onclick="" style="flex-shrink:0">Study →</button>
+  </div>
+  <!-- Search + zoom toolbar -->
+  <div class="mm-search-bar">
+    <input class="mm-search-input" id="mm-search" placeholder="Search concepts…" oninput="mmSearch(this.value)"/>
+    <div class="mm-zoom-btns">
+      <button class="mm-zoom-btn" onclick="mmZoom(1.25)" title="Zoom in">+</button>
+      <button class="mm-zoom-btn" onclick="mmZoom(0.8)" title="Zoom out">−</button>
+      <button class="mm-zoom-btn" onclick="mmZoomReset()" title="Reset" style="font-size:0.7rem">⊡</button>
+    </div>
+  </div>
+  <!-- Category filter chips -->
+  <div class="mm-cat-filter" id="mm-cat-filter">
+    <button class="mm-cat-chip active" onclick="mmCatFilter('all',this)" style="color:var(--text-secondary)">All</button>
+  </div>
+  <div class="mm-svg-wrap" id="mm-svg-wrap">
+    <svg id="mm-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+  <div class="mm-legend">
+    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:#10121A;border:1px solid rgba(60,65,90,0.6)"></div>Not Started</div>
+    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(255,61,113,0.12);border:1px solid #FF3D71"></div>Weak</div>
+    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(255,173,51,0.12);border:1px solid #FFAD33"></div>Learning</div>
+    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(0,255,163,0.12);border:1px solid #00FFA3"></div>Strong</div>
+    <div class="mm-legend-item"><div class="mm-legend-dot" style="background:rgba(0,242,255,0.15);border:1px solid #00F2FF;box-shadow:0 0 6px rgba(0,242,255,0.5)"></div>Mastered ◆</div>
+    <div style="width:1px;height:14px;background:rgba(255,255,255,0.1);margin:0 4px"></div>
+    <div style="font-size:0.7rem;color:#6b7080">Node size = importance · Click node to study · Scroll to zoom · Drag to pan</div>
+  </div>
+</div>
+<div id="mm-tooltip" class="mm-tooltip" style="display:none"></div>
+
+<!-- PROCESSING -->
+<div id="view-processing" class="view">
+  <div class="card">
+    <h1 id="proc-title" style="margin-bottom:6px">Processing PDF</h1>
+    <p class="text-muted" style="margin-bottom:28px" id="proc-subtitle">This takes 10–15 minutes. Keep this tab open.</p>
+    <div class="progress-bar" style="margin-bottom:8px">
+      <div class="progress-fill" id="proc-bar" style="width:0%"></div>
+    </div>
+    <p id="proc-status" class="text-muted" style="margin-bottom:24px;font-size:0.8rem">Starting…</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:0">
+      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-chunks">0</div><div class="stat-label" style="margin-top:4px">Chunks</div></div>
+      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-concepts">0</div><div class="stat-label" style="margin-top:4px">Concepts</div></div>
+      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-questions">0</div><div class="stat-label" style="margin-top:4px">Questions</div></div>
+      <div style="background:var(--bg-raised);padding:16px 20px"><div class="stat-value" id="pc-time">0s</div><div class="stat-label" style="margin-top:4px">Elapsed</div></div>
+    </div>
+    <div id="proc-log"></div>
+  </div>
+</div>
+
+<!-- STUDY READY -->
+<div id="view-mode-select" class="view">
+  <h1 style="margin-bottom:4px">Ready to Study</h1>
+  <p class="text-muted" id="mode-pdf-name" style="margin-bottom:16px"></p>
+  <div id="mode-stats-preview" style="margin-bottom:18px"></div>
+  <div class="card" style="padding:16px;margin-bottom:16px">
+    <div style="font-size:0.75rem;color:var(--text-tertiary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em">Coverage Density</div>
+    <div class="density-grid" id="study-density-grid">
+      <div class="density-opt" id="sd-standard" onclick="setDensity('standard');updateStudyDensityUI()">
+        <div class="density-label">Standard</div>
+        <div class="density-desc">High-yield focus</div>
+      </div>
+      <div class="density-opt" id="sd-comprehensive" onclick="setDensity('comprehensive');updateStudyDensityUI()">
+        <div class="density-label">Comprehensive</div>
+        <div class="density-desc">All topics</div>
+      </div>
+      <div class="density-opt" id="sd-boards" onclick="setDensity('boards');updateStudyDensityUI()">
+        <div class="density-label">Boards</div>
+        <div class="density-desc">Total coverage</div>
+      </div>
+    </div>
+    <p class="text-muted" style="margin-top:8px;font-size:0.75rem">Density affects new PDF processing — existing questions reflect the density used at upload time.</p>
+  </div>
+  <button class="btn btn-primary w-full" onclick="startStudy()">Study Now →</button>
+</div>
+
+<!-- DIAGNOSTIC -->
+<div id="view-diagnostic" class="view">
+  <div class="session-header">
+    <div style="flex:1">
+      <h2>Diagnostic Assessment</h2>
+      <p class="text-muted">Mapping your baseline — answer honestly</p>
+    </div>
+    <div class="session-counter"><span id="diag-cur">1</span> / <span id="diag-tot">12</span></div>
+  </div>
+  <div class="progress-bar" style="margin-bottom:18px">
+    <div class="progress-fill" id="diag-prog" style="width:0%"></div>
+  </div>
+  <div id="diag-container"></div>
+</div>
+
+<!-- DIAGNOSTIC RESULTS -->
+<div id="view-diag-results" class="view">
+  <h1 style="margin-bottom:6px">Diagnostic Complete</h1>
+  <p class="text-muted" id="dr-summary" style="margin-bottom:24px"></p>
+  <div class="stats-grid" id="dr-stats"></div>
+  <hr class="divider"/>
+  <h2 style="margin-bottom:14px">Concept Baseline</h2>
+  <div id="dr-concepts"></div>
+  <hr class="divider"/>
+  <button class="btn btn-primary w-full" onclick="startStudySession(STATE.currentPdfId)">Begin Personalized Study →</button>
+</div>
+
+<!-- STUDY -->
+<div id="view-study" class="view" style="padding:0;max-width:100%">
+  <!-- Sticky topbar with progress -->
+  <div class="study-topbar">
+    <button class="btn btn-secondary btn-sm" onclick="gotoLibrary()" style="flex-shrink:0;white-space:nowrap">← Today</button>
+    <div id="study-mode-label" style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;max-width:140px;overflow:hidden;text-overflow:ellipsis"></div>
+    <div class="study-progress-track">
+      <div class="study-progress-fill" id="study-progress-fill" style="width:0%"></div>
+    </div>
+    <div class="study-score-txt">
+      <span style="color:var(--green);font-weight:600" id="study-correct">0</span>
+      <span style="color:var(--text-dim);margin:0 3px">·</span>
+      <span style="color:var(--red);font-weight:600" id="study-incorrect">0</span>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="endStudySession()" style="flex-shrink:0">End</button>
+  </div>
+  <!-- Scrollable study body -->
+  <div class="study-body">
+    <div class="study-nav-row">
+      <button id="study-prev-btn" class="btn btn-secondary btn-sm" onclick="studyNavPrev()" style="visibility:hidden">← Prev</button>
+      <span id="study-q-info" style="font-size:0.72rem;color:var(--text-dim)"></span>
+      <button id="study-next-btn" class="btn btn-secondary btn-sm" onclick="studyNavNext()" style="visibility:hidden">Next →</button>
+    </div>
+    <div id="study-container"></div>
+  </div>
+</div>
+
+<!-- SESSION RESULTS -->
+<div id="view-session-results" class="view">
+  <h1 style="margin-bottom:6px">Session Complete</h1>
+  <p class="text-muted" id="sr-summary" style="margin-bottom:24px"></p>
+  <div class="stats-grid" id="sr-stats"></div>
+  <hr class="divider"/>
+  <h2 style="margin-bottom:14px">Concept Progress</h2>
+  <div id="sr-concepts"></div>
+  <hr class="divider"/>
+  <div style="display:flex;gap:10px">
+    <button class="btn btn-primary" style="flex:1" onclick="keepStudying()">Continue Studying</button>
+    <button class="btn btn-secondary" style="flex:1" onclick="gotoLibrary()">Library</button>
+  </div>
+</div>
+
+<!-- STATS -->
+<div id="view-stats" class="view">
+  <h1 style="margin-bottom:22px">Statistics</h1>
+  <div id="stats-content"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ── CONFIG ──────────────────────────────────────────────────
+const OPENAI_URL='https://api.openai.com/v1/chat/completions';
+const OPENAI_MODEL='gpt-4o-mini';
+const EMBED_URL='https://api.openai.com/v1/embeddings';
+const EMBED_MODEL='text-embedding-3-small';
+const EMBED_DIMS=512;       // reduced from 1536 → saves ~65% localStorage space
+const RAG_TOP_K=4;          // chunks injected per concept into generation prompt
+const WRITER_MODEL='gpt-4o';   // Writer Agent — higher reasoning for question authoring
+const AUDITOR_MODEL='gpt-4o';  // Audit Agent — judge role, same capability floor
+const MAX_REVISE_ITERATIONS=2; // max Writer→Audit loops before hard REJECT
+
+// Coverage density presets
+const DENSITY={
+  standard:{
+    words:2000, overlap:0.15, min:15, max:28,
+    hint:'Focus on the most clinically important and high-yield concepts. Prioritize board-testable conditions, mechanisms, first-line treatments, and diagnostic gold standards.',
+    levels:{high:[1,2,3], medium:[1,2], low:[1]},
+    diagCount:20
+  },
+  comprehensive:{
+    words:1800, overlap:0.18, min:28, max:45,
+    hint:'Cover every heading and all significant subtopics. Include supporting details, secondary mechanisms, and less common but important concepts.',
+    levels:{high:[1,2,3], medium:[1,2,3], low:[1,2]},
+    diagCount:25
+  },
+  boards:{
+    words:1500, overlap:0.20, min:40, max:60,
+    hint:'Extract EXHAUSTIVELY. Every named structure, drug, disease, test, mechanism, complication, contraindication, classic association, exception, or board-tested detail must be captured as a concept. Leave nothing out.',
+    levels:{high:[1,2,3], medium:[1,2,3], low:[1,2,3]},
+    diagCount:30
+  }
+};
+
+const STATE={
+  apiKey:'', examDate:'', density:'comprehensive',
+  currentPdfId:null,
+  diagQs:[], diagIdx:0, diagResults:[],
+  studyQueue:[], studyIdx:0,
+  studyCorrect:0, studyIncorrect:0,
+  sessionLog:[], sessionConcepts:new Set(),
+  sessionAnswers:{}, // qId → {sel, correct} for restoring answered state on nav
+  sessionRated:{},   // qId → true once quality has been submitted (prevents double SRS)
+  qMeta:{}
+};
+
+// ── STORAGE ──────────────────────────────────────────────────
+const S = {
+  set: (k,v) => { try { localStorage.setItem('msp2_'+k, JSON.stringify(v)); } catch(e){} },
+  get: (k,d=null) => { try { const v=localStorage.getItem('msp2_'+k); return v!==null?JSON.parse(v):d; } catch(e){return d;} },
+  pdfs: () => S.get('pdfs',[]),
+  savePDFs: v => S.set('pdfs',v),
+  concepts: id => S.get('c_'+id,[]),
+  saveConcepts: (id,v) => S.set('c_'+id,v),
+  questions: id => S.get('q_'+id,[]),
+  saveQuestions: (id,v) => S.set('q_'+id,v),
+  chunks: id => S.get('ch_'+id,[]),
+  saveChunks: (id,v) => S.set('ch_'+id,v),
+  flagged: id => S.get('fl_'+id,[]),
+  saveFlagged: (id,v) => S.set('fl_'+id,v)
+};
+
+// ── SESSION PERSISTENCE ──────────────────────────────────────
+function saveSession() {
+  S.set('session',{
+    type:STATE._sessionType,
+    pdfId:STATE.currentPdfId,
+    diagQs:STATE.diagQs,
+    diagIdx:STATE.diagIdx,
+    diagResults:STATE.diagResults,
+    studyQueue:STATE.studyQueue,
+    studyIdx:STATE.studyIdx,
+    studyCorrect:STATE.studyCorrect,
+    studyIncorrect:STATE.studyIncorrect,
+    sessionLog:STATE.sessionLog,
+    sessionConcepts:[...(STATE.sessionConcepts||new Set())],
+    sessionAnswers:STATE.sessionAnswers||{},
+    sessionRated:STATE.sessionRated||{}
+  });
+}
+function clearSession() { localStorage.removeItem('msp2_session'); }
+
+// ── VIEWS ────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  const el = document.getElementById('view-'+name);
+  if (el) { el.classList.add('active'); window.scrollTo(0,0); }
+}
+function gotoLibrary() { renderLibrary(); showView('library'); }
+function gotoStats() { renderStats(); showView('stats'); }
+
+// ── Mindmap ────────────────────────────────────────────────────────
+const MM_CAT_COLORS = {
+  'Anatomical Structure':   '#818cf8',
+  'Pathological Condition': '#f87171',
+  'Physiological Process':  '#4ade80',
+  'Pharmacological Agent':  '#c084fc',
+  'Key Term':               '#fbbf24',
+  'Clinical Concept':       '#fb923c',
+  'Mechanism':              '#38bdf8',
+  'Diagnostic Finding':     '#e879f9',
+};
+function mmCatColor(cat){ return MM_CAT_COLORS[cat]||'#94a3b8'; }
+
+function getMasteryStatus(conceptId, questions){
+  const cQs = questions.filter(q=>q.conceptId===conceptId&&q.timesReviewed>0);
+  if(!cQs.length) return {status:'new', pct:0, reviewed:0, correct:0};
+  const correct = cQs.reduce((s,q)=>s+(q.timesCorrect||0),0);
+  const total   = cQs.reduce((s,q)=>s+(q.timesReviewed||0),0);
+  const pct = total ? Math.round(correct/total*100) : 0;
+  const status = pct>=90?'mastered':pct>=70?'strong':pct>=40?'medium':'weak';
+  return {status, pct, reviewed:total, correct};
+}
+
+function buildMindMapLayout(concepts, W, H){
+  const cx=W/2, cy=H/2;
+  const nodes=[], edges=[];
+
+  // Group by category
+  const cats={};
+  concepts.forEach(c=>{ (cats[c.category||'Key Term']=cats[c.category||'Key Term']||[]).push(c); });
+  const catNames=Object.keys(cats);
+  const numCats=catNames.length;
+
+  // Center node
+  nodes.push({id:'__center__',type:'center',x:cx,y:cy,r:36,label:'',cat:''});
+
+  // Distribute categories evenly around center
+  const R1 = Math.min(W,H)*0.24;
+  const R2 = Math.min(W,H)*0.19;
+
+  catNames.forEach((cat,ci)=>{
+    const catAngle = (2*Math.PI*ci/numCats) - Math.PI/2;
+    const cx1 = cx + R1*Math.cos(catAngle);
+    const cy1 = cy + R1*Math.sin(catAngle);
+    const catId = '__cat__'+ci;
+    nodes.push({id:catId,type:'category',x:cx1,y:cy1,r:22,label:cat,cat,angle:catAngle});
+    edges.push({from:'__center__',to:catId,type:'cat'});
+
+    const cList = cats[cat];
+    const spread = Math.min(Math.PI*0.75, cList.length*0.35);
+    cList.forEach((concept,j)=>{
+      const subAngle = cList.length===1
+        ? catAngle
+        : catAngle - spread/2 + spread*j/(cList.length-1);
+      const nx = cx1 + R2*Math.cos(subAngle);
+      const ny = cy1 + R2*Math.sin(subAngle);
+      const r = concept.importance==='high'?16:concept.importance==='medium'?13:10;
+      nodes.push({id:concept.id,type:'concept',x:nx,y:ny,r,label:concept.concept||concept.name,cat,concept});
+      edges.push({from:catId,to:concept.id,type:'concept'});
+    });
+  });
+
+  return {nodes,edges};
+}
+
+function showMindMap(pdfId){
+  STATE.currentPdfId=pdfId;
+  const pdf=S.pdfs().find(p=>p.id===pdfId);
+  const concepts=S.concepts(pdfId);
+  const questions=S.questions(pdfId);
+  if(!pdf||!concepts.length){alert('No concept data — process the PDF first.');return;}
+
+  // Header info
+  document.getElementById('mm-title').textContent=pdf.name.replace(/\.pdf$/i,'');
+  const masteryMap={};
+  concepts.forEach(c=>{ masteryMap[c.id]=getMasteryStatus(c.id,questions); });
+  const studied=concepts.filter(c=>masteryMap[c.id].status!=='new').length;
+  const mastered=concepts.filter(c=>masteryMap[c.id].status==='mastered').length;
+  document.getElementById('mm-unlocked').textContent=studied;
+  document.getElementById('mm-mastered').textContent=mastered;
+  document.getElementById('mm-total').textContent=concepts.length;
+  document.getElementById('mm-subtitle').textContent=`${questions.length} questions across ${concepts.length} concepts`;
+  document.getElementById('mm-study-btn').setAttribute('onclick',`openStudy('${pdfId}')`);
+
+  // Layout
+  const W=Math.max(900, window.innerWidth*0.9);
+  const H=Math.max(700, window.innerHeight*0.75);
+  const {nodes,edges}=buildMindMapLayout(concepts,W,H);
+
+  // Build id→node map
+  const nodeMap={};
+  nodes.forEach(n=>{ nodeMap[n.id]=n; });
+
+  // Build SVG
+  const svg=document.getElementById('mm-svg');
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.setAttribute('width',W);
+  svg.setAttribute('height',H);
+
+  // Starfield background
+  let stars='';
+  for(let i=0;i<120;i++){
+    const sx=Math.random()*W, sy=Math.random()*H;
+    const sr=Math.random()*1.2+0.2;
+    const so=(Math.random()*0.4+0.1).toFixed(2);
+    stars+=`<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${sr.toFixed(2)}" fill="white" opacity="${so}"/>`;
+  }
+
+  // SVG defs: filters
+  const defs=`<defs>
+    <filter id="glow-weak"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-med"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-strong"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="glow-master">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-lens">
+      <feGaussianBlur stdDeviation="6" result="blur1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur2"/>
+      <feMerge><feMergeNode in="blur1"/><feMergeNode in="blur2"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>`;
+
+  // Edges
+  let edgeSVG='';
+  edges.forEach(e=>{
+    const a=nodeMap[e.from], b=nodeMap[e.to];
+    if(!a||!b) return;
+    const isCat=e.type==='cat';
+    edgeSVG+=`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}"
+      stroke="${isCat?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.08)'}"
+      stroke-width="${isCat?1.5:0.8}" stroke-dasharray="${isCat?'':'4 3'}"/>`;
+  });
+
+  // Nodes
+  let nodeSVG='';
+  nodes.forEach(n=>{
+    if(n.type==='center'){
+      const short=pdf.name.replace(/\.pdf$/i,'').split(/[\s\-_]/)[0].slice(0,6).toUpperCase();
+      nodeSVG+=`<g transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
+        <circle r="52" fill="rgba(0,242,255,0.03)" stroke="rgba(0,242,255,0.08)" stroke-width="1"/>
+        <circle r="${n.r}" fill="rgba(0,242,255,0.08)" stroke="#00F2FF" stroke-width="1" filter="url(#glow-med)"/>
+        <text y="4" text-anchor="middle" fill="#00F2FF" font-size="10" font-weight="600" letter-spacing="2">${short}</text>
+        <text y="54" text-anchor="middle" fill="rgba(255,255,255,0.15)" font-size="8" letter-spacing="1">HUB</text>
+      </g>`;
+      return;
+    }
+    if(n.type==='category'){
+      const col=mmCatColor(n.cat);
+      const shortCat=n.label.split(' ').map(w=>w[0]).join('').slice(0,3).toUpperCase();
+      nodeSVG+=`<g class="mm-cat-group" data-cat="${escHtml(n.cat)}" transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})">
+        <circle r="${n.r+8}" fill="${col}14"/>
+        <circle r="${n.r}" fill="${col}22" stroke="${col}" stroke-width="1.5" opacity="0.85"/>
+        <text y="4" text-anchor="middle" fill="${col}" font-size="9" font-weight="700">${shortCat}</text>
+        <text y="${n.r+14}" text-anchor="middle" fill="${col}" font-size="8" opacity="0.7">${n.label.length>18?n.label.slice(0,16)+'…':n.label}</text>
+      </g>`;
+      return;
+    }
+    // Concept node
+    const m=masteryMap[n.id]||{status:'new',pct:0};
+    let fill, stroke, glowFilter, extraRing='', statusIcon='';
+    if(m.status==='mastered'){
+      // Diamond + lens flare for mastered
+      fill='rgba(0,242,255,0.15)'; stroke='#00F2FF'; glowFilter='url(#glow-master)';
+      const d=n.r*1.2;
+      extraRing=`<polygon points="0,${-d} ${d},0 0,${d} ${-d},0" fill="rgba(0,242,255,0.10)" stroke="#00F2FF" stroke-width="0.8" opacity="0.6" class="mm-node-mastered"/>
+        <circle r="${n.r+8}" fill="none" stroke="rgba(0,242,255,0.12)" stroke-width="0.5" class="mm-node-mastered"/>`;
+    } else if(m.status==='strong'){
+      fill='rgba(0,255,163,0.12)'; stroke='#00FFA3'; glowFilter='url(#glow-strong)';
+    } else if(m.status==='medium'){
+      fill='rgba(255,173,51,0.12)'; stroke='#FFAD33'; glowFilter='url(#glow-med)';
+    } else if(m.status==='weak'){
+      fill='rgba(255,61,113,0.12)'; stroke='#FF3D71'; glowFilter='url(#glow-weak)';
+    } else {
+      fill='rgba(16,18,26,0.9)'; stroke='rgba(60,65,90,0.6)'; glowFilter='';
+    }
+    const shortName=n.label.length>14?n.label.slice(0,13)+'…':n.label;
+    nodeSVG+=`<g class="mm-concept-node${m.status==='mastered'?' mm-node-mastered':''}"
+        transform="translate(${n.x.toFixed(1)},${n.y.toFixed(1)})"
+        style="cursor:pointer"
+        data-id="${n.id}"
+        data-label="${escHtml(n.label)}"
+        data-status="${m.status}"
+        data-pct="${m.pct}"
+        data-cat="${escHtml(n.cat)}"
+        data-reviewed="${m.reviewed}"
+        onmouseenter="mmShowTooltip(event,this)"
+        onmouseleave="mmHideTooltip()"
+        onclick="mmConceptClick('${pdfId}','${n.id}')">
+      ${extraRing}
+      <circle r="${n.r}" fill="${fill}" stroke="${stroke}" stroke-width="1.2" ${glowFilter?`filter="${glowFilter}"`:''}/>
+      ${m.status==='mastered'?`<text y="4" text-anchor="middle" fill="#00F2FF" font-size="${n.r*0.7}" filter="url(#glow-lens)">◆</text>`:''}
+      <text y="${n.r+12}" text-anchor="middle" fill="rgba(226,228,233,${m.status==='new'?'0.35':'0.80'})" font-size="7.5" font-weight="${m.status==='new'?'300':'400'}">${shortName}</text>
+      ${m.status!=='new'?`<text y="${n.r+21}" text-anchor="middle" fill="${stroke}" font-size="6" opacity="0.65">${m.pct}%</text>`:''}
+    </g>`;
+  });
+
+  svg.innerHTML=defs+`<rect width="${W}" height="${H}" fill="#07080d"/>
+    <g opacity="0.6">${stars}</g>
+    <g id="mm-pan-group" transform="translate(0,0) scale(1)">
+      <g>${edgeSVG}</g>
+      <g>${nodeSVG}</g>
+    </g>`;
+
+  // Reset transform state
+  STATE._mmScale=1; STATE._mmTx=0; STATE._mmTy=0;
+
+  // Populate category filter chips
+  const catNames=Object.keys(concepts.reduce((acc,c)=>{ acc[c.category||'Key Term']=1; return acc; },{}));
+  const catFilterEl=document.getElementById('mm-cat-filter');
+  const shortCatLabel=cat=>cat.replace('Pharmacological Agent','Pharma').replace('Pathological Condition','Pathology').replace('Physiological Process','Physiology').replace('Anatomical Structure','Anatomy').replace('Diagnostic Finding','Diagnostic').replace('Clinical Concept','Clinical');
+  catFilterEl.innerHTML='<button class="mm-cat-chip active" onclick="mmCatFilter(\'all\',this)" style="color:var(--text-secondary)">All</button>'+
+    catNames.map(cat=>`<button class="mm-cat-chip" style="color:${mmCatColor(cat)}" onclick="mmCatFilter('${escHtml(cat)}',this)">${shortCatLabel(cat)}</button>`).join('');
+
+  // Clear search input
+  const searchInp=document.getElementById('mm-search');
+  if(searchInp) searchInp.value='';
+
+  // Set up scroll-to-zoom and drag-to-pan
+  const wrap=document.getElementById('mm-svg-wrap');
+  if(wrap._mmCleanup) wrap._mmCleanup();
+  let _drag=false, _dx=0, _dy=0, _tx=0, _ty=0;
+  const onDown=e=>{ if(e.button!==0) return; _drag=true; _dx=e.clientX; _dy=e.clientY; _tx=STATE._mmTx; _ty=STATE._mmTy; };
+  const onMove=e=>{ if(!_drag) return; STATE._mmTx=_tx+(e.clientX-_dx); STATE._mmTy=_ty+(e.clientY-_dy); _applyMmTransform(); };
+  const onUp=()=>{ _drag=false; };
+  const onWheel=e=>{ e.preventDefault(); const f=e.deltaY<0?1.1:0.9; STATE._mmScale=Math.max(0.25,Math.min(5,STATE._mmScale*f)); _applyMmTransform(); };
+  wrap.addEventListener('mousedown',onDown);
+  wrap.addEventListener('mousemove',onMove);
+  wrap.addEventListener('mouseup',onUp);
+  wrap.addEventListener('mouseleave',onUp);
+  wrap.addEventListener('wheel',onWheel,{passive:false});
+  wrap._mmCleanup=()=>{ wrap.removeEventListener('mousedown',onDown); wrap.removeEventListener('mousemove',onMove); wrap.removeEventListener('mouseup',onUp); wrap.removeEventListener('mouseleave',onUp); wrap.removeEventListener('wheel',onWheel); };
+
+  showView('mindmap');
+}
+
+function mmShowTooltip(e, el){
+  const tt=document.getElementById('mm-tooltip');
+  const label=el.getAttribute('data-label');
+  const status=el.getAttribute('data-status');
+  const pct=el.getAttribute('data-pct');
+  const cat=el.getAttribute('data-cat');
+  const reviewed=el.getAttribute('data-reviewed');
+  const col=mmCatColor(cat);
+  const statusColors={new:'#3c4160',weak:'#FF3D71',medium:'#FFAD33',strong:'#00FFA3',mastered:'#00F2FF'};
+  const sc=statusColors[status]||'#94a3b8';
+  tt.innerHTML=`
+    <div style="font-size:0.82rem;font-weight:600;color:#f3f4f6;margin-bottom:6px">${label}</div>
+    <div style="font-size:0.7rem;color:${col};margin-bottom:8px">${cat}</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <div style="flex:1;height:4px;background:#1e2030;border-radius:2px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${sc};border-radius:2px"></div>
+      </div>
+      <span style="font-size:0.72rem;color:${sc};font-weight:600">${pct}%</span>
+    </div>
+    <div style="font-size:0.68rem;color:#6b7080">${reviewed>0?`${reviewed} review${reviewed!==1?'s':''} completed`:'Not yet studied'} · <span style="color:${sc};text-transform:capitalize">${status}</span></div>
+    ${status==='new'?'<div style="font-size:0.68rem;color:#4b5280;margin-top:6px">Tap to start studying this concept →</div>':''}`;
+  tt.style.display='block';
+  mmPositionTooltip(e);
+}
+
+function mmPositionTooltip(e){
+  const tt=document.getElementById('mm-tooltip');
+  const x=e.clientX+14, y=e.clientY-10;
+  const tw=tt.offsetWidth||220, th=tt.offsetHeight||100;
+  tt.style.left=Math.min(x, window.innerWidth-tw-10)+'px';
+  tt.style.top=Math.max(10, Math.min(y, window.innerHeight-th-10))+'px';
+}
+
+function mmHideTooltip(){
+  document.getElementById('mm-tooltip').style.display='none';
+}
+
+function mmConceptClick(pdfId, conceptId){
+  // Jump straight into study session filtered to this concept's questions
+  STATE.currentPdfId=pdfId;
+  const qs=S.questions(pdfId).filter(q=>q.conceptId===conceptId);
+  if(!qs.length){alert('No questions for this concept yet.');return;}
+  STATE._sessionType='study';
+  STATE.studyQueue=shuffle([...qs].map(q=>({...q,_bucket:'srs'})));
+  STATE.studyIdx=0;
+  STATE.sessionRated={};
+  showView('study');
+  renderStudyQ();
+}
+// ── End Mindmap ────────────────────────────────────────────────────
+
+// ── CHAPTER DETAIL ───────────────────────────────────────────
+function openChapterDetail(pdfId) {
+  STATE.currentPdfId=pdfId;
+  renderChapterDetail(pdfId);
+  showView('chapter-detail');
+}
+
+function renderChapterDetail(pdfId) {
+  const pdf=S.pdfs().find(p=>p.id===pdfId);
+  if(!pdf) return;
+  const concepts=S.concepts(pdfId);
+  const questions=S.questions(pdfId);
+  const mm=computeAllMastery(pdfId);
+  const now=new Date();
+  const due=questions.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).length;
+  const avg=mm.length?Math.round(mm.reduce((s,m)=>s+m.overall,0)/mm.length):0;
+
+  document.getElementById('cd-title').textContent=pdf.name.replace(/\.pdf$/i,'');
+  document.getElementById('cd-subtitle').textContent=`${concepts.length} concepts · ${questions.length} questions${due>0?' · '+due+' due today':''}`;
+  document.getElementById('cd-overall-pct').textContent=avg+'%';
+  document.getElementById('cd-counts').textContent=`${mm.filter(m=>m.status!=='new').length}/${mm.length} studied`;
+  document.getElementById('cd-overall-bar').style.width=avg+'%';
+
+  // Level stats
+  const byL={1:[],2:[],3:[]};
+  questions.forEach(q=>{ const l=Math.min(3,Math.max(1,parseInt(q.level)||1)); byL[l].push(q); });
+  function lvlScore(qs){
+    const ans=qs.filter(q=>q.timesReviewed>0);
+    if(!ans.length) return 0;
+    return Math.min(100,Math.round(ans.reduce((s,q)=>s+q.timesCorrect,0)/ans.reduce((s,q)=>s+q.timesReviewed,0)*100));
+  }
+  document.getElementById('cd-level-stats').innerHTML=`
+    <div class="level-stat-pill"><div class="level-stat-num">${lvlScore(byL[1])}%</div><div class="level-stat-lbl">Recall</div></div>
+    <div class="level-stat-pill"><div class="level-stat-num">${lvlScore(byL[2])}%</div><div class="level-stat-lbl">Application</div></div>
+    <div class="level-stat-pill"><div class="level-stat-num">${lvlScore(byL[3])}%</div><div class="level-stat-lbl">Analysis</div></div>`;
+
+  // Needs Work
+  const weak=mm.filter(m=>m.status==='weak'||m.status==='medium').sort((a,b)=>a.overall-b.overall).slice(0,5);
+  const needsWorkEl=document.getElementById('cd-needs-work');
+  const weakListEl=document.getElementById('cd-weak-list');
+  if(weak.length){
+    needsWorkEl.style.display='block';
+    weakListEl.innerHTML=weak.map(m=>{
+      const c=concepts.find(cc=>cc.id===m.conceptId); if(!c) return '';
+      return `<div class="concept-row" style="cursor:pointer" onclick="studyConceptDirect('${pdfId}','${c.id}')">
+        <span style="flex:1;font-size:0.82rem">${escHtml(c.concept)}</span>
+        <span class="badge badge-${m.status}" style="margin-right:8px">${m.status}</span>
+        <span style="font-size:0.75rem;color:var(--text-dim)">${m.overall}%</span>
+      </div>`;
+    }).join('');
+  } else { needsWorkEl.style.display='none'; }
+
+  // Action buttons
+  const dueBtn=document.getElementById('cd-study-due-btn');
+  dueBtn.onclick=()=>startDueSession(pdfId);
+  dueBtn.disabled=due===0;
+  dueBtn.textContent=due>0?`Study Due (${due})`:'No Due Cards';
+  document.getElementById('cd-study-btn').onclick=()=>openStudy(pdfId);
+  document.getElementById('cd-map-btn').onclick=()=>showMindMap(pdfId);
+  document.getElementById('cd-delete-btn').onclick=()=>{ if(confirm('Delete this chapter and all its data?')) deletePDF(pdfId); };
+
+  // Concept list — reset to All
+  document.querySelectorAll('#view-chapter-detail .filter-chip').forEach(c=>c.classList.remove('active'));
+  const allChip=document.querySelector('#view-chapter-detail .filter-chip');
+  if(allChip) allChip.classList.add('active');
+  renderCdConceptList(pdfId,'all');
+}
+
+function renderCdConceptList(pdfId, status) {
+  const concepts=S.concepts(pdfId);
+  const mm=computeAllMastery(pdfId);
+  const filtered=status==='all'?mm:mm.filter(m=>m.status===status);
+  const el=document.getElementById('cd-concept-list');
+  if(!filtered.length){
+    el.innerHTML='<div style="font-size:0.78rem;color:var(--text-dim);padding:16px 0;text-align:center">No concepts in this category</div>';
+    return;
+  }
+  el.innerHTML=filtered.sort((a,b)=>a.overall-b.overall).map(m=>{
+    const c=concepts.find(cc=>cc.id===m.conceptId); if(!c) return '';
+    const impClass=c.importance==='high'?'high':c.importance==='medium'?'medium':'low';
+    return `<div class="concept-row" style="cursor:pointer" onclick="studyConceptDirect('${pdfId}','${c.id}')">
+      <div class="importance-dot ${impClass}" style="flex-shrink:0"></div>
+      <span style="flex:1;font-size:0.82rem;padding:0 8px">${escHtml(c.concept)}</span>
+      <span class="badge badge-${m.status}" style="margin-right:8px">${m.status}</span>
+      <span style="font-size:0.72rem;color:var(--text-dim);min-width:30px;text-align:right">${m.overall}%</span>
+    </div>`;
+  }).join('');
+}
+
+function cdFilterConcepts(status, chipEl) {
+  document.querySelectorAll('#view-chapter-detail .filter-chip').forEach(c=>c.classList.remove('active'));
+  if(chipEl) chipEl.classList.add('active');
+  renderCdConceptList(STATE.currentPdfId, status);
+}
+
+function studyConceptDirect(pdfId, conceptId) {
+  STATE.currentPdfId=pdfId;
+  const qs=S.questions(pdfId).filter(q=>q.conceptId===conceptId);
+  if(!qs.length){alert('No questions for this concept yet.');return;}
+  STATE._sessionType='study';
+  STATE.studyQueue=shuffle([...qs].map(q=>({...q,_bucket:'srs'})));
+  STATE.studyIdx=0; STATE.studyCorrect=0; STATE.studyIncorrect=0;
+  STATE.sessionRated={}; STATE.sessionLog=[]; STATE.sessionConcepts=new Set([conceptId]); STATE.sessionAnswers={};
+  const label=S.concepts(pdfId).find(c=>c.id===conceptId)?.concept||'Concept Study';
+  document.getElementById('study-mode-label').textContent=label;
+  updateStudyHUD();
+  showView('study');
+  renderStudyQ();
+}
+
+function updateStudyProgressBar() {
+  const fill=document.getElementById('study-progress-fill');
+  if(!fill) return;
+  const total=STATE.studyQueue&&STATE.studyQueue.length;
+  const idx=STATE.studyIdx||0;
+  fill.style.width=total?Math.min(100,Math.round(idx/total*100))+'%':'0%';
+}
+
+// ── MINDMAP ZOOM / PAN / SEARCH / FILTER ─────────────────────
+function _applyMmTransform() {
+  const g=document.getElementById('mm-pan-group');
+  if(g) g.setAttribute('transform',`translate(${STATE._mmTx},${STATE._mmTy}) scale(${STATE._mmScale})`);
+}
+
+function mmZoom(factor) {
+  STATE._mmScale=Math.max(0.25,Math.min(5,(STATE._mmScale||1)*factor));
+  _applyMmTransform();
+}
+
+function mmZoomReset() {
+  STATE._mmScale=1; STATE._mmTx=0; STATE._mmTy=0;
+  _applyMmTransform();
+  document.querySelectorAll('#mm-svg .mm-concept-node').forEach(n=>n.style.opacity='1');
+  document.querySelectorAll('#mm-svg .mm-cat-group').forEach(n=>n.style.opacity='1');
+  document.querySelectorAll('#mm-cat-filter .mm-cat-chip').forEach(c=>c.classList.remove('active'));
+  const firstChip=document.querySelector('#mm-cat-filter .mm-cat-chip');
+  if(firstChip) firstChip.classList.add('active');
+  const inp=document.getElementById('mm-search');
+  if(inp) inp.value='';
+}
+
+function mmSearch(val) {
+  const q=val.trim().toLowerCase();
+  document.querySelectorAll('#mm-svg .mm-concept-node').forEach(n=>{
+    if(!q){n.style.opacity='1';return;}
+    const label=(n.getAttribute('data-label')||'').toLowerCase();
+    n.style.opacity=label.includes(q)?'1':'0.08';
+  });
+}
+
+function mmCatFilter(cat, chipEl) {
+  document.querySelectorAll('#mm-cat-filter .mm-cat-chip').forEach(c=>c.classList.remove('active'));
+  if(chipEl) chipEl.classList.add('active');
+  document.querySelectorAll('#mm-svg .mm-concept-node').forEach(n=>{
+    if(cat==='all'){n.style.opacity='1';return;}
+    n.style.opacity=(n.getAttribute('data-cat')||'')===cat?'1':'0.08';
+  });
+  document.querySelectorAll('#mm-svg .mm-cat-group').forEach(n=>{
+    if(cat==='all'){n.style.opacity='1';return;}
+    n.style.opacity=(n.getAttribute('data-cat')||'')===cat?'1':'0.15';
+  });
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+function init() {
+  pdfjsLib.GlobalWorkerOptions.workerSrc=
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  STATE.apiKey=S.get('apiKey','');
+  STATE.examDate=S.get('examDate','');
+  STATE.density=S.get('density','comprehensive');
+  const def=new Date(); def.setMonth(3); def.setDate(6);
+  document.getElementById('exam-date-input').value=
+    STATE.examDate||def.toISOString().split('T')[0];
+  if(STATE.apiKey) document.getElementById('api-key-input').value=STATE.apiKey;
+  setDensityUI(STATE.density);
+  if(STATE.apiKey){
+    document.getElementById('header-nav').style.display='flex';
+    const sess=S.get('session');
+    if(sess&&sess.pdfId){
+      STATE.currentPdfId=sess.pdfId;
+      if(sess.type==='diagnostic'){
+        STATE._sessionType='diagnostic';
+        STATE.diagQs=sess.diagQs||[];
+        STATE.diagIdx=sess.diagIdx||0;
+        STATE.diagResults=sess.diagResults||[];
+        document.getElementById('diag-tot').textContent=STATE.diagQs.length;
+        showView('diagnostic');
+        renderDiagQ();
+      } else if(sess.type==='study'){
+        STATE._sessionType='study';
+        STATE.studyQueue=sess.studyQueue||[];
+        STATE.studyIdx=sess.studyIdx||0;
+        STATE.studyCorrect=sess.studyCorrect||0;
+        STATE.studyIncorrect=sess.studyIncorrect||0;
+        STATE.sessionLog=sess.sessionLog||[];
+        STATE.sessionConcepts=new Set(sess.sessionConcepts||[]);
+        STATE.sessionAnswers=sess.sessionAnswers||{};
+        STATE.sessionRated=sess.sessionRated||{};
+        document.getElementById('study-mode-label').textContent='Adaptive Study Session';
+        updateStudyHUD();
+        showView('study');
+        renderStudyQ();
+      } else { gotoLibrary(); }
+    } else { gotoLibrary(); }
+  } else { showView('setup'); }
+
+  const ua=document.getElementById('upload-area');
+  ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('dragover');});
+  ua.addEventListener('dragleave',()=>ua.classList.remove('dragover'));
+  ua.addEventListener('drop',e=>{
+    e.preventDefault(); ua.classList.remove('dragover');
+    const f=e.dataTransfer.files[0];
+    if(f&&f.type==='application/pdf') processNewPDF(f);
+  });
+}
+
+// ── SETUP ────────────────────────────────────────────────────
+function setDensity(d) {
+  STATE.density=d; S.set('density',d);
+  setDensityUI(d);
+}
+function setDensityUI(d) {
+  ['standard','comprehensive','boards'].forEach(v=>{
+    ['d-'+v,'sd-'+v].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.classList.toggle('selected',v===d);
+    });
+  });
+}
+function updateStudyDensityUI() { setDensityUI(STATE.density); }
+function showSetupError(msg) {
+  const el=document.getElementById('setup-error');
+  el.textContent=msg; el.style.display='block';
+}
+function saveSetup() {
+  const key=document.getElementById('api-key-input').value.trim();
+  const date=document.getElementById('exam-date-input').value;
+  if(!key){showSetupError('Please enter your OpenAI API key before continuing.');return;}
+  document.getElementById('setup-error').style.display='none';
+  STATE.apiKey=key; STATE.examDate=date;
+  S.set('apiKey',key); S.set('examDate',date); S.set('density',STATE.density);
+  document.getElementById('header-nav').style.display='flex';
+  gotoLibrary();
+}
+
+// ── LIBRARY ──────────────────────────────────────────────────
+function renderLibrary() {
+  if (STATE.examDate) {
+    const days = Math.ceil((new Date(STATE.examDate)-new Date())/86400000);
+    document.getElementById('exam-countdown').textContent =
+      days>0 ? `${days} days until exam` : 'Exam day';
+  }
+  const pdfs = S.pdfs();
+  const now = new Date();
+
+  // Aggregate stats for hero cards
+  let totalDue=0, totalMastery=0, masteryCount=0;
+  pdfs.filter(p=>p.processingComplete).forEach(pdf=>{
+    totalDue += S.questions(pdf.id).filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).length;
+    const mm=computeAllMastery(pdf.id);
+    if(mm.length){ totalMastery+=Math.round(mm.reduce((s,m)=>s+m.overall,0)/mm.length); masteryCount++; }
+  });
+  const avgMastery=masteryCount?Math.round(totalMastery/masteryCount):0;
+
+  // Hero cards
+  const hero=document.getElementById('today-hero');
+  if(hero){
+    if(!pdfs.filter(p=>p.processingComplete).length){
+      hero.innerHTML='';
+    } else {
+      hero.innerHTML=`
+        <div class="today-stat-card primary">
+          <div class="today-stat-num">${totalDue}</div>
+          <div class="today-stat-label">Due Today</div>
+          ${totalDue>0
+            ?`<div style="margin-top:12px"><button class="btn btn-primary btn-sm" onclick="startAllDueSession()">Review All →</button></div>`
+            :`<div style="margin-top:8px;font-size:0.7rem;color:var(--text-dim)">You're all caught up</div>`}
+        </div>
+        <div class="today-stat-card">
+          <div class="today-stat-num">${avgMastery}%</div>
+          <div class="today-stat-label">Avg Mastery</div>
+          <div style="margin-top:10px"><div class="chapter-bar"><div class="chapter-bar-fill" style="width:${avgMastery}%"></div></div></div>
+        </div>`;
+    }
+  }
+
+  // Chapter list
+  const list=document.getElementById('pdf-list');
+  const emptyEl=document.getElementById('today-empty');
+  if(!list) return;
+  if(!pdfs.length){
+    list.innerHTML='';
+    if(emptyEl) emptyEl.style.display='block';
+    return;
+  }
+  if(emptyEl) emptyEl.style.display='none';
+
+  list.innerHTML=pdfs.map(pdf=>{
+    const shortName=pdf.name.replace(/\.pdf$/i,'');
+    if(!pdf.processingComplete){
+      return `<div class="chapter-row">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0;letter-spacing:0.05em">PDF</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(shortName)}</div>
+          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:3px" id="proc-status-${pdf.id}">Processing…</div>
+          <div class="chapter-bar" style="margin-top:8px"><div class="chapter-bar-fill" id="proc-bar-${pdf.id}" style="width:0%"></div></div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePDF('${pdf.id}')">Delete</button>
+      </div>`;
+    }
+    const qCount=S.questions(pdf.id).length;
+    if(pdf.processingComplete && qCount===0){
+      return `<div class="chapter-row">
+        <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0">PDF</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(shortName)}</div>
+          <div style="font-size:0.72rem;color:var(--red);margin-top:3px">Processing failed — delete and re-upload</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePDF('${pdf.id}')">Delete</button>
+      </div>`;
+    }
+    const mm=computeAllMastery(pdf.id);
+    const avg=mm.length?Math.round(mm.reduce((s,m)=>s+m.overall,0)/mm.length):0;
+    const due=S.questions(pdf.id).filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).length;
+    return `<div class="chapter-row${due>0?' has-due':''}" onclick="openChapterDetail('${pdf.id}')">
+      <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0;letter-spacing:0.05em">PDF</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(shortName)}</div>
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-top:3px">${S.concepts(pdf.id).length} concepts · ${qCount} questions</div>
+        <div class="chapter-bar" style="margin-top:8px"><div class="chapter-bar-fill" style="width:${avg}%"></div></div>
+      </div>
+      ${due>0?`<span class="chapter-due-badge">${due} due</span>`:''}
+    </div>`;
+  }).join('');
+
+  const banner=document.getElementById('all-due-banner');
+  if(banner) banner.style.display='none';
+}
+
+function handleFileSelect(e) { const f=e.target.files[0]; if(f) processNewPDF(f); }
+
+function deletePDF(id) {
+  if (!confirm('Delete this PDF and all its data?')) return;
+  S.savePDFs(S.pdfs().filter(p=>p.id!==id));
+  localStorage.removeItem('msp2_c_'+id);
+  localStorage.removeItem('msp2_q_'+id);
+  localStorage.removeItem('msp2_ch_'+id);
+  localStorage.removeItem('msp2_fl_'+id);
+  renderLibrary();
+}
+
+// ── PDF PROCESSING ───────────────────────────────────────────
+let _timer,_startTime;
+
+async function processNewPDF(file) {
+  const id=Date.now().toString();
+  const dc=DENSITY[STATE.density];
+  S.savePDFs([...S.pdfs(),{id,name:file.name,uploadDate:new Date().toISOString(),
+    processingComplete:false,conceptCount:0,questionCount:0,density:STATE.density}]);
+
+  renderLibrary(); showView('library');
+
+  _startTime=Date.now();
+  _timer=setInterval(()=>{
+    const e=Math.round((Date.now()-_startTime)/1000);
+    const el=document.getElementById('pc-time');
+    if(el) el.textContent=e<60?e+'s':Math.floor(e/60)+'m '+(e%60)+'s';
+  },1000);
+
+  try {
+    // ── Phase 1: Extract text (returns [{page, text}])
+    plog('Phase 1: Extracting text…');
+    setProcStatusInline(id,'Extracting text…',2);
+    const pages=await extractText(file);
+    const totalWords=pages.reduce((s,p)=>s+p.text.split(/\s+/).length,0);
+    plog(`Extracted ${pages.length} pages (~${totalWords} words)`);
+
+    // ── Phase 2: Chunk with page tracking
+    const rawChunks=chunkText(pages,dc.words,dc.overlap);
+    plog(`Phase 2: ${rawChunks.length} chunks (${dc.words} words, ${Math.round(dc.overlap*100)}% overlap, ${STATE.density} mode)`);
+    setProcStatusInline(id,'Chunked — embedding…',3);
+
+    // ── Phase 2.5: Embed all chunks (Coverage-First RAG)
+    plog('Phase 2.5: Embedding chunks for semantic retrieval (text-embedding-3-small)…');
+    setProcStatusInline(id,'Embedding chunks…',4);
+    let chunkRecords=[];
+    try {
+      chunkRecords=await embedAllChunks(rawChunks,id);
+      S.saveChunks(id,chunkRecords);
+      const embedded=chunkRecords.filter(c=>c.embedding.length>0).length;
+      plog(`Phase 2.5: ${embedded}/${chunkRecords.length} chunks embedded (${EMBED_DIMS}-dim vectors, ${Math.round(JSON.stringify(chunkRecords).length/1024)}KB stored)`);
+    } catch(e) {
+      // Fall back: create records without embeddings so pipeline still runs
+      chunkRecords=rawChunks.map((c,i)=>({id:id+'_ch_'+i,pdfId:id,...c,chunkIndex:i,embedding:[]}));
+      plog(`Phase 2.5 skipped: ${e.message} — generation will use keyFacts only`);
+    }
+
+    // ── Phase 3: Content inventory per chunk
+    plog('Phase 3: Running content inventory across all chunks…');
+    const inventories=[];
+    const BATCH=3; // 3 chunks per API call → ~3x fewer quota requests
+    const batches=[];
+    for(let i=0;i<chunkRecords.length;i+=BATCH) batches.push(chunkRecords.slice(i,i+BATCH));
+    for(let b=0;b<batches.length;b++) {
+      const chunkNums=`${b*BATCH+1}–${Math.min((b+1)*BATCH,chunkRecords.length)}`;
+      setProcStatusInline(id,`Inventory ${b+1}/${batches.length}…`,20+(b/batches.length)*30);
+      plog(`Chunks ${chunkNums}: extracting inventory…`);
+      if(b>0) await sleep(3500);
+      try {
+        const inv=await extractInventory(batches[b],STATE.density,b,batches.length,chunkRecords.length);
+        inventories.push(inv);
+        const tot=inventories.reduce((s,inv)=>s+inv.concepts.length,0);
+        const heads=inv.headings.join(', ').slice(0,60)||'—';
+        plog(`Chunks ${chunkNums}: ${inv.concepts.length} concepts (topics: ${heads})`);
+      } catch(e) { plog(`Chunks ${chunkNums} inventory error: ${e.message}`); }
+    }
+
+    // ── Phase 4: Merge into master concept list
+    plog('Phase 4: Merging deduplicated master concept list…');
+    setProcStatusInline(id,'Building concept list…',52);
+    let master=mergeInventory(inventories,id);
+    plog(`Master list: ${master.length} unique concepts (${master.filter(c=>c.importance==='high').length} high-yield)`);
+    S.saveConcepts(id,master);
+
+    // Fix 6: Consolidate near-duplicate concepts before capping
+    master = (() => {
+      const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g,'');
+      const used = new Set();
+      for(let i=0;i<master.length;i++){
+        if(used.has(i)) continue;
+        const ni = norm(master[i].concept);
+        for(let j=i+1;j<master.length;j++){
+          if(used.has(j)) continue;
+          const nj = norm(master[j].concept);
+          const sameCategory = (master[i].category||'') === (master[j].category||'');
+          const oneContainsOther = (ni.includes(nj) || nj.includes(ni)) && Math.min(ni.length,nj.length) >= 4;
+          if(oneContainsOther && sameCategory){
+            master[i].keyFacts = [...new Set([...(master[i].keyFacts||[]), ...(master[j].keyFacts||[])])].slice(0,8);
+            if((master[j].importance==='high' && master[i].importance!=='high') ||
+               (master[j].importance==='medium' && master[i].importance==='low')) {
+              master[i].importance = master[j].importance;
+            }
+            used.add(j);
+          }
+        }
+      }
+      return master.filter((_,i)=>!used.has(i));
+    })();
+
+    // Fix B: Prefix-density cap — prevent topic fragmentation (e.g. 15 "Esophageal X" concepts)
+    // Groups concepts by their leading word(s) and caps each group at maxPerPrefix,
+    // merging dropped keyFacts into the highest-importance keeper.
+    master = (() => {
+      const impRank={high:3,medium:2,low:1};
+      const maxPerPrefix=4;
+      const prefixGroups=new Map();
+      master.forEach((c,i)=>{
+        const words=c.concept.replace(/[^a-zA-Z0-9 ]/g,'').split(/\s+/).filter(Boolean);
+        // Use first word if substantive (>4 chars), otherwise first 2 words
+        const prefix=(words[0]&&words[0].length>4?words[0]:words.slice(0,2).join(' ')).toLowerCase();
+        if(!prefixGroups.has(prefix)) prefixGroups.set(prefix,[]);
+        prefixGroups.get(prefix).push(i);
+      });
+      const drop=new Set();
+      prefixGroups.forEach(indices=>{
+        if(indices.length<=maxPerPrefix) return;
+        // Sort descending by importance rank
+        indices.sort((a,b)=>(impRank[master[b].importance]||0)-(impRank[master[a].importance]||0));
+        indices.slice(maxPerPrefix).forEach(di=>{
+          // Absorb keyFacts into top keeper before dropping
+          master[indices[0]].keyFacts=[...new Set([...(master[indices[0]].keyFacts||[]),...(master[di].keyFacts||[])])].slice(0,8);
+          drop.add(di);
+        });
+      });
+      return master.filter((_,i)=>!drop.has(i));
+    })();
+    plog(`After consolidation: ${master.length} concepts`);
+
+    // ── Phase 5 + 6: RAG-grounded generation + Multi-Agent Clinical Audit
+    plog('Phase 5: Generating questions (Writer Agent gpt-4o, RAG-grounded)…');
+    const ragEnabled=chunkRecords.some(c=>c.embedding.length>0);
+    plog(ragEnabled?`RAG active — ${chunkRecords.length} embedded chunks · Auditor: gpt-4o · Max revisions: ${MAX_REVISE_ITERATIONS}`:'RAG unavailable — using keyFacts only · Auditor: gpt-4o');
+    const conceptCap={standard:150,comprehensive:200,boards:300};
+    const capped=master.slice(0,conceptCap[STATE.density]||200);
+    plog(`Phase 5: Processing top ${capped.length} concepts (capped from ${master.length})…`);
+    const allQuestions=[], allHardRejected=[];
+    const batchSize=3;
+    let auditPassed=0, auditRevised=0, auditHardRejected=0;
+
+    for(let i=0;i<capped.length;i+=batchSize) {
+      const batch=capped.slice(i,i+batchSize);
+      const pct=53+(i/capped.length)*38;
+      setProcStatusInline(id,`Generating ${i+1}–${Math.min(i+batchSize,capped.length)} of ${capped.length}…`,pct);
+      try {
+        // Generate initial questions via Writer Agent (gpt-4o via generateCoverageQuestions)
+        const qs=await generateCoverageQuestions(batch,id,STATE.density,chunkRecords);
+
+        // Build per-concept RAG passages string (for REVISE feedback to Writer)
+        const ragPassagesMap={};
+        if(ragEnabled) {
+          try {
+            const queries=batch.map(c=>`${c.concept}: ${(c.keyFacts||[]).slice(0,2).join('. ')}`);
+            const qVecs=await embedTexts(queries);
+            batch.forEach((c,bi)=>{
+              const topChunks=retrieveTopChunks(chunkRecords,qVecs[bi],3);
+              ragPassagesMap[c.id]=topChunks.map(ch=>`> "${ch.text.slice(0,300)}" [page ${ch.startPage||'?'}]`).join('\n');
+            });
+          } catch(_) {} // non-fatal
+        }
+
+        // ── Phase 6: Multi-Agent Clinical Audit (Writer↔Auditor loop)
+        setProcStatusInline(id,`Auditing ${qs.length} Qs…`,pct+1);
+        const audited=await auditQuestions(qs, batch, id, ragPassagesMap);
+
+        audited.passed.forEach(q=>allQuestions.push(q));
+        auditPassed+=audited.passed.length;
+
+        // Count revisions (questions that went through ≥1 revise cycle before passing)
+        const revisedCount=audited.passed.filter(q=>q._auditIterations>0).length;
+        auditRevised+=revisedCount;
+
+        // Persist hard-rejected questions for human review
+        if(audited.hardRejected.length) {
+          auditHardRejected+=audited.hardRejected.length;
+          audited.hardRejected.forEach(r=>allHardRejected.push(r));
+          const rNames=audited.hardRejected.map(r=>`${r.conceptName} L${r.level}`).join(', ');
+          plog(`⚠ Hard rejected (${audited.hardRejected.length}): ${rNames}`);
+        }
+
+        if((i/batchSize)%3===0) plog(`Writer+Auditor: ${allQuestions.length} banked · ${auditHardRejected} flagged…`);
+      } catch(e) { plog(`Batch ${i} error: ${e.message}`); }
+    }
+
+    setProcStatusInline(id,'Finalizing…',93);
+    plog(`Phase 6 complete — Passed: ${auditPassed} · Revised+Passed: ${auditRevised} · Hard-Rejected: ${auditHardRejected}`);
+    if(allHardRejected.length) {
+      plog(`⚠ ${allHardRejected.length} questions flagged for human review (stored in library)`);
+      S.saveFlagged(id, allHardRejected);
+    }
+
+    // ── Phase 7: Dedup and save
+    const uQuestions=dedupQuestions(allQuestions);
+    plog(`Final: ${master.length} concepts · ${uQuestions.length} questions · ${allHardRejected.length} flagged`);
+    S.saveQuestions(id,uQuestions);
+    S.savePDFs(S.pdfs().map(p=>p.id===id
+      ?{...p,processingComplete:true,conceptCount:master.length,
+          questionCount:uQuestions.length,flaggedCount:allHardRejected.length}
+      :p));
+
+    clearInterval(_timer);
+    setProcStatusInline(id,'Ready to study ✓',100);
+    renderLibrary();
+
+  } catch(err) {
+    clearInterval(_timer);
+    setProcStatusInline(id,'❌ '+err.message,0);
+    renderLibrary();
+  }
+}
+
+function setProcStatus(msg,pct) {
+  const s=document.getElementById('proc-status'),b=document.getElementById('proc-bar');
+  if(s) s.textContent=msg;
+  if(b) b.style.width=Math.min(100,pct)+'%';
+}
+function setProcStatusInline(pdfId,msg,pct) {
+  const s=document.getElementById('proc-status-'+pdfId);
+  const b=document.getElementById('proc-bar-'+pdfId);
+  if(s) s.textContent=msg;
+  if(b) b.style.width=Math.min(100,pct)+'%';
+}
+function plog(msg) {
+  const el=document.getElementById('proc-log');
+  if(el){el.innerHTML+=`<div>[${new Date().toLocaleTimeString()}] ${escHtml(msg)}</div>`;el.scrollTop=el.scrollHeight;}
+}
+
+async function extractText(file) {
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  const pages=[];
+  for(let i=1;i<=pdf.numPages;i++) {
+    const page=await pdf.getPage(i);
+    const c=await page.getTextContent();
+    let text='', prev=null;
+    c.items.forEach(item=>{
+      if(!item.str.trim()) return;
+      const yChanged=prev&&Math.abs(item.transform[5]-prev.transform[5])>2;
+      text+=(yChanged?'\n':' ')+item.str;
+      prev=item;
+    });
+    if(text.trim()) pages.push({page:i, text:text.trim()});
+  }
+  return pages; // [{page: number, text: string}]
+}
+
+function chunkText(pages,wordsPerChunk,overlapFraction) {
+  // Build flat word list with page provenance
+  const wordList=[];
+  pages.forEach(({page,text})=>{
+    text.split(/\s+/).filter(w=>w.length>0).forEach(w=>wordList.push({w,page}));
+  });
+
+  const overlap=Math.floor(wordsPerChunk*overlapFraction);
+  const step=wordsPerChunk-overlap;
+  const chunks=[];
+
+  for(let i=0;i<wordList.length;i+=step) {
+    let end=Math.min(i+wordsPerChunk,wordList.length);
+    // Extend up to 40 words to land on a sentence boundary
+    const maxExtend=Math.min(end+40,wordList.length);
+    while(end<maxExtend&&!/[.?!]$/.test(wordList[end-1].w)) end++;
+
+    const slice=wordList.slice(i,end);
+    if(slice.length<20){if(end>=wordList.length)break;continue;}
+
+    const text=slice.map(e=>e.w).join(' ');
+    const startPage=slice[0].page;
+    const endPage=slice[slice.length-1].page;
+
+    // Detect section headers: short lines (≤8 words), all-caps or Title Case
+    const lines=text.split('\n');
+    const headers=lines.filter(l=>{
+      const t=l.trim(), wc=t.split(/\s+/).filter(Boolean).length;
+      if(!wc||wc>8||t.length<4) return false;
+      const isAllCaps=t===t.toUpperCase()&&/[A-Z]/.test(t);
+      const isTitleCase=/^[A-Z]/.test(t)&&t.split(' ').filter(w=>w.length>3).every(w=>/^[A-Z]/.test(w));
+      return isAllCaps||isTitleCase;
+    }).map(l=>l.trim()).filter(Boolean).slice(0,3);
+
+    chunks.push({text,startPage,endPage,headers});
+    if(end>=wordList.length) break;
+  }
+  return chunks; // [{text, startPage, endPage, headers}]
+}
+
+// ── GEMINI API ───────────────────────────────────────────────
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+async function callGemini(prompt,maxTokens=8192,model=OPENAI_MODEL) {
+  for(let attempt=0;attempt<4;attempt++){
+    const r=await fetch(OPENAI_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+STATE.apiKey},
+      body:JSON.stringify({
+        model,
+        messages:[{role:'user',content:prompt}],
+        max_tokens:maxTokens,
+        temperature:0.3
+      })
+    });
+    if(r.ok){
+      const d=await r.json();
+      if(!d.choices?.[0]?.message?.content) throw new Error('Empty API response');
+      return d.choices[0].message.content;
+    }
+    const e=await r.json();
+    const msg=e.error?.message||'HTTP '+r.status;
+    const isRateLimit=r.status===429||msg.toLowerCase().includes('rate limit');
+    if(isRateLimit&&attempt<3){
+      const wait=10000*(attempt+1);
+      try{plog(`Rate limit — waiting ${wait/1000}s before retry…`);}catch(_){}
+      await sleep(wait);
+      continue;
+    }
+    throw new Error(msg);
+  }
+}
+
+function parseJSON(text) {
+  const clean=text.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+  const si=clean.indexOf('['),oi=clean.indexOf('{');
+  const s=si===-1&&oi===-1?-1:si===-1?oi:oi===-1?si:Math.min(si,oi);
+  if(s===-1) throw new Error('No JSON found in response');
+  const slice=clean.slice(s);
+
+  // Try 1: parse as-is
+  try { return JSON.parse(slice); } catch(e) {}
+
+  // Try 2: repair truncated arrays — find last complete top-level object
+  // by tracking depth through the string (respects strings/escapes)
+  let lastGood=-1, depth=0, inStr=false, esc=false;
+  for(let i=0;i<slice.length;i++){
+    const ch=slice[i];
+    if(esc){esc=false;continue;}
+    if(ch==='\\'&&inStr){esc=true;continue;}
+    if(ch==='"'){inStr=!inStr;continue;}
+    if(inStr) continue;
+    if(ch==='{') depth++;
+    if(ch==='}'){depth--;if(depth===0) lastGood=i;}
+  }
+  if(lastGood>0){
+    try{
+      const repaired=(s===si?'':'')+slice.slice(0,lastGood+1)+(s===si?']':'}');
+      // wrap in array if we started with [
+      const wrapped=si!==oi&&si===s?'['+slice.slice(0,lastGood+1)+']':slice.slice(0,lastGood+1);
+      const r=JSON.parse(wrapped);
+      if(Array.isArray(r)&&r.length>0) return r;
+      if(r&&typeof r==='object') return r;
+    }catch(e){}
+  }
+  throw new Error('Could not parse JSON from response');
+}
+
+// ── EMBEDDING & RAG ──────────────────────────────────────────
+
+// Call OpenAI text-embedding-3-small with dimension reduction
+async function embedTexts(texts) {
+  if(!texts.length) return [];
+  const r=await fetch(EMBED_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+STATE.apiKey},
+    body:JSON.stringify({model:EMBED_MODEL, input:texts.map(t=>t.slice(0,2000)), dimensions:EMBED_DIMS})
+  });
+  if(!r.ok){const e=await r.json();throw new Error('Embed API: '+(e.error?.message||r.status));}
+  const d=await r.json();
+  // Sort by index (API may reorder) and return float arrays
+  return d.data.sort((a,b)=>a.index-b.index).map(e=>e.embedding);
+}
+
+function cosineSimilarity(a,b) {
+  let dot=0,na=0,nb=0;
+  for(let i=0;i<a.length;i++){dot+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i];}
+  return dot/(Math.sqrt(na)*Math.sqrt(nb)||1e-9);
+}
+
+function retrieveTopChunks(allChunks,queryEmbedding,topK=RAG_TOP_K) {
+  return [...allChunks]
+    .filter(c=>c.embedding&&c.embedding.length>0)
+    .map(c=>({...c,_score:cosineSimilarity(c.embedding,queryEmbedding)}))
+    .sort((a,b)=>b._score-a._score)
+    .slice(0,topK);
+}
+
+// Embed all raw chunks in batches; returns enriched ChunkRecord[]
+// Truncates floats to 4 decimal places to reduce localStorage footprint (~3x smaller)
+async function embedAllChunks(rawChunks,pdfId) {
+  const EBATCH=20;
+  const records=rawChunks.map((c,i)=>({
+    id:pdfId+'_ch_'+i, pdfId,
+    text:c.text, startPage:c.startPage, endPage:c.endPage,
+    headers:c.headers||[], chunkIndex:i, embedding:[]
+  }));
+
+  for(let i=0;i<records.length;i+=EBATCH) {
+    const batch=records.slice(i,i+EBATCH);
+    try {
+      const vecs=await embedTexts(batch.map(c=>c.text));
+      batch.forEach((c,j)=>{
+        c.embedding=vecs[j].map(v=>Math.round(v*10000)/10000);
+      });
+    } catch(e) {
+      // Non-fatal: generation falls back to keyFacts-only if no embedding
+      try{plog(`Embedding batch ${Math.floor(i/EBATCH)+1} failed (${e.message}) — RAG will be partial`);}catch(_){}
+    }
+    const pct=5+((i+EBATCH)/records.length)*13;
+    setProcStatusInline(pdfId,`Embedding ${Math.min(i+EBATCH,records.length)}/${records.length}…`,pct);
+  }
+  return records;
+}
+
+// ── CONTENT INVENTORY EXTRACTION ─────────────────────────────
+async function extractInventory(chunkOrBatch,density,batchIdx=0,totalBatches=1,totalChunks=1) {
+  const dc=DENSITY[density];
+  // Accept ChunkRecord objects [{id,text,startPage,endPage,headers}] or plain strings
+  const isRecords=Array.isArray(chunkOrBatch)&&chunkOrBatch.length&&typeof chunkOrBatch[0]==='object';
+  const records=isRecords?chunkOrBatch:
+    (Array.isArray(chunkOrBatch)?chunkOrBatch.map((t,i)=>({id:'legacy_'+i,text:t,startPage:null,endPage:null}))
+    :[{id:'legacy_0',text:chunkOrBatch,startPage:null,endPage:null}]);
+
+  // Use real page numbers from chunk records (fall back to word-count estimate)
+  const realStart=records.find(r=>r.startPage!=null)?.startPage;
+  const realEnd=records.slice(-1)[0]?.endPage;
+  const wordsPerPage=275;
+  const startPage=realStart!=null?realStart:Math.max(1,Math.round((batchIdx*3*dc.words)/wordsPerPage));
+  const endPage=realEnd!=null?realEnd:Math.round(((batchIdx*3+3)*dc.words)/wordsPerPage);
+
+  // Track which chunk IDs are in this batch for coverage attribution
+  const sourceChunkIds=records.map(r=>r.id).filter(Boolean);
+
+  const combined=records.map(r=>r.text).join('\n\n---\n\n');
+  const prompt=`You are a medical education expert performing comprehensive content analysis for exam preparation.
+
+MEDICAL TEXT:
+"""
+${combined}
+"""
+
+${dc.hint}
+
+Return ONLY valid JSON (no markdown, no code blocks):
+{"headings":["Lower GI Tract","Crohn Disease"],"concepts":[{"name":"Myenteric Plexus","category":"Anatomical Structure","importance":"high","keyFacts":["between circular and longitudinal muscle layers","controls peristalsis","absent in Hirschsprung disease"],"clinicalRelevance":"Loss of inhibitory ganglion cells causes achalasia; absent in Hirschsprung disease","associations":["achalasia","Hirschsprung disease","Chagas disease"]}]}
+
+FIELD DEFINITIONS:
+- name: specific, testable name (drug, structure, condition, mechanism, finding)
+- category: Anatomical Structure | Pathological Condition | Pathophysiological Mechanism | Clinical Presentation | Diagnostic Method | Treatment | Drug/Pharmacology | Risk Factor | Complication | Classic Association | Key Term
+- importance: "high" (board-testable, first-line, gold standard, classic association) | "medium" (important) | "low" (supporting detail)
+- keyFacts: 2-4 specific testable facts (mechanisms, diagnostics, treatments — fold them in here)
+- clinicalRelevance: one sentence on clinical significance (empty string if not applicable)
+- associations: 1-3 classic linked concepts, conditions to distinguish, or commonly confused items
+
+Extract ${dc.min}-${dc.max} concepts per section. Every named structure, disease, drug, test, mechanism, complication, contraindication, classic association, or board-tested detail in the text must be captured.`;
+
+  const batchSize=Array.isArray(chunkOrBatch)?chunkOrBatch.length:1;
+  const text=await callGemini(prompt,Math.min(4000*batchSize,16384));
+  const data=parseJSON(text);
+  const arr=Array.isArray(data)?data:(data.concepts||[]);
+  const headings=!Array.isArray(data)&&Array.isArray(data.headings)?data.headings:[];
+  return {
+    headings,
+    sourceChunkIds,  // which chunks contributed to this inventory batch
+    concepts:arr.filter(c=>c.name&&c.category).map(c=>({
+      name:c.name,
+      category:c.category||'Key Term',
+      importance:['high','medium','low'].includes(c.importance)?c.importance:'medium',
+      keyFacts:Array.isArray(c.keyFacts)?c.keyFacts.filter(f=>typeof f==='string'&&f.trim().length>3).slice(0,5):[],
+      clinicalRelevance:c.clinicalRelevance||'',
+      associations:Array.isArray(c.associations)?c.associations.slice(0,4):[],
+      pageEstimate:`${startPage}`,
+      sourceChunkIds  // every concept found in this batch inherits the batch's chunk IDs
+    }))
+  };
+}
+
+// Merge chunk inventories into single deduplicated master concept list
+function mergeInventory(inventories,pdfId) {
+  const seen=new Map(); // normalized key → merged concept
+  const impRank={high:3,medium:2,low:1};
+
+  inventories.forEach(inv=>{
+    (inv.concepts||[]).forEach(c=>{
+      const key=c.name.toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,30)+'|'+(c.category||'').toLowerCase().replace(/[^a-z]/g,'').slice(0,10);
+      if(!seen.has(key)) {
+        seen.set(key,{...c, sourceChunkIds:[...(c.sourceChunkIds||[])]});
+      } else {
+        const ex=seen.get(key);
+        // Upgrade importance if this occurrence is higher-yield
+        if((impRank[c.importance]||1)>(impRank[ex.importance]||1)) ex.importance=c.importance;
+        // Merge arrays, deduplicate, cap size
+        ['keyFacts','associations'].forEach(f=>{
+          if(Array.isArray(c[f])&&c[f].length)
+            ex[f]=[...new Set([...(ex[f]||[]),...c[f]])].slice(0,6);
+        });
+        if(c.clinicalRelevance){
+          if(!ex.clinicalRelevance) ex.clinicalRelevance=c.clinicalRelevance;
+          else if(!ex.clinicalRelevance.toLowerCase().includes(c.clinicalRelevance.toLowerCase().slice(0,30))){
+            ex.clinicalRelevance=(ex.clinicalRelevance+' '+c.clinicalRelevance).slice(0,300);
+          }
+        }
+        // Union chunk IDs — concept was mentioned in multiple places in the PDF
+        if(Array.isArray(c.sourceChunkIds)&&c.sourceChunkIds.length){
+          ex.sourceChunkIds=[...new Set([...(ex.sourceChunkIds||[]),...c.sourceChunkIds])];
+        }
+      }
+    });
+  });
+
+  return [...seen.values()].map(c=>({
+    id: pdfId+'_c_'+Math.random().toString(36).slice(2,10),
+    pdfId,
+    concept:c.name,
+    category:c.category,
+    importance:c.importance,
+    keyFacts:c.keyFacts,
+    clinicalRelevance:c.clinicalRelevance,
+    associations:c.associations,
+    pageEstimate:c.pageEstimate||'',
+    sourceChunkIds:c.sourceChunkIds||[],  // coverage tracking: which chunks mention this concept
+    masteryL1:0,masteryL2:0,masteryL3:0
+  }));
+}
+
+// ── COVERAGE-FIRST QUESTION GENERATION ───────────────────────
+// allChunkRecords: ChunkRecord[] from Phase 2.5 (embeddings stored); may be empty for legacy calls
+async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[]) {
+  const dc=DENSITY[density];
+  const all=[];
+
+  // ── RAG: embed concept queries and retrieve top-k source chunks per concept
+  const hasEmbeddings=allChunkRecords.some(c=>c.embedding&&c.embedding.length>0);
+  let conceptChunks=batch.map(()=>[]); // parallel array: top chunks per concept
+
+  if(hasEmbeddings) {
+    try {
+      // Embed all concept queries in one batch call
+      const queries=batch.map(c=>`${c.concept}: ${(c.keyFacts||[]).slice(0,3).join('. ')}`);
+      const queryVecs=await embedTexts(queries);
+      queryVecs.forEach((qVec,i)=>{
+        const c=batch[i];
+        // Prefer known source chunks for this concept, then fill with similarity search
+        const sourceIds=new Set(c.sourceChunkIds||[]);
+        const sourceChunks=allChunkRecords.filter(r=>sourceIds.has(r.id)&&r.embedding.length>0);
+        // Fill remaining slots from full similarity search (excluding already-included source chunks)
+        const excluded=new Set(sourceChunks.map(r=>r.id));
+        const simChunks=retrieveTopChunks(
+          allChunkRecords.filter(r=>!excluded.has(r.id)),
+          qVec,
+          Math.max(0,RAG_TOP_K-sourceChunks.length)
+        );
+        // Merge: source chunks first (highest confidence), then similarity results
+        conceptChunks[i]=[...sourceChunks,...simChunks].slice(0,RAG_TOP_K);
+      });
+    } catch(e) {
+      // Non-fatal: fall back to no RAG for this batch
+      conceptChunks=batch.map(()=>[]);
+    }
+  }
+
+  // Build per-concept specs with explicit level requirements based on importance + density
+  const specs=batch.map((c,i)=>{
+    const levels=dc.levels[c.importance]||[1,2];
+    const facts=[
+      ...(c.keyFacts||[]),
+      c.clinicalRelevance||'',
+      ...(c.associations||[]).slice(0,3)
+    ].filter(Boolean).join('; ');
+    // Format retrieved passages for prompt injection (cap at 350 chars each to control token budget)
+    const passages=conceptChunks[i].map(ch=>{
+      const pageRange=ch.startPage&&ch.endPage&&ch.startPage!==ch.endPage
+        ?`pages ${ch.startPage}–${ch.endPage}`:`page ${ch.startPage||'?'}`;
+      return `> "${ch.text.slice(0,350).replace(/"/g,"'")}"  [${pageRange}]`;
+    }).join('\n');
+    return{name:c.concept,category:c.category,importance:c.importance,levels,facts,
+          pageEstimate:c.pageEstimate||'',passages};
+  });
+
+  const specsText=specs.map((cs,i)=>`
+CONCEPT ${i+1}: ${cs.name} [${cs.category}] [${cs.importance}-yield] [Pages: ${cs.pageEstimate||'unknown'}]
+Key information: ${cs.facts}${cs.passages?`\nSource passages from PDF:\n${cs.passages}`:''}
+Required question levels: ${cs.levels.map(l=>l===1?'L1=recall/definition':l===2?'L2=mechanism/application':'L3=clinical vignette/comparison').join(', ')}`).join('\n');
+
+  const prompt=`You are a medical board exam writer. Generate MCQ questions with MANDATORY per-concept coverage.
+${specsText}
+
+LEVEL STEM RULES (strictly enforced):
+- Level 1: Recall only. Simple direct questions are acceptable.
+- Level 2: MUST test mechanism, comparison, or "why/how" reasoning. NEVER write a Level 2 question that is just a definition or "what is the role/function of X" — that is Level 1. Level 2 must require the student to explain HOW something works, WHY a process occurs, or COMPARE two related concepts.
+- Level 3: MUST be a clinical vignette. Format: "[Age]-year-old [male/female] presents with [specific symptoms]. Which of the following [best explains/is most likely/is the next best step]?" Every Level 3 question must have a patient with age, sex, and clinical presentation. Abstract stems at Level 3 are not allowed.
+
+QUALITY RULES (strictly enforced):
+1. Generate EXACTLY the required levels for every concept — no skipping, no merging
+2. L1: direct recall but must require genuine knowledge, not just word-matching. CLASSIC ASSOCIATION RULE: if the concept has a pathognomonic sign, eponym, memorable drug-disease link, or classic boards triad, write that as the L1 question using a pattern-recognition format — e.g. "Which finding is pathognomonic for X?", "Which drug is classically associated with Y in neonates?", "What is the triad of Z?" These rapid-fire one-liners are heavily tested on boards. STEM VARIETY: do NOT start every L1 question with "What is..." — vary openers: "Which of the following best describes...", "A hallmark feature of X is...", "X is characterised by...", "Which finding is most associated with...", "A patient with X would most likely have...", "The defining histological feature of X is..."
+3. L2: must test mechanism, pathophysiology, or clinical application — not surface recall
+4. L3: must open with a brief patient scenario (age, presentation, key finding) then ask the question
+
+OPTION COUNT RULES (strictly enforced):
+5. Level 1 questions MUST have exactly 5 answer choices (A-E). Level 2 and Level 3 questions MUST have exactly 4 answer choices (A-D). This matches USMLE Step 1 format. correctAnswer is still a 0-based index (0=A, 1=B, 2=C, 3=D, 4=E for L1).
+
+ANSWER POSITION RULES (strictly enforced):
+6. Vary the position of the correct answer — do NOT consistently place it in position A or B. Distribute correct answers evenly across all positions.
+7. All answer options must be approximately the same length. The correct answer must NOT be noticeably longer, more detailed, or more specific than the distractors. If you need to add detail to the correct answer, add equivalent detail to the distractors too.
+
+DISTRACTOR RULES (strictly enforced):
+8. Distractors must belong to the SAME conceptual category as the correct answer.
+   - If the answer is a complication of HBV, ALL distractors must also be liver complications — not NAFLD or alcohol unless they are directly relevant.
+   - If the answer is a drug mechanism, ALL distractors must be drug mechanisms in the same class or clinical context.
+   - NEVER offer an answer the question stem itself rules out. If the stem says "viral hepatitis," do not list "alcoholic steatohepatitis" unless alcohol use is part of the scenario.
+9. Each distractor must represent a genuine student misconception — something a knowledgeable student who hasn't fully mastered this concept would plausibly choose. If a distractor would only be chosen by someone who knows nothing, replace it.
+10. Never write near-duplicate questions within a batch
+
+EXPLANATION RULES:
+11. The "explanation" field: state WHY the correct answer is right (mechanism/key fact) AND why the most tempting distractor is wrong.
+12. The "sourceQuote" field: write the single most relevant sentence from the key information provided above that DIRECTLY proves the correct answer is true. Precise, factual, and concise — quote or closely paraphrase the specific fact that settles the question.
+13. The "pageEstimate" field: use only the starting page number from the concept spec as a plain integer (e.g. "12", never "~12–17" or ranges).
+
+Return ONLY valid JSON array (no markdown, no code blocks).
+L1 example (5 options, correctAnswer 0-based index 0–4):
+[{"conceptName":"Pyloric Stenosis","level":1,"question":"Which physical exam finding is pathognomonic for hypertrophic pyloric stenosis?","options":["Olive-shaped mass in the epigastrium","Hyperactive bowel sounds in the RLQ","Rebound tenderness at McBurney's point","Succussion splash on abdominal auscultation","Dance's sign on palpation"],"correctAnswer":0,"explanation":"A palpable olive-shaped mass in the epigastrium represents the hypertrophied pylorus and is pathognomonic for HPS. The other findings are associated with different GI conditions.","sourceQuote":"Hypertrophic pyloric stenosis presents with a palpable, firm, olive-shaped mass in the epigastric region, representing the hypertrophied pyloric muscle.","pageEstimate":"12"}]
+L2/L3 example (4 options, correctAnswer 0-based index 0–3):
+[{"conceptName":"Myenteric Plexus","level":2,"question":"Why does achalasia cause dysphagia to both solids and liquids equally?","options":["Loss of inhibitory myenteric neurons removes VIP/NO-mediated LES relaxation","Fibrosis of esophageal smooth muscle prevents peristaltic wave propagation","Excess ACh from overactive excitatory neurons causes sustained esophageal spasm","Autoimmune destruction of submucosal Meissner plexus blocks swallowing reflex"],"correctAnswer":0,"explanation":"Achalasia results from selective destruction of inhibitory myenteric neurons that release VIP and NO to relax the LES. Without inhibitory input, the LES fails to relax, causing aperistalsis and functional obstruction equally for liquids and solids.","sourceQuote":"Inhibitory neurons of the myenteric plexus release VIP and NO to relax the LES; selective loss of these neurons in achalasia causes aperistalsis and failure of LES relaxation.","pageEstimate":"5"}]
+
+correctAnswer is the 0-based index of the correct option. sourceQuote and pageEstimate are required for every question.`;
+
+  try {
+    // Initial batch uses gpt-4o-mini — Auditor (gpt-4o) is the quality gate;
+    // any question that passes audit is board-quality regardless of who drafted it.
+    // Revisions use WRITER_MODEL (gpt-4o) for surgical fixes.
+    const text=await callGemini(prompt,8192,OPENAI_MODEL);
+    const qs=parseJSON(text);
+    if(!Array.isArray(qs)) return all;
+    qs.filter(q=>q.question&&Array.isArray(q.options)&&
+      (q.options.length===4||(parseInt(q.level)===1&&q.options.length===5))&&
+      typeof q.correctAnswer==='number'&&q.correctAnswer>=0&&q.correctAnswer<q.options.length&&q.level)
+      .forEach(q=>{
+        // Concept lookup — drop unmatched rather than mis-attribute to batch[0]
+        const concept=batch.find(c=>
+          c.concept.toLowerCase()===(q.conceptName||'').toLowerCase())||
+          batch.find(c=>{
+            const qn=(q.conceptName||'').toLowerCase();
+            const cn=c.concept.toLowerCase();
+            return cn.includes(qn)||qn.includes(cn);
+          });
+        if(!concept) return; // skip — do NOT fall back to batch[0]
+
+        // Fisher-Yates shuffle options so correct answer is evenly distributed
+        let opts=[...q.options];
+        let correctIdx=parseInt(q.correctAnswer)||0;
+        const n=opts.length;
+        for(let i=n-1;i>0;i--){
+          const j=Math.floor(Math.random()*(i+1));
+          [opts[i],opts[j]]=[opts[j],opts[i]];
+          if(correctIdx===i) correctIdx=j;
+          else if(correctIdx===j) correctIdx=i;
+        }
+
+        all.push({
+          id:pdfId+'_q_'+Math.random().toString(36).slice(2,12),
+          pdfId,conceptId:concept.id,conceptName:concept.concept,
+          category:concept.category,importance:concept.importance||'medium',
+          level:parseInt(q.level)||1,
+          question:q.question,options:opts,
+          correctAnswer:correctIdx,
+          explanation:q.explanation||'',
+          optionExplanations:[],  // generated lazily on first answer (see generateOptionExplanations)
+          sourceQuote:typeof q.sourceQuote==='string'&&q.sourceQuote?q.sourceQuote:'',
+          pageEstimate:q.pageEstimate||concept.pageEstimate||'',
+          interval:0,easeFactor:2.5,repetitions:0,
+          nextReview:new Date().toISOString(),lastReviewed:null,
+          timesReviewed:0,timesCorrect:0,timesIncorrect:0,qualityRatings:[]
+        });
+      });
+  } catch(e) { console.warn('Q gen error:',e.message); }
+  return all;
+}
+
+// ── PHASE 6: MULTI-AGENT CLINICAL AUDIT ─────────────────────
+//
+// Architecture:
+//   Writer Agent  (gpt-4o) ──► Auditor Agent (gpt-4o, judge)
+//        ▲                           │
+//        └──── REVISE feedback ──────┘  (max MAX_REVISE_ITERATIONS loops)
+//                                   │── PASS  → question bank
+//                                   └── REJECT (after max loops) → flagged store
+//
+// Auditor emits 3-state verdicts:
+//   PASS   — meets all 4 board criteria; accept immediately
+//   REVISE — fixable flaw identified; feed critique back to Writer for revision
+//   REJECT — unfixable or failed MAX_REVISE_ITERATIONS revisions; flag for human review
+
+// ── Auditor Agent: single-call batch audit ───────────────────
+// Returns [{idx, status:'PASS'|'REVISE'|'REJECT', criterion, critique}]
+async function runAuditAgent(questions) {
+  if(!questions.length) return [];
+
+  const _auditLetters=['A','B','C','D','E'];
+  const qList=questions.map((q,i)=>`Q${i+1} [${q.conceptName||'?'}] L${q.level}
+Stem: ${q.question}
+Options: ${q.options.map((o,j)=>`${j===q.correctAnswer?'★':''}${_auditLetters[j]}) ${o}`).join(' | ')}
+SourceQuote: ${q.sourceQuote||'(none)'}`).join('\n\n');
+
+  const prompt=`You are a Senior USMLE/COMLEX Clinical Audit Agent performing board-standard quality review. You are acting as an impartial judge — not a question writer. Respond ONLY with valid JSON.
+
+QUESTIONS TO AUDIT:
+${qList}
+
+EVALUATE EACH QUESTION strictly against these 4 criteria:
+
+1. HOMOGENEITY — All distractors must belong to the exact same medical category as the correct answer.
+   Fail example: correct answer is a drug mechanism; distractors are symptoms, anatomical structures, or lab values.
+   Pass requires: all options are the same type of entity (all drugs, all complications, all mechanisms, etc.)
+   Note: L1 questions have 5 options (A-E), L2/L3 have 4 options (A-D) — both are correct formats.
+
+2. PLAUSIBILITY — Every distractor must be a near-miss that a knowledgeable student who hasn't fully mastered this concept would genuinely choose.
+   Fail example: a distractor is obviously unrelated, already ruled out by the stem, or only someone who knows nothing would pick it.
+
+3. EVIDENCE — If a sourceQuote is provided, it must directly and unambiguously prove the correct answer is right — not a tangential or loosely related fact.
+
+4. LEAD-IN — The stem must be specific enough that a student can formulate the correct answer BEFORE seeing the options ("Which of the following is true about X" = fail; "A 32-year-old presents with… The most likely mechanism is…" = pass).
+
+VERDICT RULES:
+- PASS: Meets all 4 criteria. No significant flaws.
+- REVISE: Has exactly ONE fixable flaw in a single criterion. The critique must name the criterion and give a specific 1-sentence fix instruction.
+- REVISE if any distractor (wrong answer option) belongs to a completely different organ system or physiological domain than the correct answer AND could be ruled out without any subject-specific knowledge (e.g., in a neuroscience question, distractors like "regulation of heart rate", "insulin secretion", "kidney filtration" that have nothing to do with the nervous system — these make the question trivially easy).
+- REVISE if a Level 2 question begins with "What is the [primary/main/key/significance/role/function/pathophysiology/mechanism] of [concept name]" where the stem adds no additional clinical context beyond the concept name itself — this is disguised Level 1 recall. Critique must say: "Rewrite as a mechanism/comparison/why question: explain WHY [X] occurs or HOW [X] leads to [Y]."
+- REJECT: Has multiple simultaneous failures, a factually incorrect correct answer, or the stem is irreparably ambiguous.
+
+Return a compact JSON array (no markdown, no prose outside JSON):
+[
+  {"idx":0,"status":"PASS"},
+  {"idx":1,"status":"REVISE","criterion":"HOMOGENEITY","critique":"Distractors mix drug classes and symptoms; replace all 3 with other beta-blocker mechanisms"},
+  {"idx":2,"status":"REJECT","criterion":"LEAD-IN","critique":"Stem asks 'which is true about ACE inhibitors' — irreparably vague, cannot be fixed without full rewrite"}
+]
+
+Be strict but fair. REVISE when there is ONE clear, fixable issue. REJECT only when the question is fundamentally broken.`;
+
+  try {
+    const text=await callGemini(prompt,1500,AUDITOR_MODEL);
+    const results=parseJSON(text);
+    if(!Array.isArray(results)) return questions.map((_,i)=>({idx:i,status:'PASS'}));
+    // Normalise: ensure every index has a verdict (default PASS for missing)
+    const byIdx=Object.fromEntries(results.map(r=>[r.idx,r]));
+    return questions.map((_,i)=>byIdx[i]||{idx:i,status:'PASS'});
+  } catch(e) {
+    // Audit failure → pass all through (never block pipeline on audit errors)
+    return questions.map((_,i)=>({idx:i,status:'PASS'}));
+  }
+}
+
+// ── Writer Agent: generate ONE question with full rubric ──────
+// ragPassages: optional string of retrieved PDF passages for grounding
+async function writerAgentGenerate(concept, level, pdfId, density, ragPassages='') {
+  const levelLabel=level===1?'L1 — Recall / Definition':level===2?'L2 — Mechanism / Application':'L3 — Clinical Vignette / Comparison';
+  const facts=[...(concept.keyFacts||[]),concept.clinicalRelevance||'',...(concept.associations||[]).slice(0,3)].filter(Boolean).join('; ');
+
+  const sourceSection=ragPassages
+    ?`\nSOURCE PASSAGES FROM PDF (use to ground the question and sourceQuote):\n${ragPassages}\n`:'';
+
+  const prompt=`You are a specialist USMLE/COMLEX Writer Agent. Generate exactly ONE board-quality MCQ.
+
+CONCEPT: ${concept.concept} [${concept.category}] [${concept.importance}-yield]
+Required level: ${levelLabel}
+Key information: ${facts}${sourceSection}
+
+BOARD-STANDARD WRITING RULES (all mandatory):
+1. The correct answer must be directly defensible from the key information or source passages above — no speculation.
+2. All distractors must be from the SAME conceptual category as the correct answer (all drugs, all lab findings, all mechanisms, etc.).
+3. Every distractor must represent a genuine near-miss — something a partially-informed student would plausibly choose.
+4. The stem must be specific enough to answer BEFORE reading the options. Never write "Which is true about X" stems.
+5. L3 must open with a patient scenario (age, presentation, key finding) then ask a reasoning question.
+6. All options must be approximately the same length. The correct answer must NOT be longer or more detailed.
+7. Vary the correct answer position — do NOT default to A or B.
+8. The sourceQuote must be the single most relevant verbatim sentence (or close paraphrase) from the key information or source passages that directly proves the correct answer.
+9. L1 questions MUST have exactly 5 options (A-E). L2/L3 questions MUST have exactly 4 options (A-D).
+
+Return a single JSON object only — no markdown, no prose:
+L1: {"conceptName":"${concept.concept}","level":${level},"question":"...","options":["...","...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate||''}"}
+L2/L3: {"conceptName":"${concept.concept}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate||''}"}`;
+
+  const text=await callGemini(prompt,2048,WRITER_MODEL);
+  const raw=parseJSON(text);
+  return Array.isArray(raw)?raw[0]:raw;
+}
+
+// ── Writer Agent: revise ONE question given auditor critique ──
+async function writerAgentRevise(concept, prevQuestion, criterion, critique, pdfId, ragPassages='') {
+  const level=prevQuestion.level;
+  const levelLabel=level===1?'L1 — Recall / Definition':level===2?'L2 — Mechanism / Application':'L3 — Clinical Vignette / Comparison';
+  const facts=[...(concept.keyFacts||[]),concept.clinicalRelevance||'',...(concept.associations||[]).slice(0,3)].filter(Boolean).join('; ');
+
+  const sourceSection=ragPassages
+    ?`\nSOURCE PASSAGES FROM PDF:\n${ragPassages}\n`:'';
+
+  const prompt=`You are a specialist USMLE/COMLEX Writer Agent. Revise the question below based on the auditor's feedback.
+
+CONCEPT: ${concept.concept} [${concept.category}]
+Required level: ${levelLabel}
+Key information: ${facts}${sourceSection}
+
+PREVIOUS VERSION (do NOT repeat its flaws):
+Stem: ${prevQuestion.question}
+Options: ${prevQuestion.options.map((o,j)=>`${j===prevQuestion.correctAnswer?'★':''}${['A','B','C','D'][j]}) ${o}`).join(' | ')}
+
+AUDITOR REJECTION — Criterion violated: ${criterion}
+Specific fix required: "${critique}"
+
+Address ONLY the named criterion. Keep everything else correct (same concept, same level, same category constraints). Apply all standard board rules: same-category distractors, equal option lengths, no length tells, stem answerable before options.
+
+Return a single JSON object only — no markdown, no prose:
+{"conceptName":"${concept.concept}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate||''}"}`;
+
+  const text=await callGemini(prompt,2048,WRITER_MODEL);
+  const raw=parseJSON(text);
+  return Array.isArray(raw)?raw[0]:raw;
+}
+
+// ── Normalise raw LLM question object into a stored Question ──
+function normaliseQuestion(raw, concept, level, pdfId) {
+  const resolvedLevel=parseInt(raw?.level)||level;
+  const allowedLen=resolvedLevel===1?[4,5]:[4];
+  if(!raw?.question||!Array.isArray(raw.options)||!allowedLen.includes(raw.options.length)||
+     typeof raw.correctAnswer!=='number'||raw.correctAnswer<0||raw.correctAnswer>=raw.options.length) return null;
+
+  let opts=[...raw.options], ci=raw.correctAnswer;
+
+  // Fisher-Yates shuffle on indices
+  const n=opts.length;
+  for(let i=n-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [opts[i],opts[j]]=[opts[j],opts[i]];
+    if(ci===i) ci=j; else if(ci===j) ci=i;
+  }
+
+  return {
+    id:pdfId+'_q_'+Math.random().toString(36).slice(2,12),
+    pdfId, conceptId:concept.id, conceptName:concept.concept,
+    category:concept.category, importance:concept.importance||'medium',
+    level:parseInt(raw.level)||level,
+    question:raw.question, options:opts, correctAnswer:ci,
+    explanation:raw.explanation||'',
+    optionExplanations:[], // generated lazily on first answer
+    sourceQuote:typeof raw.sourceQuote==='string'?raw.sourceQuote:'',
+    pageEstimate:raw.pageEstimate||concept.pageEstimate||'',
+    interval:0, easeFactor:2.5, repetitions:0,
+    nextReview:new Date().toISOString(), lastReviewed:null,
+    timesReviewed:0, timesCorrect:0, timesIncorrect:0, qualityRatings:[]
+  };
+}
+
+// ── Main audit orchestrator ───────────────────────────────────
+// Runs the Writer→Auditor loop on a batch of already-generated questions.
+// Returns {passed, hardRejected}
+// hardRejected: [{conceptId, conceptName, level, critique, attempts}] — stored for human review
+async function auditQuestions(questions, conceptBatch, pdfId='', ragPassages={}) {
+  if(!questions.length) return {passed:[],hardRejected:[]};
+
+  const passed=[], hardRejected=[];
+  // Track questions in flight: may go through multiple revise cycles
+  let inFlight=questions.map(q=>({q, iteration:0}));
+
+  for(let iter=0;iter<MAX_REVISE_ITERATIONS+1;iter++) {
+    if(!inFlight.length) break;
+
+    // Run Auditor Agent on current batch
+    const verdicts=await runAuditAgent(inFlight.map(e=>e.q));
+
+    const nextRound=[];
+    for(let i=0;i<inFlight.length;i++) {
+      const {q, iteration}=inFlight[i];
+      const v=verdicts[i];
+
+      if(v.status==='PASS') {
+        passed.push(q);
+        continue;
+      }
+
+      if(v.status==='REJECT'||iteration>=MAX_REVISE_ITERATIONS) {
+        // Hard reject: store for human review, do not add to question bank
+        hardRejected.push({
+          conceptId:q.conceptId, conceptName:q.conceptName,
+          level:q.level, criterion:v.criterion||'UNKNOWN',
+          critique:v.critique||'Failed audit', attempts:iteration+1,
+          lastQuestion:q  // preserve for manual rescue if needed
+        });
+        continue;
+      }
+
+      // REVISE: send back to Writer Agent with specific critique
+      try {
+        const concept=conceptBatch.find(c=>c.id===q.conceptId)
+          ||conceptBatch.find(c=>c.concept.toLowerCase()===q.conceptName?.toLowerCase())
+          ||conceptBatch[0];
+        const passages=ragPassages[concept?.id]||'';
+        const revised=await writerAgentRevise(concept, q, v.criterion||'', v.critique||'', pdfId, passages);
+        const normed=normaliseQuestion(revised, concept, q.level, pdfId);
+        if(normed) {
+          nextRound.push({q:normed, iteration:iteration+1});
+        } else {
+          // Revision produced malformed JSON — hard reject
+          hardRejected.push({
+            conceptId:q.conceptId, conceptName:q.conceptName, level:q.level,
+            criterion:v.criterion||'PARSE_ERROR', critique:'Revision returned invalid JSON',
+            attempts:iteration+1, lastQuestion:q
+          });
+        }
+      } catch(e) {
+        // Writer revision failed — hard reject rather than block
+        hardRejected.push({
+          conceptId:q.conceptId, conceptName:q.conceptName, level:q.level,
+          criterion:'WRITER_ERROR', critique:e.message, attempts:iteration+1, lastQuestion:q
+        });
+      }
+    }
+    inFlight=nextRound;
+  }
+
+  return {passed, hardRejected};
+}
+
+// Legacy alias — used by generateSingleQuestion rescue path below
+// (Single-shot regeneration without full audit loop, for fast retry on parse errors)
+async function generateSingleQuestion(concept, level, critique, pdfId, density, ragPassages='') {
+  try {
+    const levelLabel=level===1?'L1=recall/definition':level===2?'L2=mechanism/application':'L3=clinical vignette/comparison';
+    const facts=[...(concept.keyFacts||[]),concept.clinicalRelevance||'',...(concept.associations||[]).slice(0,2)].filter(Boolean).join('; ');
+    const sourceSection=ragPassages?`\nSource passages:\n${ragPassages}\n`:'';
+    const prompt=`You are a medical board exam writer. Generate ONE improved MCQ.
+CONCEPT: ${concept.concept} [${concept.category}] [${concept.importance}-yield]
+Key information: ${facts}${sourceSection}
+Required level: ${levelLabel}
+Fix this specific issue: "${critique}"
+Apply all standard rules: same-category distractors, equal option lengths, vary correct answer position.
+Return a single JSON object (no array, no markdown):
+{"conceptName":"${concept.concept}","level":${level},"question":"...","options":["A","B","C","D"],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate||''}"}`;
+    const text=await callGemini(prompt,2048,WRITER_MODEL);
+    const raw=parseJSON(text);
+    return normaliseQuestion(Array.isArray(raw)?raw[0]:raw, concept, level, pdfId);
+  } catch(e) { return null; }
+}
+
+function dedupQuestions(arr) {
+  const seen=new Set();
+  const clCount=new Map();
+  return arr.filter(q=>{
+    // Surface dedup: first 50 normalised chars
+    const k=q.question.toLowerCase().replace(/\s+/g,' ').slice(0,50);
+    if(seen.has(k)) return false;
+    seen.add(k);
+    // Per-concept per-level cap: max 2 questions
+    const clk=(q.conceptId||q.conceptName||'')+'_L'+q.level;
+    const n=clCount.get(clk)||0;
+    if(n>=2) return false;
+    clCount.set(clk,n+1);
+    return true;
+  });
+}
+
+// ── MASTERY ENGINE ───────────────────────────────────────────
+function conceptMastery(concept, questions) {
+  const byL={1:[],2:[],3:[]};
+  questions.filter(q=>q.conceptId===concept.id).forEach(q=>{ const l=Math.min(3,Math.max(1,parseInt(q.level)||1)); byL[l].push(q); });
+
+  function score(qs) {
+    const ans=qs.filter(q=>q.timesReviewed>0);
+    if(!ans.length) return 0;
+    const tot=ans.reduce((s,q)=>s+q.timesCorrect,0);
+    const att=ans.reduce((s,q)=>s+q.timesReviewed,0);
+    return Math.min(100,Math.round(tot/att*100));
+  }
+
+  const l1=score(byL[1]), l2=score(byL[2]), l3=score(byL[3]);
+  const hasAny=Object.values(byL).some(qs=>qs.some(q=>q.timesReviewed>0));
+  let overall=0;
+  if(hasAny) {
+    const ws=[.25,.40,.35], cs=[byL[1].length,byL[2].length,byL[3].length], vs=[l1,l2,l3];
+    let wsum=0,wtot=0;
+    vs.forEach((v,i)=>{ if(cs[i]){wsum+=v*ws[i];wtot+=ws[i];} });
+    overall=wtot?Math.round(wsum/wtot):0;
+  }
+
+  const status=!hasAny?'new':overall<40?'weak':overall<70?'medium':overall<90?'strong':'mastered';
+  return {conceptId:concept.id, l1, l2, l3, overall, status};
+}
+
+function computeAllMastery(pdfId) {
+  const concepts=S.concepts(pdfId), questions=S.questions(pdfId);
+  return concepts.map(c=>conceptMastery(c,questions));
+}
+
+function targetLevel(m) {
+  if(m.l1<60) return 1;
+  if(m.l2<60) return 2;
+  if(m.l3<60) return 3;
+  return [m.l1,m.l2,m.l3].indexOf(Math.min(m.l1,m.l2,m.l3))+1;
+}
+
+// ── OPEN STUDY ───────────────────────────────────────────────
+function openStudy(pdfId) {
+  STATE.currentPdfId=pdfId;
+  startStudy();
+}
+
+function startStudy() {
+  const qs=S.questions(STATE.currentPdfId);
+  if(!qs||qs.length===0) {
+    alert('This PDF has no questions yet — the processing may have failed.\n\nPlease delete it from the Library and re-upload the PDF.');
+    return;
+  }
+  // Resume saved session for this PDF if one exists
+  const sess=S.get('session');
+  if(sess&&sess.pdfId===STATE.currentPdfId) {
+    if(sess.type==='diagnostic') {
+      STATE._sessionType='diagnostic';
+      STATE.diagQs=sess.diagQs||[];
+      STATE.diagIdx=sess.diagIdx||0;
+      STATE.diagResults=sess.diagResults||[];
+      document.getElementById('diag-tot').textContent=STATE.diagQs.length;
+      showView('diagnostic');
+      renderDiagQ();
+      return;
+    } else if(sess.type==='study') {
+      STATE._sessionType='study';
+      STATE.studyQueue=sess.studyQueue||[];
+      STATE.studyIdx=sess.studyIdx||0;
+      STATE.studyCorrect=sess.studyCorrect||0;
+      STATE.studyIncorrect=sess.studyIncorrect||0;
+      STATE.sessionLog=sess.sessionLog||[];
+      STATE.sessionConcepts=new Set(sess.sessionConcepts||[]);
+      document.getElementById('study-mode-label').textContent='Adaptive Study Session';
+      updateStudyHUD();
+      showView('study');
+      renderStudyQ();
+      return;
+    }
+  }
+  const mm=computeAllMastery(STATE.currentPdfId);
+  const hasStudied=mm.some(m=>m.status!=='new');
+  if(!hasStudied) startDiagnostic(STATE.currentPdfId);
+  else startStudySession(STATE.currentPdfId);
+}
+
+// ── DIAGNOSTIC (20–30 questions, broad sampling) ──────────────
+function startDiagnostic(pdfId) {
+  const concepts=S.concepts(pdfId), questions=S.questions(pdfId);
+  const dc=DENSITY[STATE.density];
+  const target=dc.diagCount;
+
+  // Stratified sampling: 60% high-yield, 30% medium, 10% low
+  const high=shuffle(concepts.filter(c=>c.importance==='high'));
+  const med=shuffle(concepts.filter(c=>c.importance==='medium'));
+  const low=shuffle(concepts.filter(c=>c.importance==='low'||!c.importance));
+
+  const picks=[];
+  const addFrom=(arr,n)=>arr.slice(0,n).forEach(c=>picks.push(c));
+  addFrom(high,Math.round(target*0.6));
+  addFrom(med,Math.round(target*0.3));
+  addFrom(low,Math.round(target*0.1));
+  // Top up if not enough high/medium
+  if(picks.length<target) {
+    const extras=shuffle([...high,...med,...low]).filter(c=>!picks.includes(c));
+    picks.push(...extras.slice(0,target-picks.length));
+  }
+
+  // For each concept, pick one question (L1/L2 weighted 70%, L3 30%)
+  const diagQs=[];
+  shuffle(picks).slice(0,target).forEach(c=>{
+    const cQs=questions.filter(q=>q.conceptId===c.id);
+    const l1=cQs.filter(q=>q.level===1),l2=cQs.filter(q=>q.level===2),l3=cQs.filter(q=>q.level===3);
+    let pool;
+    const r=Math.random();
+    if(r<0.4&&l1.length) pool=l1;
+    else if(r<0.7&&l2.length) pool=l2;
+    else if(l3.length) pool=l3;
+    else pool=l1.length?l1:l2.length?l2:cQs;
+    if(pool.length) diagQs.push({...pool[Math.floor(Math.random()*pool.length)]});
+  });
+
+  STATE.diagQs=diagQs; STATE.diagIdx=0; STATE.diagResults=[];
+  STATE._sessionType='diagnostic';
+  document.getElementById('diag-tot').textContent=diagQs.length;
+  saveSession();
+  showView('diagnostic');
+  renderDiagQ();
+}
+
+function renderDiagQ() {
+  const idx=STATE.diagIdx, qs=STATE.diagQs;
+  if(idx>=qs.length){ finishDiagnostic(); return; }
+  const q=qs[idx];
+  STATE.qMeta=STATE.qMeta||{}; STATE.qMeta[q.id]=q.optionExplanations||[];
+  document.getElementById('diag-cur').textContent=idx+1;
+  document.getElementById('diag-prog').style.width=(idx/qs.length*100)+'%';
+  document.getElementById('diag-container').innerHTML=renderQCard(q,'diag');
+  applyStoredHighlightsLive(q.id);
+}
+
+// ── CONCEPT-ROTATION SIBLING PICKER ─────────────────────────
+// When a question is SRS-due, pick the least-recently-reviewed sibling on the
+// same concept so the student sees a fresh question angle rather than the same one.
+function pickSibling(dueQ, allQuestions, excludeIds) {
+  const excluded = excludeIds instanceof Set ? excludeIds : new Set(excludeIds);
+  const siblings = allQuestions.filter(q =>
+    q.conceptId === dueQ.conceptId && q.id !== dueQ.id && !excluded.has(q.id)
+  );
+  if (!siblings.length) return dueQ; // only question for this concept — use as-is
+  // Never-reviewed (null lastReviewed) sorts first (timestamp 0), then oldest-reviewed first
+  siblings.sort((a, b) =>
+    new Date(a.lastReviewed||0).getTime() - new Date(b.lastReviewed||0).getTime()
+  );
+  return siblings[0];
+}
+
+// ── STUDY SESSION ────────────────────────────────────────────
+function buildQueue(pdfId,limit=28) {
+  const concepts=S.concepts(pdfId), questions=S.questions(pdfId);
+  const mm=computeAllMastery(pdfId);
+  const now=new Date();
+  const impRank={high:3,medium:2,low:1};
+  const queue=[],addedIds=new Set();
+
+  function add(q){if(!addedIds.has(q.id)){addedIds.add(q.id);queue.push({...q});}}
+
+  // Exam urgency: shift priorities when exam is close
+  const examDate=STATE.examDate?new Date(STATE.examDate):null;
+  const daysLeft=examDate?Math.ceil((examDate-now)/86400000):60;
+  const cramMode=daysLeft<=3;
+  const srsSlots=Math.floor(limit*(cramMode?0.6:0.4));
+
+  // 1. SRS due items — show a sibling question (different angle, same concept)
+  questions.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now)
+    .sort((a,b)=>new Date(a.nextReview)-new Date(b.nextReview))
+    .slice(0,srsSlots)
+    .forEach(dueQ=>{
+      const sibling=pickSibling(dueQ, questions, addedIds);
+      if(sibling.id===dueQ.id){
+        add({...dueQ, _bucket:'srs'});
+      } else {
+        add({...sibling, _bucket:'srs', _proxiedFromId:dueQ.id});
+      }
+    });
+
+  // 2. Weak/new concepts — target the level they need most
+  const weak=mm.filter(m=>m.status==='weak'||m.status==='new')
+    .sort((a,b)=>{
+      // Sort by: importance desc, then overall score asc
+      const ca=concepts.find(c=>c.id===a.conceptId),cb=concepts.find(c=>c.id===b.conceptId);
+      const ia=(impRank[ca?.importance]||1),ib=(impRank[cb?.importance]||1);
+      return ib!==ia?ib-ia:a.overall-b.overall;
+    });
+
+  function addConceptQ(mastData,level,n,extra={}){
+    const cqs=questions.filter(q=>q.conceptId===mastData.conceptId&&q.level===level&&
+      (q.timesReviewed===0||new Date(q.nextReview)<=now));
+    shuffle(cqs).slice(0,n).forEach(q=>add({...q,...extra}));
+  }
+
+  // In cram mode, only drill high-importance weak concepts
+  const weakFilter=cramMode
+    ?m=>((m.status==='weak'||m.status==='new')&&concepts.find(c=>c.id===m.conceptId)?.importance==='high')
+    :m=>(m.status==='weak'||m.status==='new'||m.status==='medium');
+
+  // Fix weak/new: start at their weakest level
+  weak.filter(weakFilter).slice(0,9).forEach(m=>{
+    const lv=targetLevel(m);
+    addConceptQ(m,lv,2,{_bucket:'weak'});
+  });
+
+  // Challenge medium concepts with L2/L3
+  if(!cramMode) {
+    const medium=mm.filter(m=>m.status==='medium');
+    medium.slice(0,5).forEach(m=>{
+      addConceptQ(m,2,1,{_bucket:'medium'});
+      addConceptQ(m,3,1,{_bucket:'medium'});
+    });
+  }
+
+  // 3. Fill remainder: new questions, high-yield first (skip mastered concepts)
+  if(queue.length<limit) {
+    const newQs=questions.filter(q=>q.timesReviewed===0&&!addedIds.has(q.id))
+      .filter(q=>{const m=mm.find(m=>m.conceptId===q.conceptId);return !m||m.status!=='mastered';})
+      .sort((a,b)=>(impRank[b.importance]||1)-(impRank[a.importance]||1));
+    newQs.slice(0,limit-queue.length).forEach(q=>add({...q,_bucket:'new'}));
+  }
+
+  // Stratified shuffle: randomise within each bucket, preserve bucket priority order
+  const buckets=['srs','weak','medium','new'];
+  const result=[];
+  buckets.forEach(b=>result.push(...shuffle(queue.filter(q=>q._bucket===b))));
+  return result.slice(0,limit);
+}
+
+function startStudySession(pdfId) {
+  STATE.currentPdfId=pdfId;
+  STATE.studyQueue=buildQueue(pdfId);
+  STATE.studyIdx=0; STATE.studyCorrect=0; STATE.studyIncorrect=0;
+  STATE.sessionLog=[]; STATE.sessionConcepts=new Set(); STATE.sessionAnswers={}; STATE.sessionRated={};
+  STATE._sessionType='study';
+
+  document.getElementById('study-mode-label').textContent='Adaptive Study Session';
+  updateStudyHUD();
+  saveSession();
+  showView('study');
+  renderStudyQ();
+}
+
+function startDueSession(pdfId) {
+  STATE.currentPdfId=pdfId;
+  const now=new Date();
+  const allQs=S.questions(pdfId);
+  const dueQs=allQs.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now);
+  if(!dueQs.length){alert('No cards are due right now.');return;}
+  // Sort most-overdue first, then build rotation-aware queue
+  dueQs.sort((a,b)=>new Date(a.nextReview)-new Date(b.nextReview));
+  const addedIds=new Set(), queue=[];
+  dueQs.forEach(dueQ=>{
+    const sibling=pickSibling(dueQ, allQs, addedIds);
+    if(sibling.id===dueQ.id){
+      if(!addedIds.has(dueQ.id)){ addedIds.add(dueQ.id); queue.push({...dueQ,_bucket:'srs'}); }
+    } else {
+      if(!addedIds.has(sibling.id)){ addedIds.add(sibling.id); queue.push({...sibling,_bucket:'srs',_proxiedFromId:dueQ.id}); }
+    }
+  });
+  STATE.studyQueue=shuffle(queue);
+  STATE.studyIdx=0;STATE.studyCorrect=0;STATE.studyIncorrect=0;
+  STATE.sessionLog=[];STATE.sessionConcepts=new Set();STATE.sessionAnswers={};STATE.sessionRated={};
+  STATE._sessionType='study';
+  document.getElementById('study-mode-label').textContent=`Due Cards Review (${dueQs.length})`;
+  updateStudyHUD();
+  saveSession();
+  showView('study');
+  renderStudyQ();
+}
+
+function keepStudying() {
+  if(STATE.currentPdfId) startStudySession(STATE.currentPdfId);
+  else startAllDueSession(); // cross-deck session — stay in all-decks mode
+}
+
+function startAllDueSession() {
+  const now=new Date();
+  // Build per-PDF question map (conceptId is PDF-scoped, so sibling lookup must be PDF-local)
+  const qsByPdf={};
+  S.pdfs().filter(p=>p.processingComplete).forEach(pdf=>{ qsByPdf[pdf.id]=S.questions(pdf.id); });
+  const allDue=[];
+  Object.entries(qsByPdf).forEach(([,qs])=>{
+    qs.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).forEach(q=>allDue.push({...q}));
+  });
+  if(!allDue.length){alert('No cards are due across any deck right now.');return;}
+  // Sort most overdue first, then build rotation-aware queue
+  allDue.sort((a,b)=>new Date(a.nextReview)-new Date(b.nextReview));
+  const addedIds=new Set(), queue=[];
+  allDue.forEach(dueQ=>{
+    const sibling=pickSibling(dueQ, qsByPdf[dueQ.pdfId]||[], addedIds);
+    if(sibling.id===dueQ.id){
+      if(!addedIds.has(dueQ.id)){ addedIds.add(dueQ.id); queue.push({...dueQ,_bucket:'srs'}); }
+    } else {
+      if(!addedIds.has(sibling.id)){ addedIds.add(sibling.id); queue.push({...sibling,_bucket:'srs',_proxiedFromId:dueQ.id}); }
+    }
+  });
+  STATE.currentPdfId=null; // cross-deck mode
+  STATE.studyQueue=queue;
+  STATE.studyIdx=0;STATE.studyCorrect=0;STATE.studyIncorrect=0;
+  STATE.sessionLog=[];STATE.sessionConcepts=new Set();STATE.sessionAnswers={};STATE.sessionRated={};
+  STATE._sessionType='study';
+  document.getElementById('study-mode-label').textContent=`All Decks Review (${allDue.length} due)`;
+  updateStudyHUD();
+  saveSession();
+  showView('study');
+  renderStudyQ();
+}
+
+// Get the pdfId for a question — prefers queue item's pdfId over STATE.currentPdfId
+// so cross-deck sessions (currentPdfId=null) still resolve correctly
+function queuePdfId(qId) {
+  const item=STATE.studyQueue&&STATE.studyQueue.find(q=>q.id===qId);
+  return (item&&item.pdfId)||STATE.currentPdfId;
+}
+
+function renderStudyQ() {
+  const idx=STATE.studyIdx, q=STATE.studyQueue[idx];
+  if(!q){ endStudySession(); return; }
+  STATE.sessionConcepts.add(q.conceptId);
+  STATE.qMeta=STATE.qMeta||{}; STATE.qMeta[q.id]=q.optionExplanations||[];
+  document.getElementById('study-q-info').textContent=`Question ${idx+1} of ${STATE.studyQueue.length}`;
+  document.getElementById('study-container').innerHTML=renderQCard(q,'study');
+  applyStoredHighlightsLive(q.id);
+  // Restore answered state if this question was already answered this session
+  const prev=STATE.sessionAnswers&&STATE.sessionAnswers[q.id];
+  if(prev) restoreAnsweredState(q.id, prev.sel, prev.correct);
+  // Update nav arrows
+  const prevBtn=document.getElementById('study-prev-btn');
+  const nextBtn=document.getElementById('study-next-btn');
+  if(prevBtn) prevBtn.style.visibility=idx>0?'visible':'hidden';
+  if(nextBtn) nextBtn.style.visibility=idx<STATE.studyQueue.length-1?'visible':'hidden';
+}
+
+function restoreAnsweredState(qId, sel, correct) {
+  // Re-apply visual state without re-triggering submitAnswer logic
+  const metaEl=document.getElementById('qmeta_'+qId);
+  if(metaEl) metaEl.style.visibility='visible';
+  document.querySelectorAll(`[id^="opt_${qId}_"]`).forEach(b=>b.disabled=true);
+  const corrBtn=document.getElementById(`opt_${qId}_${correct}`);
+  if(corrBtn) corrBtn.classList.add('correct');
+  if(sel!==correct){
+    const selBtn=document.getElementById(`opt_${qId}_${sel}`);
+    if(selBtn) selBtn.classList.add('incorrect');
+  }
+  document.getElementById(`xpl_${qId}`)?.style && (document.getElementById(`xpl_${qId}`).style.display='block');
+  // Restore per-option explanations (cached from prior answer; empty on first nav-back before answer)
+  renderOptXpls(qId, (STATE.qMeta&&STATE.qMeta[qId])||[], sel, correct);
+  // Restore evidence box
+  const allQs=S.questions(queuePdfId(qId));
+  const qObj=allQs.find(q=>q.id===qId);
+  if(qObj){
+    const sqBox=document.getElementById('srcQuote_'+qId);
+    if(sqBox){
+      const quote=qObj.sourceQuote||'', page=(qObj.pageEstimate||'').replace(/~|–.*$/g,'').trim();
+      if(quote){
+        sqBox.innerHTML=`<div class="evidence-box"><div class="ev-label">📑 Evidence from PDF</div><div class="ev-quote">"${escHtml(quote)}"</div>${page?`<div class="ev-cite">— Page ${escHtml(page)}</div>`:''}</div>`;
+        sqBox.style.display='block';
+      }
+    }
+  }
+  // Disable quality buttons only if already rated this session; keep enabled otherwise so nav-back unrated Qs can still be rated
+  if(STATE.sessionRated&&STATE.sessionRated[qId]) {
+    document.querySelectorAll(`[id^="qbtn_${qId}_"]`).forEach(b=>{b.disabled=true;b.style.opacity='0.5';});
+  }
+}
+
+function studyNavPrev() {
+  if(STATE.studyIdx>0){ STATE.studyIdx--; saveSession(); renderStudyQ(); }
+}
+
+function studyNavNext() {
+  if(STATE.studyIdx<STATE.studyQueue.length-1){ STATE.studyIdx++; saveSession(); renderStudyQ(); }
+}
+
+function updateStudyHUD() {
+  document.getElementById('study-correct').textContent=STATE.studyCorrect;
+  document.getElementById('study-incorrect').textContent=STATE.studyIncorrect;
+  updateStudyProgressBar();
+}
+
+// ── QUESTION CARD RENDERER ───────────────────────────────────
+function renderQCard(q, mode) {
+  const lvlLabel={1:'Recall',2:'Application',3:'Analysis'};
+  const letters=['A','B','C','D','E'];
+  const impClass=q.importance==='high'?'high':q.importance==='medium'?'medium':'low';
+  return `<div class="question-card">
+    <div class="concept-meta-bar" id="qmeta_${q.id}" style="margin-bottom:16px">
+      <span class="badge badge-level${q.level}">${lvlLabel[q.level]||'Recall'}</span>
+      <span style="font-size:0.78rem;color:var(--text-secondary)">${escHtml(q.conceptName||'')}</span>
+      <div class="importance-dot ${impClass}" title="Yield: ${q.importance||'medium'}"></div>
+    </div>
+    <div class="question-text" id="qt_${q.id}">${escHtml(q.question)}</div>
+    <div class="options-list">
+      ${q.options.map((opt,i)=>`
+        <div style="display:flex;flex-direction:column;gap:0">
+          <button class="option-btn" id="opt_${q.id}_${i}"
+            onclick="submitAnswer('${q.id}',${i},'${mode}',${q.correctAnswer})">
+            <span class="option-letter">${letters[i]}</span>
+            <span>${escHtml(opt)}</span>
+            <span style="margin-left:auto;font-size:0.65rem;opacity:0.35;flex-shrink:0">${i+1}</span>
+          </button>
+          <div id="optXpl_${q.id}_${i}" style="display:none;font-size:0.82rem;line-height:1.55;padding:8px 14px 10px 44px;color:#c4c9e0;border-left:2px solid #2d2f3e;margin-bottom:4px"></div>
+        </div>`).join('')}
+    </div>
+    <div class="reveal-hint" id="reveal-hint-${q.id}">Select an answer to reveal explanation <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></div>
+    <div id="xpl_${q.id}" style="display:none">
+      <div class="explanation-box" id="xplText_${q.id}">💡 ${escHtml(q.explanation||'No explanation provided.')}</div>
+      <div id="srcQuote_${q.id}" style="display:none"></div>
+      ${mode==='diag'
+        ? `<button class="btn btn-primary mt-3" style="width:100%" onclick="nextDiagQ()">Next →</button>`
+        : `<div class="quality-bar">
+            <button class="quality-btn qb-1" id="qbtn_${q.id}_1" onclick="submitQuality('${q.id}',1)"><span class="q-lbl">✗ Wrong</span><span class="q-khint">1</span></button>
+            <button class="quality-btn qb-2" id="qbtn_${q.id}_2" onclick="submitQuality('${q.id}',2)"><span class="q-lbl">😅 Hard</span><span class="q-khint">2</span></button>
+            <button class="quality-btn qb-3" id="qbtn_${q.id}_3" onclick="submitQuality('${q.id}',3)"><span class="q-lbl">✓ Good</span><span class="q-khint">3</span></button>
+            <button class="quality-btn qb-4" id="qbtn_${q.id}_4" onclick="submitQuality('${q.id}',4)"><span class="q-lbl">⚡ Easy</span><span class="q-khint">4</span></button>
+           </div>`}
+    </div>
+  </div>`;
+}
+
+// ── HIGHLIGHTING ─────────────────────────────────────────────
+let _hlPendingQId=null;
+
+// Find the question-card ancestor of a node
+function findQCard(node) {
+  let el=node instanceof Element ? node : node.parentElement;
+  while(el) {
+    if(el.classList&&el.classList.contains('question-card')) return el;
+    el=el.parentElement;
+  }
+  return null;
+}
+
+// Show floating toolbar near the current selection
+document.addEventListener('mouseup', e=>{
+  // Small delay so selection is settled
+  setTimeout(()=>{
+    const sel=window.getSelection();
+    if(!sel||sel.isCollapsed||!sel.toString().trim()) { dismissHlToolbar(); return; }
+    // Only trigger inside a question-card
+    const range=sel.getRangeAt(0);
+    const card=findQCard(range.commonAncestorContainer);
+    if(!card) { dismissHlToolbar(); return; }
+    // Derive qId from an id'd child (qt_XXX, xplText_XXX, opt_XXX, optXpl_XXX)
+    const idEl=card.querySelector('[id^="qt_"],[id^="xplText_"],[id^="opt_"],[id^="optXpl_"]');
+    if(!idEl) { dismissHlToolbar(); return; }
+    // Extract qId safely per prefix type: opt_ and optXpl_ have a trailing _N index; qt_ and xplText_ do not
+    const rawId=idEl.id;
+    const qId=rawId.startsWith('qt_')?rawId.slice(3):
+               rawId.startsWith('xplText_')?rawId.slice(8):
+               rawId.startsWith('optXpl_')?rawId.slice(7).replace(/_\d+$/,''):
+               rawId.startsWith('opt_')?rawId.slice(4).replace(/_\d+$/,''):null;
+    if(!qId){dismissHlToolbar();return;}
+    _hlPendingQId=qId;
+    // Position toolbar above the selection
+    const rect=range.getBoundingClientRect();
+    const toolbar=document.getElementById('hl-toolbar');
+    toolbar.style.display='flex';
+    const tw=toolbar.offsetWidth||120;
+    const left=Math.min(Math.max(rect.left+(rect.width/2)-(tw/2),8),window.innerWidth-tw-8);
+    const top=rect.top-42;
+    toolbar.style.left=left+'px';
+    toolbar.style.top=top+'px';
+  },10);
+});
+
+// Hide toolbar when clicking outside
+document.addEventListener('mousedown', e=>{
+  const toolbar=document.getElementById('hl-toolbar');
+  if(toolbar&&!toolbar.contains(e.target)) dismissHlToolbar();
+});
+
+function dismissHlToolbar() {
+  const t=document.getElementById('hl-toolbar');
+  if(t) t.style.display='none';
+  _hlPendingQId=null;
+}
+
+function commitHighlight() {
+  const qId=_hlPendingQId;
+  if(!qId) return;
+  const sel=window.getSelection();
+  if(!sel||sel.isCollapsed) { dismissHlToolbar(); return; }
+  const text=sel.toString().trim();
+  if(!text) { dismissHlToolbar(); return; }
+  sel.removeAllRanges();
+  dismissHlToolbar();
+  const stored=S.get('hl_'+qId,[]);
+  if(!stored.includes(text)) S.set('hl_'+qId,[...stored,text]);
+  applyStoredHighlightsLive(qId);
+}
+
+// Legacy direct call kept for compatibility
+function highlightSelected(qId) {
+  _hlPendingQId=qId;
+  commitHighlight();
+}
+
+function applyStoredHighlightsLive(qId) {
+  const stored=S.get('hl_'+qId,[]);
+  if(!stored.length) return;
+  ['qt_'+qId,'xplText_'+qId].forEach(cId=>{
+    const container=document.getElementById(cId);
+    if(!container) return;
+    stored.forEach(text=>{
+      highlightTextInContainer(container,text);
+    });
+  });
+}
+
+function highlightTextInContainer(container, text) {
+  const walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT);
+  const nodes=[];
+  while(walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(node=>{
+    const idx=node.textContent.indexOf(text);
+    if(idx===-1) return;
+    const mark=document.createElement('mark');
+    mark.className='hl';
+    mark.title='Click to remove highlight';
+    mark.textContent=text;
+    mark.onclick=()=>{ removeHighlight(container.id.replace(/^(qt_|xplText_)/,''),text); };
+    const after=node.splitText(idx);
+    after.splitText(text.length);
+    after.parentNode.replaceChild(mark,after);
+  });
+}
+
+function removeHighlight(qId, text) {
+  const stored=S.get('hl_'+qId,[]).filter(h=>h!==text);
+  S.set('hl_'+qId,stored);
+  // Re-render just the text containers by replacing marks with text
+  ['qt_'+qId,'xplText_'+qId].forEach(cId=>{
+    const container=document.getElementById(cId);
+    if(!container) return;
+    container.querySelectorAll('mark.hl').forEach(m=>{
+      if(m.textContent===text) m.replaceWith(document.createTextNode(m.textContent));
+    });
+  });
+}
+
+// ── LAZY OPTION EXPLANATIONS ─────────────────────────────────
+// Per-option rationale is generated on first answer (not at creation time).
+// Uses gpt-4o-mini — question correctness is already certified; this is enrichment only.
+async function generateOptionExplanations(q, pdfId) {
+  const letters=['A','B','C','D','E'];
+  const n=q.options.length;
+  const lastLetter=letters[n-1];
+  const optList=q.options.map((o,i)=>`${letters[i]}) ${o}${i===q.correctAnswer?' ★':''}`).join('\n');
+  const prompt=`You are a medical education expert. Generate concise per-option explanations for this MCQ.
+
+Question: ${q.question}
+Options:
+${optList}
+Correct answer: ${letters[q.correctAnswer]}) ${q.options[q.correctAnswer]}
+
+For each option write ONE explanation (in A-${lastLetter} order):
+- Correct option: start with "CORRECT — " then explain WHY it is right (key mechanism, 1-2 sentences).
+- Wrong options: state WHY wrong for this question, then "Would apply if: [specific clinical context]".
+
+Return ONLY a JSON array of exactly ${n} strings in A-${lastLetter} order — no markdown, no prose:
+[${letters.slice(0,n).map(l=>`"explanation for ${l}"`).join(',')}]`;
+
+  try {
+    const text=await callGemini(prompt,1024,OPENAI_MODEL); // gpt-4o-mini
+    const arr=parseJSON(text);
+    if(!Array.isArray(arr)||arr.length!==n) return null;
+    // Ensure CORRECT label is on the right index
+    const ci=q.correctAnswer;
+    if(!arr[ci].toUpperCase().startsWith('CORRECT')){
+      const fi=arr.findIndex(x=>x.toUpperCase().startsWith('CORRECT'));
+      if(fi!==-1&&fi!==ci)[arr[fi],arr[ci]]=[arr[ci],arr[fi]];
+    }
+    return arr;
+  } catch(e){ return null; }
+}
+
+// Shared renderer — used by submitAnswer and restoreAnsweredState
+function renderOptXpls(qId, optXpls, sel, correct) {
+  if(!optXpls||!optXpls.length) return;
+  function cleanXpl(xpl){ return (xpl||'').replace(/^(CORRECT\s*[—–-]+\s*|Wrong\s*[—–-]+\s*)/i,'').trim(); }
+  Array.from({length:optXpls.length},(_,i)=>i).forEach(i=>{
+    const el=document.getElementById(`optXpl_${qId}_${i}`);
+    if(!el||!optXpls[i]) return;
+    const show=i===sel||i===correct;
+    if(!show) return;
+    const isCorrect=i===correct, isChosen=i===sel&&i!==correct;
+    const borderColor=isCorrect?'#22c55e':isChosen?'#ef4444':'#374151';
+    const labelColor=isCorrect?'#4ade80':isChosen?'#f87171':'#9ca3af';
+    const label=isCorrect?'✓ Correct':isChosen?'✗ Your choice':'';
+    el.style.borderLeftColor=borderColor;
+    el.innerHTML=(label?`<span style="font-weight:700;color:${labelColor};font-size:0.78rem">${label} — </span>`:'')+escHtml(cleanXpl(optXpls[i]));
+    el.style.display='block';
+  });
+}
+
+function submitAnswer(qId, sel, mode, correct) {
+  const letters=['A','B','C','D','E'];
+  document.querySelectorAll(`[id^="opt_${qId}_"]`).forEach(b=>b.disabled=true);
+  document.getElementById(`opt_${qId}_${correct}`).classList.add('correct');
+  if(sel!==correct) document.getElementById(`opt_${qId}_${sel}`).classList.add('incorrect');
+  document.getElementById(`xpl_${qId}`).style.display='block';
+  const rHint=document.getElementById('reveal-hint-'+qId);
+  if(rHint) rHint.style.display='none';
+
+  // Render per-option explanations (may already be cached, or trigger lazy generation)
+  const optXpls=(STATE.qMeta&&STATE.qMeta[qId])||[];
+  renderOptXpls(qId, optXpls, sel, correct);
+
+  // Show evidence box (sourceQuote from AI + page estimate)
+  const _evPdfId=queuePdfId(qId);
+  const allQs=S.questions(_evPdfId);
+  const qObj=allQs.find(q=>q.id===qId);
+  if(qObj) {
+    const sqBox=document.getElementById('srcQuote_'+qId);
+    if(sqBox) {
+      const quote=qObj.sourceQuote||'';
+      const page=(qObj.pageEstimate||'').replace(/~|–.*$/g,'').trim();
+      // Fallback: show keyFacts if no AI quote available (older questions)
+      if(quote) {
+        sqBox.innerHTML=`<div class="evidence-box">
+          <div class="ev-label">📑 Evidence from PDF</div>
+          <div class="ev-quote">"${escHtml(quote)}"</div>
+          ${page?`<div class="ev-cite">— Page ${escHtml(page)}</div>`:''}
+        </div>`;
+      } else {
+        const concepts=S.concepts(_evPdfId);
+        const concept=concepts.find(c=>c.id===qObj.conceptId);
+        const facts=(concept?.keyFacts||[]).filter(Boolean);
+        if(facts.length) {
+          sqBox.innerHTML=`<div class="evidence-box">
+            <div class="ev-label">📑 Key Facts — ${escHtml(concept?.concept||'')}</div>
+            ${facts.map(f=>`<div class="ev-quote" style="margin-bottom:4px">"${escHtml(f)}"</div>`).join('')}
+            ${page?`<div class="ev-cite">— Page ${escHtml(String(page))}</div>`:''}
+          </div>`;
+        }
+      }
+      sqBox.style.display='block';
+    }
+  }
+
+  // Apply stored highlights
+  applyStoredHighlightsLive(qId);
+
+  // Lazy optionExplanations: fire-and-forget if this question has never been answered before
+  if(qObj && (!qObj.optionExplanations||qObj.optionExplanations.length<4) && !STATE._xplPending) {
+    STATE._xplPending=qId;
+    generateOptionExplanations(qObj, _evPdfId).then(xpls=>{
+      STATE._xplPending=null;
+      if(!xpls) return;
+      // Persist to localStorage so future sessions have them cached
+      const latestQs=S.questions(_evPdfId);
+      const idx=latestQs.findIndex(q=>q.id===qId);
+      if(idx>=0){ latestQs[idx].optionExplanations=xpls; S.saveQuestions(_evPdfId,latestQs); }
+      // Update in-memory meta and render (question card is still visible)
+      STATE.qMeta=STATE.qMeta||{};
+      STATE.qMeta[qId]=xpls;
+      renderOptXpls(qId, xpls, sel, correct);
+    }).catch(()=>{ STATE._xplPending=null; });
+  }
+
+  if(mode==='diag') {
+    STATE.diagResults.push({questionId:qId, wasCorrect:sel===correct, selected:sel, correctIdx:correct});
+  } else {
+    // Only count tally if this question hasn't been answered this session yet
+    if(!STATE.sessionAnswers[qId]) {
+      if(sel===correct) STATE.studyCorrect++; else STATE.studyIncorrect++;
+      updateStudyHUD();
+    }
+    STATE.sessionAnswers[qId]={sel,correct};
+  }
+}
+
+function nextDiagQ() { STATE.diagIdx++; saveSession(); renderDiagQ(); }
+
+function submitQuality(qId, quality) {
+  const pdfId=queuePdfId(qId);
+  const qs=S.questions(pdfId);
+  const idx=qs.findIndex(q=>q.id===qId);
+  // Only apply SRS once per question per session (prevent double-apply on nav-back re-rating)
+  if(idx>=0 && !STATE.sessionRated[qId]) {
+    const q=qs[idx];
+    q.timesReviewed++; q.lastReviewed=new Date().toISOString();
+    if(quality>=2) q.timesCorrect++; else q.timesIncorrect++;
+    q.qualityRatings=[...(q.qualityRatings||[]),quality];
+    qs[idx]=applySRS(q,quality);
+    STATE.sessionLog.push({conceptId:q.conceptId,conceptName:q.conceptName,level:q.level,quality});
+    STATE.sessionRated[qId]=true;
+
+    // Concept-rotation dual-SRS: if a sibling was shown in place of the original due question,
+    // also advance the original's schedule when concept was mastered (quality >= 3).
+    // quality <= 2 = concept not mastered → leave original due, it cycles to another sibling next review.
+    const queueItem=STATE.studyQueue&&STATE.studyQueue.find(qi=>qi.id===qId);
+    const proxiedFromId=queueItem&&queueItem._proxiedFromId;
+    if(proxiedFromId && quality>=3) {
+      const origIdx=qs.findIndex(q=>q.id===proxiedFromId);
+      if(origIdx>=0 && !STATE.sessionRated[proxiedFromId]) {
+        const origQ=qs[origIdx];
+        origQ.lastReviewed=new Date().toISOString();
+        origQ.qualityRatings=[...(origQ.qualityRatings||[]),quality];
+        // Do NOT increment timesReviewed/timesCorrect — student answered the sibling, not this question
+        qs[origIdx]=applySRS(origQ, quality);
+        STATE.sessionRated[proxiedFromId]=true;
+      }
+    }
+
+    // Single atomic write covers both the shown question and any proxied original
+    S.saveQuestions(pdfId,qs);
+  }
+  // Advance: if we're on a nav-back position, go forward from here
+  STATE.studyIdx++;
+  saveSession();
+  renderStudyQ();
+}
+
+function endStudySession() {
+  clearSession();
+  const log=STATE.sessionLog;
+  const known=log.filter(l=>l.quality>=3).length, total=log.length;
+  document.getElementById('sr-summary').textContent=
+    total?`${known}/${total} marked as known (${Math.round(known/total*100)}%)`:'Session complete!';
+  document.getElementById('sr-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-value" style="color:#4ade80">${known}</div><div class="stat-label">Known</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#f87171">${total-known}</div><div class="stat-label">To Review</div></div>
+    <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Answered</div></div>
+    <div class="stat-card"><div class="stat-value">${STATE.sessionConcepts.size}</div><div class="stat-label">Concepts</div></div>`;
+
+  // Cross-deck mode: aggregate mastery across all touched PDFs
+  const touchedPdfIds=[...new Set(STATE.studyQueue.filter(q=>STATE.sessionConcepts.has(q.conceptId)).map(q=>q.pdfId).filter(Boolean))];
+  const pdfIdsToUse=touchedPdfIds.length?touchedPdfIds:(STATE.currentPdfId?[STATE.currentPdfId]:[]);
+  const mm=[],concepts=[];
+  pdfIdsToUse.forEach(pid=>{ mm.push(...computeAllMastery(pid)); concepts.push(...S.concepts(pid)); });
+  document.getElementById('sr-concepts').innerHTML=
+    mm.filter(m=>STATE.sessionConcepts.has(m.conceptId))
+      .sort((a,b)=>b.overall-a.overall)
+      .map(m=>{
+        const c=concepts.find(cc=>cc.id===m.conceptId);
+        if(!c) return '';
+        return `<div class="card" style="padding:14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-weight:600;flex:1;font-size:0.88rem">${escHtml(c.concept)}</span>
+            <span class="badge badge-${m.status}">${m.status}</span>
+            <span style="font-size:0.82rem;color:#9ca3af">${m.overall}%</span>
+          </div>
+          <div class="mastery-mini">
+            ${[['L1',m.l1,'fill-l1'],['L2',m.l2,'fill-l2'],['L3',m.l3,'fill-l3']].map(([lbl,val,cls])=>`
+              <div class="mastery-row"><span style="width:18px">${lbl}</span>
+                <div class="mini-bar"><div class="mini-fill ${cls}" style="width:${val}%"></div></div>
+                <span style="width:32px;text-align:right">${val}%</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+
+  showView('session-results');
+}
+
+// ── DIAGNOSTIC FINISH ────────────────────────────────────────
+function finishDiagnostic() {
+  clearSession();
+  const pdfId=STATE.currentPdfId;
+  const qs=S.questions(pdfId);
+  STATE.diagResults.forEach(r=>{
+    const idx=qs.findIndex(q=>q.id===r.questionId);
+    if(idx>=0){
+      const q=qs[idx];
+      q.timesReviewed++; q.lastReviewed=new Date().toISOString();
+      if(r.wasCorrect) q.timesCorrect++; else q.timesIncorrect++;
+      // Granular SRS seeding: level difficulty modulates quality rating
+      const lvl=q.level||1;
+      const srsQ=r.wasCorrect?(lvl>=3?4:3):(lvl>=3?2:lvl>=2?1:0);
+      qs[idx]=applySRS(q,srsQ);
+    }
+  });
+  S.saveQuestions(pdfId,qs);
+
+  const correct=STATE.diagResults.filter(r=>r.wasCorrect).length;
+  const total=STATE.diagResults.length;
+  if(total===0) { gotoLibrary(); return; } // nothing to show — bail out safely
+  const pct=Math.round(correct/total*100);
+  document.getElementById('dr-summary').textContent=
+    `${correct}/${total} correct (${pct}%) — baseline established`;
+  document.getElementById('dr-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-value" style="color:#4ade80">${correct}</div><div class="stat-label">Correct</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#f87171">${total-correct}</div><div class="stat-label">Incorrect</div></div>
+    <div class="stat-card"><div class="stat-value">${pct}%</div><div class="stat-label">Score</div></div>
+    <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Sampled</div></div>`;
+
+  const mm=computeAllMastery(pdfId);
+  const concepts=S.concepts(pdfId);
+  const studied=mm.filter(m=>m.status!=='new').sort((a,b)=>a.overall-b.overall);
+  document.getElementById('dr-concepts').innerHTML=studied.slice(0,25).map(m=>{
+    const c=concepts.find(cc=>cc.id===m.conceptId); if(!c) return '';
+    const dot=c.importance==='high'?'🔴':c.importance==='medium'?'🟡':'⚪';
+    return `<div class="concept-row">
+      <span style="font-size:0.75rem">${dot}</span>
+      <div style="flex:1;font-size:0.85rem">${escHtml(c.concept)}</div>
+      <span class="badge badge-${m.status}">${m.status}</span>
+      <span style="font-size:0.8rem;color:#9ca3af;width:36px;text-align:right">${m.overall}%</span>
+    </div>`;
+  }).join('');
+  showView('diag-results');
+}
+
+// ── SRS (SM-2 Modified) ──────────────────────────────────────
+function applySRS(q, quality) {
+  let {interval,easeFactor,repetitions}=q;
+  const examDate=STATE.examDate?new Date(STATE.examDate):null;
+  const daysLeft=examDate?Math.ceil((examDate-new Date())/86400000):30;
+
+  // Quality scale: 1=Wrong (lapse), 2=Hard, 3=Good, 4=Easy
+  if(quality<=1){ repetitions=0; interval=0.17; } // Wrong: reset, review in ~4h
+  else {
+    if(repetitions===0) interval=1;
+    else if(repetitions===1) interval=2;
+    else interval=Math.round(interval*easeFactor);
+    if(examDate) interval=Math.min(interval,Math.max(0.17,daysLeft-1));
+    repetitions++;
+  }
+  easeFactor=Math.max(1.3, easeFactor+0.1-(4-quality)*(0.08+(4-quality)*0.02));
+  // Recovery boost: after a lapse, reward getting it right again
+  if(quality>=3&&q.repetitions===0&&q.timesReviewed>1) easeFactor=Math.min(2.5,easeFactor+0.15);
+  const nextReview=new Date(); nextReview.setTime(nextReview.getTime()+interval*86400000);
+  return {...q,interval,easeFactor,repetitions,nextReview:nextReview.toISOString()};
+}
+
+// ── STATS ────────────────────────────────────────────────────
+function renderStats() {
+  const pdfs=S.pdfs();
+  const el=document.getElementById('stats-content');
+  if(!pdfs.length){el.innerHTML='<div style="text-align:center;padding:40px 0"><div style="font-size:3rem;margin-bottom:12px">📚</div><p class="text-muted">No PDFs uploaded yet.</p><p class="text-muted" style="margin-top:8px">Upload a PDF from the Library to get started.</p></div>';return;}
+
+  // ── Aggregate across all PDFs ──
+  const now=new Date();
+  let totalConcepts=0,totalQuestions=0,totalReviewed=0,totalDue=0;
+  let allMastery=[];
+  let allConcepts=[];
+
+  pdfs.forEach(pdf=>{
+    const concepts=S.concepts(pdf.id);
+    const questions=S.questions(pdf.id);
+    const mm=computeAllMastery(pdf.id);
+    totalConcepts+=concepts.length;
+    totalQuestions+=questions.length;
+    totalReviewed+=questions.filter(q=>q.timesReviewed>0).length;
+    totalDue+=questions.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).length;
+    mm.forEach(m=>{
+      allMastery.push(m);
+      const c=concepts.find(cc=>cc.id===m.conceptId);
+      if(c) allConcepts.push({concept:c,pdfId:pdf.id,pdfName:pdf.name,mastery:m});
+    });
+  });
+
+  const studiedMastery=allMastery.filter(m=>m.status!=='new');
+  const overallAvg=studiedMastery.length?Math.round(studiedMastery.reduce((s,m)=>s+m.overall,0)/studiedMastery.length):0;
+
+  // Mastery distribution counts
+  const distCounts={new:0,weak:0,medium:0,strong:0,mastered:0};
+  allMastery.forEach(m=>{ distCounts[m.status]=(distCounts[m.status]||0)+1; });
+  const distTotal=allMastery.length||1;
+
+  // Exam countdown
+  let countdownHtml='';
+  if(STATE.examDate){
+    const daysLeft=Math.ceil((new Date(STATE.examDate)-now)/86400000);
+    const cls=daysLeft<=3?'countdown-urgent':daysLeft<=14?'countdown-warning':'countdown-ok';
+    const icon=daysLeft<=3?'🚨':daysLeft<=14?'⏰':'📅';
+    countdownHtml=`<div style="margin-bottom:14px"><span class="countdown-chip ${cls}">${icon} ${daysLeft>0?daysLeft+' days until exam':'Exam day!'}</span></div>`;
+  }
+
+  // Global priority concepts (weak/medium, sorted by importance then mastery)
+  const priorityConcepts=allConcepts
+    .filter(({mastery})=>mastery.status==='weak'||mastery.status==='medium')
+    .sort((a,b)=>{
+      const ir={high:3,medium:2,low:1};
+      const ia=ir[a.concept.importance]||1,ib=ir[b.concept.importance]||1;
+      if(ib!==ia) return ib-ia;
+      return a.mastery.overall-b.mastery.overall;
+    }).slice(0,10);
+
+  // ── Per-PDF expandable cards ──
+  const pdfCardsHtml=pdfs.map((pdf,pdfIdx)=>{
+    const concepts=S.concepts(pdf.id);
+    const questions=S.questions(pdf.id);
+    const mm=computeAllMastery(pdf.id);
+    const studied=mm.filter(m=>m.status!=='new');
+    const avg=studied.length?Math.round(studied.reduce((s,m)=>s+m.overall,0)/studied.length):0;
+    const due=questions.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).length;
+    const highYield=concepts.filter(c=>c.importance==='high').length;
+
+    // Status distribution for this PDF
+    const sc={new:0,weak:0,medium:0,strong:0,mastered:0};
+    mm.forEach(m=>{ sc[m.status]=(sc[m.status]||0)+1; });
+
+    // Level accuracy bars
+    const lvlStats={1:{c:0,t:0},2:{c:0,t:0},3:{c:0,t:0}};
+    questions.forEach(q=>{
+      if(!q.timesReviewed) return;
+      const l=Math.min(3,Math.max(1,q.level||1));
+      lvlStats[l].t+=(q.timesCorrect||0)+(q.timesIncorrect||0);
+      lvlStats[l].c+=(q.timesCorrect||0);
+    });
+    const lvlBars=[1,2,3].map(l=>{
+      const lv=lvlStats[l];
+      const pct=lv.t>0?Math.round(lv.c/lv.t*100):0;
+      const col=l===1?'#60a5fa':l===2?'#a78bfa':'#4ade80';
+      const badge=l===1?'badge-level1':l===2?'badge-level2':'badge-level3';
+      const label=l===1?'Recall':l===2?'Apply':'Integrate';
+      return `<div class="level-bar-row">
+        <span class="badge ${badge}" style="width:82px;text-align:center">L${l} ${label}</span>
+        <div class="level-bar-track"><div class="level-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+        <span style="color:#9ca3af;width:34px;text-align:right">${lv.t?pct+'%':'—'}</span>
+        <span style="color:#6b7080;font-size:0.7rem">${lv.t} reviews</span>
+      </div>`;
+    }).join('');
+
+    // Weak/medium concepts for this PDF
+    const weakHere=allConcepts.filter(ac=>ac.pdfId===pdf.id&&(ac.mastery.status==='weak'||ac.mastery.status==='medium'))
+      .sort((a,b)=>{const ir={high:3,medium:2,low:1};return(ir[b.concept.importance]||1)-(ir[a.concept.importance]||1)||a.mastery.overall-b.mastery.overall;})
+      .slice(0,8);
+
+    const mastDistBar=Object.entries(sc).map(([k,v])=>`<div class="dist-seg dist-${k}" style="width:${Math.round(v/Math.max(1,mm.length)*100)}%;flex-shrink:0"></div>`).join('');
+
+    return `<div class="pdf-stat-card">
+      <div class="pdf-stat-header" onclick="togglePdfStat('pdfstat_${pdfIdx}')">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:0.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📄 ${escHtml(pdf.name)}</div>
+          <div style="font-size:0.75rem;color:#6b7080;margin-top:2px">${concepts.length} concepts · ${questions.length} questions · ${highYield} high-yield</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          ${due>0?`<span class="badge" style="background:#3b1f0a;color:#fb923c;border:1px solid #92400e">${due} due</span>`:''}
+          <div style="text-align:right">
+            <div style="font-size:1.3rem;font-weight:700;color:#c8a96e">${studied.length?avg:0}%</div>
+            <div style="font-size:0.65rem;color:#6b7080">mastery</div>
+          </div>
+          <span style="color:#6b7080;font-size:0.85rem" id="pdfstat_${pdfIdx}_arrow">▼</span>
+        </div>
+      </div>
+      <div id="pdfstat_${pdfIdx}" class="pdf-stat-body">
+        <div class="mastery-dist-bar">${mastDistBar}</div>
+        <div class="dist-legend">
+          <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#1f2a3b"></div><span>${sc.new} new</span></div>
+          <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#7f1d1d"></div><span>${sc.weak} weak</span></div>
+          <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#7c2d12"></div><span>${sc.medium} medium</span></div>
+          <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#14532d"></div><span>${sc.strong} strong</span></div>
+          <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#065f46"></div><span>${sc.mastered} mastered</span></div>
+        </div>
+        <div class="progress-bar" style="margin:8px 0 4px"><div class="progress-fill" style="width:${Math.round(studied.length/Math.max(1,concepts.length)*100)}%"></div></div>
+        <div style="font-size:0.72rem;color:#6b7080;margin-bottom:14px">${studied.length}/${concepts.length} concepts started (${Math.round(studied.length/Math.max(1,concepts.length)*100)}%)</div>
+        <div style="margin-bottom:14px">${lvlBars}</div>
+        ${weakHere.length?`<div style="font-size:0.8rem;font-weight:600;color:#9ca3af;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Priority Review</div>
+        ${weakHere.map(({concept:c,mastery:m})=>`<div class="priority-concept-row">
+          <span style="font-size:0.75rem">${c.importance==='high'?'🔴':c.importance==='medium'?'🟡':'⚪'}</span>
+          <div style="flex:1;font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.concept)}</div>
+          <span class="badge badge-${m.status}" style="flex-shrink:0">${m.status}</span>
+          <div class="mini-bar" style="width:60px"><div class="mini-fill" style="width:${m.overall}%;background:${m.status==='weak'?'#f87171':m.status==='medium'?'#fb923c':'#4ade80'}"></div></div>
+          <span style="font-size:0.75rem;color:#9ca3af;width:30px;text-align:right">${m.overall}%</span>
+        </div>`).join('')}`:''}
+        <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="openStudy('${pdf.id}')">Study</button>
+          ${due>0?`<button class="btn btn-sm" style="background:#3b2e0a;color:#fde047;border:none" onclick="startDueSession('${pdf.id}')">Review ${due} Due</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=`
+    ${countdownHtml}
+    <div class="stats-hero">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:1.1rem;font-weight:700">Overall Progress</div>
+          <div style="font-size:0.75rem;color:#6b7080;margin-top:2px">${pdfs.length} PDF${pdfs.length!==1?'s':''} · ${totalConcepts} concepts</div>
+        </div>
+        ${totalDue>0?`<span class="badge" style="background:#3b1f0a;color:#fb923c;border:1px solid #92400e;font-size:0.82rem;padding:4px 10px">${totalDue} cards due</span>`:'<span style="font-size:0.75rem;color:#4ade80">✓ All caught up</span>'}
+      </div>
+      <div class="mastery-dist-bar" style="margin-top:14px">
+        ${Object.entries(distCounts).map(([k,v])=>`<div class="dist-seg dist-${k}" style="width:${Math.round(v/distTotal*100)}%"></div>`).join('')}
+      </div>
+      <div class="dist-legend">
+        <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#1f2a3b"></div><span>${distCounts.new} new</span></div>
+        <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#7f1d1d"></div><span>${distCounts.weak} weak</span></div>
+        <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#7c2d12"></div><span>${distCounts.medium} medium</span></div>
+        <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#14532d"></div><span>${distCounts.strong} strong</span></div>
+        <div class="dist-leg-item"><div class="dist-leg-dot" style="background:#065f46"></div><span>${distCounts.mastered} mastered</span></div>
+      </div>
+      <div class="stats-hero-grid">
+        <div class="hero-stat"><div class="hero-val">${totalQuestions}</div><div class="hero-lbl">Questions</div></div>
+        <div class="hero-stat"><div class="hero-val">${totalReviewed}</div><div class="hero-lbl">Reviewed</div></div>
+        <div class="hero-stat"><div class="hero-val">${overallAvg}%</div><div class="hero-lbl">Avg Mastery</div></div>
+        <div class="hero-stat"><div class="hero-val">${totalDue}</div><div class="hero-lbl">Due Now</div></div>
+        <div class="hero-stat"><div class="hero-val">${distCounts.mastered}</div><div class="hero-lbl">Mastered</div></div>
+      </div>
+    </div>
+    ${priorityConcepts.length?`<div class="priority-section">
+      <div style="font-size:0.8rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">🎯 Cross-PDF Priority Review</div>
+      ${priorityConcepts.map(({concept:c,pdfName,mastery:m})=>`<div class="priority-concept-row">
+        <span style="font-size:0.75rem">${c.importance==='high'?'🔴':c.importance==='medium'?'🟡':'⚪'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.concept)}</div>
+          <div style="font-size:0.68rem;color:#6b7080;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(pdfName)}</div>
+        </div>
+        <span class="badge badge-${m.status}">${m.status}</span>
+        <span style="font-size:0.75rem;color:#9ca3af;width:30px;text-align:right">${m.overall}%</span>
+      </div>`).join('')}
+    </div>`:''}
+    <div style="font-size:0.8rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">By PDF</div>
+    ${pdfCardsHtml}`;
+}
+
+function togglePdfStat(id) {
+  const body=document.getElementById(id);
+  const arrow=document.getElementById(id+'_arrow');
+  if(!body) return;
+  const open=body.classList.toggle('open');
+  if(arrow) arrow.textContent=open?'▲':'▼';
+}
+
+// ── UTILS ────────────────────────────────────────────────────
+function shuffle(a) {
+  const b=[...a];
+  for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]]; }
+  return b;
+}
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
+// ── KEYBOARD SHORTCUTS ───────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  // Ignore if typing in an input/textarea
+  if(['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  let key=e.key;
+  if(key===' ') { e.preventDefault(); key='3'; } // spacebar = Good
+  if(!['1','2','3','4'].includes(key)) return;
+  const idx=parseInt(key)-1; // 0-based
+
+  const view=document.querySelector('.view.active')?.id;
+
+  // ── Answering a question (before answered) ──
+  // Find the current unanswered question card
+  const q = view==='view-study'
+    ? STATE.studyQueue[STATE.studyIdx]
+    : view==='view-diagnostic'
+      ? STATE.diagQs[STATE.diagIdx]
+      : null;
+  if(!q) return;
+
+  const optBtn=document.getElementById(`opt_${q.id}_${idx}`);
+  if(optBtn && !optBtn.disabled) {
+    // Pre-answer: 1-4 selects A-D
+    optBtn.click();
+    return;
+  }
+
+  // ── After answering: quality rating (study mode only) ──
+  if(view==='view-study') {
+    const qBtn=document.getElementById(`qbtn_${q.id}_${key}`);
+    if(qBtn) { qBtn.click(); return; }
+  }
+
+  // ── After answering: diag next (any key 1-4) ──
+  if(view==='view-diagnostic') {
+    const nextBtn=document.querySelector(`#xpl_${q.id} .btn-primary`);
+    if(nextBtn && document.getElementById(`xpl_${q.id}`)?.style.display!=='none') nextBtn.click();
+  }
+});
+
+// ── BOOT ─────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
