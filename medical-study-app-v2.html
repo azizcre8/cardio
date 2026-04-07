@@ -623,6 +623,20 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 .cd-concept-bar-fill{height:100%;border-radius:999px;transition:width .3s}
 
 
+/* ── Question validation ─────────────────────────────────────── */
+.validate-btn{font-size:0.65rem;padding:2px 8px;border-radius:999px;border:1px solid var(--border);background:none;color:var(--text-dim);cursor:pointer;font-family:var(--font-sans);transition:all .12s;margin-left:auto;flex-shrink:0}
+.validate-btn:hover{color:var(--accent);border-color:rgba(0,242,255,0.25)}
+.validate-btn.loading{opacity:.5;pointer-events:none}
+.validate-panel{margin-top:14px;padding:12px 14px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.76rem;line-height:1.55}
+.validate-panel.valid{border-color:rgba(0,255,163,0.2)}
+.validate-panel.issues{border-color:rgba(255,173,51,0.25)}
+.validate-verdict{font-weight:600;margin-bottom:6px}
+.validate-verdict.valid{color:var(--green)}
+.validate-verdict.issues{color:var(--amber)}
+.validate-note{color:var(--text-secondary);margin-bottom:6px}
+.validate-issue{color:var(--amber);padding-left:10px;position:relative}
+.validate-issue::before{content:'·';position:absolute;left:3px}
+
 /* ── Responsive ──────────────────────────────────────────────── */
 @media(max-width:580px){
   .today-hero{grid-template-columns:1fr 1fr}
@@ -3252,6 +3266,7 @@ function renderQCard(q, mode) {
     <div class="concept-meta-bar" id="qmeta_${q.id}" style="margin-bottom:16px">
       <span class="badge badge-level${q.level}">${lvlLabel[q.level]||'Recall'}</span>
       <div class="importance-dot ${impClass}" title="Yield: ${q.importance||'medium'}"></div>
+      <button class="validate-btn" id="vbtn_${q.id}" onclick="validateQuestion('${q.id}')">? Validate</button>
     </div>
     <div class="question-text" id="qt_${q.id}">${escHtml(q.question)}</div>
     <div class="options-list">
@@ -3279,6 +3294,7 @@ function renderQCard(q, mode) {
             <button class="quality-btn qb-4" id="qbtn_${q.id}_4" onclick="submitQuality('${q.id}',4)"><span class="q-lbl">⚡ Easy</span><span class="q-khint">4</span></button>
            </div>`}
     </div>
+    <div class="validate-panel" id="vpanel_${q.id}" style="display:none"></div>
   </div>`;
 }
 
@@ -3401,6 +3417,62 @@ function removeHighlight(qId, text) {
       if(m.textContent===text) m.replaceWith(document.createTextNode(m.textContent));
     });
   });
+}
+
+// ── QUESTION VALIDATION ──────────────────────────────────────
+// Student-facing: ask AI to evaluate question quality on demand.
+async function validateQuestion(qId) {
+  const btn=document.getElementById('vbtn_'+qId);
+  const panel=document.getElementById('vpanel_'+qId);
+  if(!btn||!panel||btn.classList.contains('loading')) return;
+  btn.classList.add('loading'); btn.textContent='⟳ Checking…';
+  panel.style.display='none';
+
+  const pdfId=queuePdfId(qId);
+  const q=S.questions(pdfId).find(q=>q.id===qId);
+  if(!q){btn.classList.remove('loading');btn.textContent='? Validate';return;}
+
+  const letters=['A','B','C','D','E'];
+  const optList=q.options.map((o,i)=>`${letters[i]}) ${o}${i===q.correctAnswer?' ★':''}`).join('\n');
+
+  const prompt=`You are a medical question quality reviewer. A student flagged this MCQ as potentially confusing or flawed.
+
+Question: ${q.question}
+Options:
+${optList}
+Correct answer: ${letters[q.correctAnswer]}) ${q.options[q.correctAnswer]}
+Explanation: ${q.explanation||'(none)'}
+
+Evaluate 4 dimensions:
+1. stemClarity: Is the stem specific and answerable before seeing the options? ("Which is true about X" = FAIL)
+2. answerCorrect: Is the keyed answer definitively correct with no reasonable ambiguity?
+3. distractorsValid: Are all wrong options real, medically valid entities — not fabricated phrases?
+4. noTell: Are there no length tells, structural tells, or keyword mirrors that make the answer guessable without medical knowledge?
+
+Also write a short "studentNote" (1 sentence, direct) explaining whether the student's confusion is understandable and why.
+
+Return ONLY this JSON (no markdown, no prose):
+{"verdict":"VALID","stemClarity":"PASS","answerCorrect":"PASS","distractorsValid":"PASS","noTell":"PASS","studentNote":"...","issues":[]}
+
+If any dimension is FAIL, set verdict to "HAS_ISSUES". List each specific problem in the issues array.`;
+
+  try {
+    const text=await callGemini(prompt,600,OPENAI_MODEL);
+    const r=parseJSON(text);
+    const dims={stemClarity:'Stem clarity',answerCorrect:'Answer correctness',distractorsValid:'Distractor validity',noTell:'No tell-sign cues'};
+    const hasIssues=r.verdict==='HAS_ISSUES'||Object.keys(dims).some(k=>r[k]==='FAIL');
+    let html=`<div class="validate-verdict ${hasIssues?'issues':'valid'}">${hasIssues?'⚠ Issues found — confusion may be justified':'✓ Question is valid'}</div>`;
+    if(r.studentNote) html+=`<div class="validate-note">${escHtml(r.studentNote)}</div>`;
+    (r.issues||[]).forEach(iss=>{html+=`<div class="validate-issue">${escHtml(iss)}</div>`;});
+    Object.entries(dims).forEach(([k,lbl])=>{if(r[k]==='FAIL')html+=`<div class="validate-issue">${escHtml(lbl)} — failed</div>`;});
+    panel.className=`validate-panel ${hasIssues?'issues':'valid'}`;
+    panel.innerHTML=html; panel.style.display='block';
+    btn.textContent=hasIssues?'⚠ Issues':'✓ Valid';
+  } catch(e) {
+    panel.innerHTML=`<div style="color:var(--red);font-size:0.75rem">Validation error: ${escHtml(e.message)}</div>`;
+    panel.style.display='block'; btn.textContent='? Validate';
+  }
+  btn.classList.remove('loading');
 }
 
 // ── LAZY OPTION EXPLANATIONS ─────────────────────────────────
