@@ -1895,7 +1895,7 @@ function showSetupError(msg) {
   el.textContent=msg; el.style.display='block';
 }
 function saveSetup() {
-  const key=document.getElementById('api-key-input').value.trim();
+  const key=document.getElementById('api-key-input').value.replace(/[^\x20-\x7E]/g,'').trim();
   const date=document.getElementById('exam-date-input').value;
   if(!key){showSetupError('Please enter your OpenAI API key before continuing.');return;}
   document.getElementById('setup-error').style.display='none';
@@ -2374,7 +2374,7 @@ async function callGemini(prompt,maxTokens=8192,model=OPENAI_MODEL) {
   for(let attempt=0;attempt<4;attempt++){
     const r=await fetch(OPENAI_URL,{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+STATE.apiKey},
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(STATE.apiKey||'').replace(/[^\x20-\x7E]/g,'').trim()},
       body:JSON.stringify({
         model,
         messages:[{role:'user',content:prompt}],
