@@ -1330,6 +1330,37 @@ async function deleteBankFromSupabase(localId) {
 }
 
 // ── SHARE BANK ───────────────────────────────────────────────
+function exportBank(pdfId) {
+  const pdf = S.pdfs().find(p=>p.id===pdfId);
+  if (!pdf) return;
+  const questions = S.questions(pdfId);
+  const concepts = S.concepts(pdfId);
+  const exportData = {
+    name: pdf.name.replace(/\.pdf$/i,''),
+    exportedAt: new Date().toISOString(),
+    questionCount: questions.length,
+    concepts: concepts.map(c=>({ id:c.id, name:c.concept, level:c.level })),
+    questions: questions.map(q=>({
+      id: q.id,
+      concept: q.conceptName||'',
+      level: q.level||1,
+      question: q.question,
+      options: q.options||[],
+      answer: q.answer,
+      explanation: q.explanation||''
+    }))
+  };
+  const blob = new Blob([JSON.stringify(exportData, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (pdf.name.replace(/\.pdf$/i,'').replace(/[^a-z0-9_\-]/gi,'_') || 'cardio-export') + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 async function shareBank(pdfId) {
   const pdf = S.pdfs().find(p=>p.id===pdfId);
   if (!pdf) return;
@@ -2288,6 +2319,7 @@ function renderLibrary() {
           ?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();startDueSession('${pdf.id}')">Review ${due} Due →</button>`
           :`<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();openStudy('${pdf.id}')">Study →</button>`}
         ${!pdf.isSharedBank?`<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();shareBank('${pdf.id}')">Share</button>`:''}
+        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();exportBank('${pdf.id}')">Export</button>
       </div>
     </div>`;
   }).join('');
