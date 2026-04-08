@@ -576,17 +576,33 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 .today-section-lbl{font-size:0.72rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.07em;font-weight:600}
 
 /* ── Chapter rows ────────────────────────────────────────────── */
-.chapter-row{display:flex;align-items:center;gap:14px;padding:16px 18px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:6px;cursor:pointer;transition:all .15s}
-.chapter-row:hover{border-color:var(--border-med);background:rgba(255,255,255,0.02)}
-.chapter-row.has-due{border-color:rgba(0,242,255,0.15)}
-.chapter-progress{flex:1;min-width:0}
-.chapter-name{font-size:0.9rem;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px}
-.chapter-bar{height:3px;background:var(--bg-sunken);border-radius:999px;overflow:hidden;margin-bottom:6px}
+/* ── Deck cards ─────────────────────────────────────────────── */
+.deck-card{background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:10px;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.deck-card:hover{border-color:var(--border-med);box-shadow:var(--shadow-sm)}
+.deck-card.has-due{border-color:rgba(0,242,255,0.18);box-shadow:0 0 0 1px rgba(0,242,255,0.06)}
+.deck-card-top{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+.deck-icon{width:36px;height:36px;border-radius:10px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:var(--text-tertiary);letter-spacing:0.05em;flex-shrink:0;font-weight:600}
+.deck-info{flex:1;min-width:0}
+.deck-name{font-size:0.92rem;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;line-height:1.3}
+.deck-stats{display:flex;align-items:center;gap:10px;font-size:0.72rem;color:var(--text-secondary);flex-wrap:wrap}
+.deck-stat-sep{color:var(--text-tertiary)}
+.deck-due-pill{font-size:0.68rem;font-weight:600;color:var(--accent);background:var(--accent-dim);border:1px solid rgba(0,242,255,0.2);border-radius:999px;padding:2px 9px;white-space:nowrap}
+.deck-mastery-row{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.deck-mastery-pct{font-size:0.72rem;font-weight:600;color:var(--text-secondary);white-space:nowrap;width:34px;text-align:right;flex-shrink:0}
+.deck-bar{flex:1;height:4px;background:var(--bg-sunken);border-radius:999px;overflow:hidden}
+.deck-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--accent),var(--mastered-c));transition:width .4s}
+.deck-actions{display:flex;gap:8px;align-items:center}
+/* ── Empty state ─────────────────────────────────────────────── */
+.empty-state{text-align:center;padding:52px 24px 40px;display:flex;flex-direction:column;align-items:center;gap:0}
+.empty-state-icon{font-size:3rem;margin-bottom:16px;opacity:0.6}
+.empty-state-title{font-size:1.05rem;font-weight:600;color:var(--text-primary);margin-bottom:8px}
+.empty-state-sub{font-size:0.85rem;color:var(--text-secondary);line-height:1.55;max-width:300px;margin-bottom:28px}
+.empty-state.dragover{background:var(--accent-dim);border-radius:var(--radius-lg);outline:2px dashed var(--accent)}
+/* ── Legacy (kept for processing/failed rows) ────────────────── */
+.chapter-row{display:flex;align-items:center;gap:14px;padding:14px 18px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:6px;transition:all .15s}
+.chapter-bar{height:3px;background:var(--bg-sunken);border-radius:999px;overflow:hidden}
 .chapter-bar-fill{height:100%;border-radius:999px;background:var(--accent);transition:width .4s}
-.chapter-meta{font-size:0.72rem;color:var(--text-secondary);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .chapter-due-badge{font-size:0.7rem;font-weight:600;color:var(--accent);background:var(--accent-dim);border:1px solid rgba(0,242,255,0.2);border-radius:var(--radius-sm);padding:2px 8px;white-space:nowrap;flex-shrink:0}
-.chapter-processing{color:var(--amber);display:flex;align-items:center;gap:6px}
-.chapter-actions{display:flex;gap:6px;align-items:center;flex-shrink:0}
 .upload-row{border:1px dashed var(--border-med);border-radius:var(--radius-md);padding:20px;text-align:center;cursor:pointer;color:var(--text-secondary);font-size:0.85rem;transition:all .2s;margin-top:8px}
 .upload-row:hover,.upload-row.dragover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 
@@ -783,8 +799,14 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 
   <!-- Empty state -->
   <div id="today-empty" style="display:none">
-    <div class="upload-row" id="upload-area" onclick="document.getElementById('pdf-input').click()">
-      Drop a PDF here or click to upload your first chapter
+    <div class="empty-state" id="upload-area">
+      <div class="empty-state-icon">📖</div>
+      <div class="empty-state-title">No chapters yet</div>
+      <div class="empty-state-sub">Upload a PDF and Cardio will generate a full question bank — ready to study in 10–15 minutes.</div>
+      <label style="cursor:pointer" onclick="if(!isLoggedIn()){event.preventDefault();requireAuth('PDF Upload');}">
+        <span class="btn btn-primary" style="font-size:0.85rem;padding:12px 28px">Upload your first PDF</span>
+        <input type="file" accept=".pdf" style="display:none" onchange="handleFileSelect(event)"/>
+      </label>
     </div>
   </div>
 
@@ -2027,16 +2049,33 @@ function renderLibrary() {
     const mm=computeAllMastery(pdf.id);
     const avg=mm.length?Math.round(mm.reduce((s,m)=>s+m.overall,0)/mm.length):0;
     const due=S.questions(pdf.id).filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).length;
-    return `<div class="chapter-row${due>0?' has-due':''}" onclick="openChapterDetail('${pdf.id}')">
-      <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0;letter-spacing:0.05em">PDF</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(shortName)}</div>
-        <div style="font-size:0.72rem;color:var(--text-dim);margin-top:3px">${S.concepts(pdf.id).length} concepts · ${qCount} questions${(()=>{const rated=S.questions(pdf.id).filter(q=>q.rated);const pos=rated.filter(q=>q.rating===1).length;return rated.length?` · <span style="color:var(--green)">${Math.round(pos/rated.length*100)}% 👍 (${rated.length})</span>`:''})()}</div>
-        <div class="chapter-bar" style="margin-top:8px"><div class="chapter-bar-fill" style="width:${avg}%"></div></div>
+    const studied=S.questions(pdf.id).filter(q=>q.timesReviewed>0).length;
+    const rated=S.questions(pdf.id).filter(q=>q.rated);
+    const posRated=rated.filter(q=>q.rating===1).length;
+    const ratingHtml=rated.length?`<span style="color:var(--green)">${Math.round(posRated/rated.length*100)}% 👍</span>`:'';
+    return `<div class="deck-card${due>0?' has-due':''}" onclick="openChapterDetail('${pdf.id}')">
+      <div class="deck-card-top">
+        <div class="deck-icon">PDF</div>
+        <div class="deck-info">
+          <div class="deck-name" title="${escHtml(shortName)}">${escHtml(shortName)}</div>
+          <div class="deck-stats">
+            <span>${qCount} questions</span>
+            ${studied>0?`<span class="deck-stat-sep">·</span><span>${studied} studied</span>`:''}
+            ${ratingHtml?`<span class="deck-stat-sep">·</span>${ratingHtml}`:''}
+            ${due>0?`<span class="deck-due-pill">${due} due today</span>`:''}
+          </div>
+        </div>
       </div>
-      ${due>0?`<span class="chapter-due-badge">${due} due</span>`:''}
-      ${!pdf.isSharedBank?`<button class="btn btn-secondary btn-sm" id="share-btn-${pdf.id}" onclick="event.stopPropagation();shareBank('${pdf.id}')">Share</button>`:''}
-      <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openStudy('${pdf.id}')">Study →</button>
+      <div class="deck-mastery-row">
+        <div class="deck-bar"><div class="deck-bar-fill" style="width:${avg}%"></div></div>
+        <div class="deck-mastery-pct">${avg}%</div>
+      </div>
+      <div class="deck-actions">
+        ${due>0
+          ?`<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();startDueSession('${pdf.id}')">Review ${due} Due →</button>`
+          :`<button class="btn btn-primary btn-sm" style="flex:1" onclick="event.stopPropagation();openStudy('${pdf.id}')">Study →</button>`}
+        ${!pdf.isSharedBank?`<button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();shareBank('${pdf.id}')">Share</button>`:''}
+      </div>
     </div>`;
   }).join('');
 
