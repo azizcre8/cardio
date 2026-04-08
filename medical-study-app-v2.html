@@ -573,7 +573,7 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 .upload-row:hover,.upload-row.dragover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
 
 /* ── Study topbar ────────────────────────────────────────────── */
-.study-topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;flex-shrink:0}
+.study-topbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:var(--bg);border-bottom:1px solid var(--border);position:sticky;top:62px;z-index:10;flex-shrink:0}
 .study-progress-track{flex:1;height:3px;background:var(--bg-surface);border-radius:999px;overflow:hidden}
 .study-progress-fill{height:100%;background:var(--accent);border-radius:999px;transition:width .3s ease}
 .study-score-txt{font-size:0.78rem;color:var(--text-secondary);white-space:nowrap;flex-shrink:0}
@@ -606,6 +606,9 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 .quality-btn.qb-4{color:var(--mastered-c);border-color:rgba(0,255,163,0.15)}
 .quality-btn.qb-4:hover{background:rgba(0,255,163,0.08);border-color:rgba(0,255,163,0.3)}
 .quality-btn:disabled{opacity:.3;cursor:default}
+.quality-btn.qb-chosen{opacity:1!important;transform:scale(1.04);box-shadow:0 0 0 2px currentColor}
+.q-next-review{font-size:0.62rem;color:var(--text-secondary);margin-top:3px;text-align:center;line-height:1.3;min-height:14px}
+.study-due-pill{font-size:0.68rem;color:var(--accent);background:var(--accent-dim);border-radius:999px;padding:2px 9px;white-space:nowrap;flex-shrink:0}
 
 /* ── Chapter detail ──────────────────────────────────────────── */
 .chapter-action-row{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
@@ -932,17 +935,20 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 <div id="view-study" class="view" style="padding:0;max-width:100%">
   <!-- Sticky topbar with progress -->
   <div class="study-topbar">
-    <button class="btn btn-secondary btn-sm" onclick="gotoLibrary()" style="flex-shrink:0;white-space:nowrap">← Today</button>
-    <div id="study-mode-label" style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap;flex-shrink:0;max-width:140px;overflow:hidden;text-overflow:ellipsis"></div>
-    <div class="study-progress-track">
-      <div class="study-progress-fill" id="study-progress-fill" style="width:0%"></div>
+    <div style="flex:1;min-width:0;overflow:hidden">
+      <div id="study-mode-label" style="font-size:0.62rem;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:1px"></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="study-q-counter" style="font-size:0.82rem;font-weight:600;color:var(--text-primary);white-space:nowrap"></span>
+        <div class="study-progress-track" style="flex:1">
+          <div class="study-progress-fill" id="study-progress-fill" style="width:0%"></div>
+        </div>
+        <span id="study-score-inline" style="font-size:0.72rem;white-space:nowrap">
+          <span style="color:var(--green);font-weight:600" id="study-correct">0</span><span style="color:var(--text-dim);margin:0 2px">·</span><span style="color:var(--red);font-weight:600" id="study-incorrect">0</span>
+        </span>
+      </div>
     </div>
-    <div class="study-score-txt">
-      <span style="color:var(--green);font-weight:600" id="study-correct">0</span>
-      <span style="color:var(--text-dim);margin:0 3px">·</span>
-      <span style="color:var(--red);font-weight:600" id="study-incorrect">0</span>
-    </div>
-    <button class="btn btn-secondary btn-sm" onclick="endStudySession()" style="flex-shrink:0">End</button>
+    <div id="study-due-pill" class="study-due-pill" style="display:none"></div>
+    <button class="btn btn-secondary btn-sm" onclick="endStudySession()" style="flex-shrink:0;padding:5px 12px">End</button>
   </div>
   <!-- Scrollable study body -->
   <div class="study-body">
@@ -3572,6 +3578,16 @@ function renderStudyQ() {
   if(!q){ endStudySession(); return; }
   STATE.sessionConcepts.add(q.conceptId);
   STATE.qMeta=STATE.qMeta||{}; STATE.qMeta[q.id]=q.optionExplanations||[];
+  // Update sticky topbar
+  const counter=document.getElementById('study-q-counter');
+  if(counter) counter.textContent=`Q ${idx+1} of ${STATE.studyQueue.length}`;
+  const duePill=document.getElementById('study-due-pill');
+  if(duePill){
+    const now=new Date();
+    const dueCount=STATE.studyQueue.slice(idx).filter(qi=>qi._bucket==='srs'&&new Date(qi.nextReview||0)<=now).length;
+    if(dueCount>0){ duePill.textContent=`${dueCount} due`; duePill.style.display=''; }
+    else { duePill.style.display='none'; }
+  }
   document.getElementById('study-q-info').textContent=`Question ${idx+1} of ${STATE.studyQueue.length}`;
   document.getElementById('study-container').innerHTML=renderQCard(q,'study');
   applyStoredHighlightsLive(q.id);
@@ -3597,6 +3613,20 @@ function restoreAnsweredState(qId, sel, correct) {
     if(selBtn) selBtn.classList.add('incorrect');
   }
   document.getElementById(`xpl_${qId}`)?.style && (document.getElementById(`xpl_${qId}`).style.display='block');
+  // Show quality bar (hidden until answered)
+  const qbar=document.getElementById('qbar_'+qId);
+  if(qbar){
+    qbar.style.display='grid';
+    // Re-populate next-review hints
+    const qObj2=S.questions(queuePdfId(qId)).find(q=>q.id===qId);
+    if(qObj2){
+      [1,2,3,4].forEach(r=>{
+        const preview=applySRS({...qObj2},r);
+        const hint=document.getElementById(`qnr_${qId}_${r}`);
+        if(hint) hint.textContent=nextReviewText(preview.nextReview);
+      });
+    }
+  }
   // Restore per-option explanations (cached from prior answer; empty on first nav-back before answer)
   renderOptXpls(qId, (STATE.qMeta&&STATE.qMeta[qId])||[], sel, correct);
   // Restore evidence box
@@ -3666,13 +3696,28 @@ function renderQCard(q, mode) {
       </div>
       ${mode==='diag'
         ? `<button class="btn btn-primary mt-3" style="width:100%" onclick="nextDiagQ()">Next →</button>`
-        : `<div class="quality-bar">
-            <button class="quality-btn qb-1" id="qbtn_${q.id}_1" onclick="submitQuality('${q.id}',1)"><span class="q-lbl">✗ Wrong</span><span class="q-khint">1</span></button>
-            <button class="quality-btn qb-2" id="qbtn_${q.id}_2" onclick="submitQuality('${q.id}',2)"><span class="q-lbl">😅 Hard</span><span class="q-khint">2</span></button>
-            <button class="quality-btn qb-3" id="qbtn_${q.id}_3" onclick="submitQuality('${q.id}',3)"><span class="q-lbl">✓ Good</span><span class="q-khint">3</span></button>
-            <button class="quality-btn qb-4" id="qbtn_${q.id}_4" onclick="submitQuality('${q.id}',4)"><span class="q-lbl">⚡ Easy</span><span class="q-khint">4</span></button>
-           </div>`}
+        : ''}
     </div>
+    ${mode==='study'
+      ? `<div id="qbar_${q.id}" class="quality-bar" style="display:none;margin-top:20px">
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <button class="quality-btn qb-1" id="qbtn_${q.id}_1" onclick="submitQuality('${q.id}',1)"><span class="q-lbl">✗ Wrong</span><span class="q-khint">1</span></button>
+            <div class="q-next-review" id="qnr_${q.id}_1"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <button class="quality-btn qb-2" id="qbtn_${q.id}_2" onclick="submitQuality('${q.id}',2)"><span class="q-lbl">😅 Hard</span><span class="q-khint">2</span></button>
+            <div class="q-next-review" id="qnr_${q.id}_2"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <button class="quality-btn qb-3" id="qbtn_${q.id}_3" onclick="submitQuality('${q.id}',3)"><span class="q-lbl">✓ Good</span><span class="q-khint">3</span></button>
+            <div class="q-next-review" id="qnr_${q.id}_3"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center">
+            <button class="quality-btn qb-4" id="qbtn_${q.id}_4" onclick="submitQuality('${q.id}',4)"><span class="q-lbl">⚡ Easy</span><span class="q-khint">4</span></button>
+            <div class="q-next-review" id="qnr_${q.id}_4"></div>
+          </div>
+        </div>`
+      : ''}
     <div class="validate-panel" id="vpanel_${q.id}" style="display:none"></div>
   </div>`;
 }
@@ -3983,10 +4028,39 @@ function submitAnswer(qId, sel, mode, correct) {
       updateStudyHUD();
     }
     STATE.sessionAnswers[qId]={sel,correct};
+    // Show quality bar now that question is answered
+    const qbar=document.getElementById('qbar_'+qId);
+    if(qbar) qbar.style.display='grid';
+    // Pre-populate next-review hints for each rating option
+    const pdfId=queuePdfId(qId);
+    const qObj=S.questions(pdfId).find(q=>q.id===qId);
+    if(qObj){
+      [1,2,3,4].forEach(r=>{
+        const preview=applySRS({...qObj}, r);
+        const hint=document.getElementById(`qnr_${qId}_${r}`);
+        if(hint) hint.textContent=nextReviewText(preview.nextReview);
+      });
+    }
   }
 }
 
 function nextDiagQ() { STATE.diagIdx++; saveSession(); renderDiagQ(); }
+
+function nextReviewText(nextReview) {
+  if(!nextReview) return '';
+  const ms=new Date(nextReview)-new Date();
+  if(ms<0) return 'due now';
+  const mins=Math.round(ms/60000);
+  if(mins<60) return `in ${mins}m`;
+  const hrs=Math.round(ms/3600000);
+  if(hrs<24) return `in ${hrs}h`;
+  const days=Math.round(ms/86400000);
+  if(days===1) return 'tomorrow';
+  if(days<30) return `in ${days}d`;
+  const wks=Math.round(days/7);
+  if(wks<9) return `in ${wks}w`;
+  return `in ~${Math.round(days/30)}mo`;
+}
 
 function submitQuality(qId, quality) {
   const pdfId=queuePdfId(qId);
@@ -4024,8 +4098,22 @@ function submitQuality(qId, quality) {
     // Sync progress to Firebase if logged in
     syncProgressToFirebase(qs[idx]);
     if(proxiedFromId && qs[qs.findIndex(q=>q.id===proxiedFromId)]) syncProgressToFirebase(qs[qs.findIndex(q=>q.id===proxiedFromId)]);
+
+    // Show chosen-button highlight + next review microcopy, then advance after brief pause
+    document.querySelectorAll(`[id^="qbtn_${qId}_"]`).forEach(b=>b.disabled=true);
+    const chosenBtn=document.getElementById(`qbtn_${qId}_${quality}`);
+    if(chosenBtn) chosenBtn.classList.add('qb-chosen');
+    const nrHint=document.getElementById(`qnr_${qId}_${quality}`);
+    if(nrHint){
+      nrHint.textContent='Next: '+nextReviewText(qs[idx].nextReview);
+      nrHint.style.color='var(--accent)';
+    }
+    STATE.studyIdx++;
+    saveSession();
+    setTimeout(()=>renderStudyQ(), 700);
+    return;
   }
-  // Advance: if we're on a nav-back position, go forward from here
+  // Already rated (nav-back re-tap) — just advance
   STATE.studyIdx++;
   saveSession();
   renderStudyQ();
@@ -4391,7 +4479,9 @@ document.addEventListener('keydown', e=>{
   // ── After answering: quality rating (study mode only) ──
   if(view==='view-study') {
     const qBtn=document.getElementById(`qbtn_${q.id}_${key}`);
-    if(qBtn) { qBtn.click(); return; }
+    // Only click if quality bar is visible (question has been answered)
+    const qbar=document.getElementById('qbar_'+q.id);
+    if(qBtn && qbar && qbar.style.display!=='none') { qBtn.click(); return; }
   }
 
   // ── After answering: diag next (any key 1-4) ──
