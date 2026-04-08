@@ -1819,6 +1819,12 @@ function init() {
   updateAuthUI();
   if(isLoggedIn()) loadProgressFromFirebase().catch(()=>{});
 
+  // Mark any PDFs stuck in processing (page was closed mid-run) as failed
+  const stalePdfs = S.pdfs().map(p =>
+    (!p.processingComplete && !p.isSharedBank) ? {...p, processingComplete:true, processingFailed:true} : p
+  );
+  S.savePDFs(stalePdfs);
+
   // Check for shared bank URL param (?bank=KEY)
   const urlParams = new URLSearchParams(window.location.search);
   const bankKey = urlParams.get('bank');
@@ -1959,7 +1965,7 @@ function renderLibrary() {
 
   list.innerHTML=pdfs.map(pdf=>{
     const shortName=pdf.name.replace(/\.pdf$/i,'');
-    if(!pdf.processingComplete){
+    if(!pdf.processingComplete && !pdf.processingFailed){
       return `<div class="chapter-row" style="cursor:pointer" onclick="showView('processing')">
         <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0;letter-spacing:0.05em">PDF</div>
         <div style="flex:1;min-width:0">
@@ -1971,7 +1977,7 @@ function renderLibrary() {
       </div>`;
     }
     const qCount=S.questions(pdf.id).length;
-    if(pdf.processingComplete && qCount===0){
+    if(pdf.processingFailed || (pdf.processingComplete && qCount===0)){
       return `<div class="chapter-row">
         <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0">PDF</div>
         <div style="flex:1;min-width:0">
@@ -2269,6 +2275,7 @@ async function processNewPDF(file) {
     plog('FATAL: '+err.message,'error');
     setProcStatus('❌ Error',0);
     setProcStatusInline(id,'❌ '+err.message,0);
+    S.savePDFs(S.pdfs().map(p=>p.id===id?{...p,processingComplete:true,processingFailed:true}:p));
     setTimeout(()=>{ renderLibrary(); showView('library'); }, 3000);
   }
 }
