@@ -705,6 +705,17 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
   .app-subtitle{display:none}
   .app-header{padding:0 16px}
 }
+/* ── Google SSO button ───────────────────────────────────────── */
+.btn-google{background:#fff;color:#1f1f1f;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--font-sans);font-weight:500;padding:11px 22px;border-radius:var(--radius-sm);cursor:pointer;width:100%;font-size:0.88rem;transition:background .15s}
+.btn-google:hover{background:#f5f5f5}
+.btn-google svg{width:18px;height:18px;flex-shrink:0}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--text-tertiary);font-size:0.78rem}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.member-settings-card{background:var(--bg-raised);border:1px solid var(--border-med);border-radius:var(--radius-lg);padding:28px}
+.member-info-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--border);font-size:0.88rem}
+.member-info-row:last-child{border-bottom:none}
+.member-info-label{color:var(--text-secondary);font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em}
+.member-info-value{color:var(--text-primary);font-weight:500}
 </style>
 </head>
 <body>
@@ -724,6 +735,7 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
     <button class="nav-btn" onclick="gotoLibrary()">Library</button>
     <button class="nav-btn" onclick="gotoStats()">Stats</button>
     <button class="nav-btn" onclick="showView('setup')">Settings</button>
+    <span id="nav-role-badge" style="font-size:0.62rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;display:none;padding:2px 8px;border-radius:999px;background:var(--accent-dim)"></span>
     <span id="nav-user-email" style="font-size:0.7rem;color:var(--text-dim);display:none;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
     <button class="nav-btn" id="nav-login" onclick="showView('login')" style="display:none">Log In</button>
     <button class="nav-btn" id="nav-signup" onclick="showView('signup')">Sign Up</button>
@@ -731,42 +743,77 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
   </div>
 </div>
 
-<!-- SETUP -->
+<!-- SETUP / SETTINGS -->
 <div id="view-setup" class="view active">
-  <div class="card">
-    <h1>Welcome to Cardio</h1>
-    <p class="text-muted" style="margin-bottom:28px;font-size:0.9rem;line-height:1.6">AI-generated question banks from your own materials. Upload any medical PDF and master it with spaced repetition.</p>
-    <div class="form-group">
-      <label class="label">OpenAI API Key</label>
-      <input type="password" id="api-key-input" class="input" placeholder="sk-..."/>
-      <p class="text-muted" style="margin-top:5px">Get your key at platform.openai.com/api-keys</p>
-    </div>
-    <div class="form-group">
-      <label class="label">Exam Date</label>
-      <input type="date" id="exam-date-input" class="input"/>
-    </div>
-    <div class="form-group">
-      <label class="label">Coverage Density</label>
-      <div class="density-grid">
-        <div class="density-opt" id="d-standard" onclick="setDensity('standard')">
-          <div class="density-check">✓</div>
-          <div class="density-label">Standard</div>
-          <div class="density-desc">High-yield topics only · fastest to generate</div>
-        </div>
-        <div class="density-opt selected" id="d-comprehensive" onclick="setDensity('comprehensive')">
-          <div class="density-check">✓</div>
-          <div class="density-label">Comprehensive <span class="density-badge">Recommended</span></div>
-          <div class="density-desc">Full topic coverage · best for most students</div>
-        </div>
-        <div class="density-opt" id="d-boards" onclick="setDensity('boards')">
-          <div class="density-check">✓</div>
-          <div class="density-label">Boards</div>
-          <div class="density-desc">Maximum depth · longest to generate</div>
+  <!-- ADMIN SECTION -->
+  <div id="setup-admin-section">
+    <div class="card">
+      <h1>Settings</h1>
+      <p class="text-muted" style="margin-bottom:28px;font-size:0.9rem;line-height:1.6">AI-generated question banks from your own materials. Upload any medical PDF and master it with spaced repetition.</p>
+      <div class="form-group">
+        <label class="label">OpenAI API Key</label>
+        <input type="password" id="api-key-input" class="input" placeholder="sk-..."/>
+        <p class="text-muted" style="margin-top:5px">Get your key at platform.openai.com/api-keys</p>
+      </div>
+      <div class="form-group">
+        <label class="label">Exam Date</label>
+        <input type="date" id="exam-date-input" class="input"/>
+      </div>
+      <div class="form-group">
+        <label class="label">Coverage Density</label>
+        <div class="density-grid">
+          <div class="density-opt" id="d-standard" onclick="setDensity('standard')">
+            <div class="density-check">✓</div>
+            <div class="density-label">Standard</div>
+            <div class="density-desc">High-yield topics only · fastest to generate</div>
+          </div>
+          <div class="density-opt selected" id="d-comprehensive" onclick="setDensity('comprehensive')">
+            <div class="density-check">✓</div>
+            <div class="density-label">Comprehensive <span class="density-badge">Recommended</span></div>
+            <div class="density-desc">Full topic coverage · best for most students</div>
+          </div>
+          <div class="density-opt" id="d-boards" onclick="setDensity('boards')">
+            <div class="density-check">✓</div>
+            <div class="density-label">Boards</div>
+            <div class="density-desc">Maximum depth · longest to generate</div>
+          </div>
         </div>
       </div>
+      <div id="setup-error" style="display:none;background:rgba(176,85,85,0.1);color:#cc7777;border:1px solid rgba(176,85,85,0.25);border-radius:var(--radius-sm);padding:10px 14px;font-size:0.83rem;margin-bottom:12px"></div>
+      <button class="btn btn-primary w-full" onclick="saveSetup()">Save &amp; Get Started</button>
     </div>
-    <div id="setup-error" style="display:none;background:rgba(176,85,85,0.1);color:#cc7777;border:1px solid rgba(176,85,85,0.25);border-radius:var(--radius-sm);padding:10px 14px;font-size:0.83rem;margin-bottom:12px"></div>
-    <button class="btn btn-primary w-full" onclick="saveSetup()">Save &amp; Get Started</button>
+  </div>
+
+  <!-- MEMBER SECTION (shown instead of admin section for non-admin logged-in users) -->
+  <div id="setup-member-section" style="display:none">
+    <div class="member-settings-card">
+      <h1 style="font-family:var(--font-sans);font-size:1.2rem;font-weight:600;margin-bottom:4px">Account</h1>
+      <p class="text-muted" style="font-size:0.83rem;margin-bottom:24px">Your Cardio account settings</p>
+
+      <div class="member-info-row">
+        <div>
+          <div class="member-info-label">Email</div>
+          <div class="member-info-value" id="member-email-display">—</div>
+        </div>
+      </div>
+
+      <div class="member-info-row">
+        <div style="flex:1">
+          <div class="member-info-label">Exam Date</div>
+          <input type="date" id="member-exam-date" class="input" style="margin-top:8px;max-width:200px"/>
+        </div>
+      </div>
+
+      <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveMemberSettings()">Save</button>
+        <button class="btn btn-secondary" onclick="gotoLibrary()">← Library</button>
+        <button class="btn btn-secondary" style="margin-left:auto;color:var(--red)" onclick="authLogout()">Log Out</button>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;padding:14px 18px;background:var(--bg-raised);border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.8rem;color:var(--text-secondary)">
+      🎓 You have <strong style="color:var(--text-primary)">Member</strong> access. Question banks are provided by your instructor. Your study progress is automatically synced to the cloud.
+    </div>
   </div>
 </div>
 
@@ -1028,11 +1075,15 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
   <div id="stats-content"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
 const FIREBASE_URL = "https://cardio-58e59-default-rtdb.firebaseio.com";
 const FIREBASE_API_KEY = "AIzaSyAEAipbmdUPiXK65uy9oiPBcx8bKpKsb74";
+const SUPABASE_URL = 'https://odjqozhfdgceglxtiare.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_CGwlXnMp2bghM35Z8-J6eA_HAq9Tdhx';
+const ADMIN_EMAIL = 'saziz24841@med.lecom.edu';
 const OPENAI_URL='https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL='gpt-4o-mini';
 const EMBED_URL='https://api.openai.com/v1/embeddings';
@@ -1068,6 +1119,7 @@ const DENSITY={
 const STATE={
   apiKey:'', examDate:'', density:'comprehensive',
   currentPdfId:null,
+  currentUser:null,   // Supabase user object
   diagQs:[], diagIdx:0, diagResults:[],
   studyQueue:[], studyIdx:0,
   studyCorrect:0, studyIncorrect:0,
@@ -1093,55 +1145,58 @@ const S = {
   saveFlagged: (id,v) => S.set('fl_'+id,v)
 };
 
-// ── AUTH ─────────────────────────────────────────────────────
-function getAuth() {
-  return {
-    token: localStorage.getItem('msp2_authToken'),
-    userId: localStorage.getItem('msp2_userId'),
-    email: localStorage.getItem('msp2_userEmail')
-  };
-}
-function isLoggedIn() { return !!getAuth().token; }
-function setAuth(token, userId, email) {
-  localStorage.setItem('msp2_authToken', token);
-  localStorage.setItem('msp2_userId', userId);
-  localStorage.setItem('msp2_userEmail', email||'');
-}
-function clearAuth() {
-  ['msp2_authToken','msp2_userId','msp2_userEmail'].forEach(k=>localStorage.removeItem(k));
-}
+// ── AUTH (Supabase) ──────────────────────────────────────────
+let _supabase; // initialized in init()
+function sb() { return _supabase; }
+function isLoggedIn() { return !!STATE.currentUser; }
+function isAdmin() { return STATE.currentUser?.email === ADMIN_EMAIL; }
+function getUserId() { return STATE.currentUser?.id || null; }
+
 function updateAuthUI() {
-  const {token, email} = getAuth();
-  const loggedIn = !!token;
+  const loggedIn = isLoggedIn();
+  const admin = isAdmin();
   const el = id => document.getElementById(id);
   if(el('nav-logout')) el('nav-logout').style.display = loggedIn ? '' : 'none';
   if(el('nav-login')) el('nav-login').style.display = loggedIn ? 'none' : '';
   if(el('nav-signup')) el('nav-signup').style.display = loggedIn ? 'none' : '';
-  if(el('nav-user-email')) { el('nav-user-email').textContent = email||''; el('nav-user-email').style.display = loggedIn ? '' : 'none'; }
-  if(el('lib-upload-label')) el('lib-upload-label').style.opacity = loggedIn ? '1' : '0.45';
-  if(el('lib-upload-label')) el('lib-upload-label').title = loggedIn ? '' : 'Create a free account to upload PDFs';
+  if(el('nav-user-email')) {
+    const email = STATE.currentUser?.email || '';
+    el('nav-user-email').textContent = email;
+    el('nav-user-email').style.display = loggedIn ? '' : 'none';
+  }
+  // Upload button: admin only
+  const uploadLabel = el('lib-upload-label');
+  if(uploadLabel) uploadLabel.style.display = (loggedIn && admin) ? '' : 'none';
+  // Role badge in nav
+  const roleBadge = el('nav-role-badge');
+  if(roleBadge) {
+    roleBadge.style.display = loggedIn ? '' : 'none';
+    roleBadge.textContent = admin ? 'Admin' : 'Member';
+    roleBadge.style.color = admin ? 'var(--accent)' : 'var(--text-dim)';
+  }
 }
 
 async function authSignup(email, password) {
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
-    {method:'POST', headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({email, password, returnSecureToken:true})});
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || 'Signup failed');
-  setAuth(d.idToken, d.localId, email);
-  return d;
+  const { data, error } = await sb().auth.signUp({ email, password });
+  if (error) throw new Error(error.message);
+  return data;
 }
 async function authLogin(email, password) {
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
-    {method:'POST', headers:{'Content-Type':'application/json'},
-     body:JSON.stringify({email, password, returnSecureToken:true})});
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || 'Login failed');
-  setAuth(d.idToken, d.localId, email);
-  return d;
+  const { data, error } = await sb().auth.signInWithPassword({ email, password });
+  if (error) throw new Error(error.message);
+  return data;
 }
-function authLogout() {
-  clearAuth(); updateAuthUI();
+async function authGoogleLogin() {
+  const { error } = await sb().auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if (error) throw new Error(error.message);
+}
+async function authLogout() {
+  await sb().auth.signOut();
+  STATE.currentUser = null;
+  updateAuthUI();
   gotoLibrary();
 }
 function requireAuth(feature) {
@@ -1150,33 +1205,128 @@ function requireAuth(feature) {
   if (m) { document.getElementById('auth-gate-feature').textContent = feature; m.style.display='flex'; }
   return false;
 }
+// Legacy Firebase auth shims (no-op — kept so old call sites don't crash)
+function getAuth() { return { token: STATE.currentUser ? 'auth' : null, userId: getUserId(), email: STATE.currentUser?.email||'' }; }
+function setAuth() {}
+function clearAuth() {}
 
-// ── FIREBASE PROGRESS SYNC ───────────────────────────────────
-async function syncProgressToFirebase(q) {
-  const {token, userId} = getAuth();
-  if (!token || !userId) return;
+// ── SUPABASE PROGRESS SYNC ───────────────────────────────────
+async function syncProgressToSupabase(q) {
+  if (!STATE.currentUser) return;
   try {
-    await fetch(`${FIREBASE_URL}/users/${userId}/progress/${q.id}.json?auth=${token}`, {
-      method:'PATCH', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({easeFactor:q.easeFactor, interval:q.interval,
-        repetitions:q.repetitions, nextReview:q.nextReview,
-        lastReviewed:q.lastReviewed, timesReviewed:q.timesReviewed})
-    });
+    await sb().from('user_progress').upsert({
+      user_id: STATE.currentUser.id,
+      question_id: q.id,
+      ease_factor: q.easeFactor,
+      interval_days: q.interval,
+      repetitions: q.repetitions,
+      next_review: q.nextReview||null,
+      last_reviewed: q.lastReviewed||null,
+      times_reviewed: q.timesReviewed||0,
+      times_correct: q.timesCorrect||0,
+      times_incorrect: q.timesIncorrect||0,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id,question_id' });
   } catch(e) {}
 }
-async function loadProgressFromFirebase() {
-  const {token, userId} = getAuth();
-  if (!token || !userId) return;
+// Legacy shim — old call sites use syncProgressToFirebase
+const syncProgressToFirebase = syncProgressToSupabase;
+
+async function loadProgressFromSupabase() {
+  if (!STATE.currentUser) return;
   try {
-    const r = await fetch(`${FIREBASE_URL}/users/${userId}/progress.json?auth=${token}`);
-    const data = await r.json();
-    if (!data) return;
+    const { data } = await sb().from('user_progress')
+      .select('question_id,ease_factor,interval_days,repetitions,next_review,last_reviewed,times_reviewed,times_correct,times_incorrect')
+      .eq('user_id', STATE.currentUser.id);
+    if (!data?.length) return;
+    const map = {};
+    data.forEach(r => { map[r.question_id] = {
+      easeFactor: r.ease_factor, interval: r.interval_days,
+      repetitions: r.repetitions, nextReview: r.next_review,
+      lastReviewed: r.last_reviewed, timesReviewed: r.times_reviewed,
+      timesCorrect: r.times_correct, timesIncorrect: r.times_incorrect
+    }; });
     S.pdfs().filter(p=>p.processingComplete).forEach(pdf=>{
-      const qs = S.questions(pdf.id); let changed=false;
-      qs.forEach((q,i)=>{ if(data[q.id]){ Object.assign(qs[i],data[q.id]); changed=true; } });
+      const qs=S.questions(pdf.id); let changed=false;
+      qs.forEach((q,i)=>{ if(map[q.id]){ Object.assign(qs[i],map[q.id]); changed=true; } });
       if(changed) S.saveQuestions(pdf.id,qs);
     });
   } catch(e) {}
+}
+// Legacy shim
+const loadProgressFromFirebase = loadProgressFromSupabase;
+
+// ── SUPABASE BANK SHARING (admin → members) ───────────────────
+async function pushBankToSupabase(id) {
+  if (!STATE.currentUser || !isAdmin()) return;
+  const pdf = S.pdfs().find(p=>p.id===id);
+  if (!pdf) return;
+  const questions = S.questions(id);
+  const concepts = S.concepts(id);
+  try {
+    // Upsert bank metadata
+    const { error: e1 } = await sb().from('question_banks').upsert({
+      id, name: pdf.name, upload_date: pdf.uploadDate||new Date().toISOString(),
+      question_count: questions.length, concept_count: concepts.length,
+      density: pdf.density||STATE.density, is_active: true,
+      created_by: STATE.currentUser.id
+    }, { onConflict: 'id' });
+    if (e1) throw e1;
+    // Upsert bank data (full questions + concepts as JSONB)
+    const { error: e2 } = await sb().from('bank_data').upsert({
+      bank_id: id, questions, concepts
+    }, { onConflict: 'bank_id' });
+    if (e2) throw e2;
+    plog(`✓ Bank pushed to Supabase — ${questions.length} questions visible to all members`, 'success');
+  } catch(e) {
+    plog(`Supabase push failed: ${e.message}`, 'error');
+  }
+}
+
+async function loadMemberBanks() {
+  // Members only — load admin's banks from Supabase into localStorage
+  if (!STATE.currentUser || isAdmin()) return;
+  try {
+    const { data: banks, error } = await sb().from('question_banks')
+      .select('id,name,upload_date,question_count,concept_count,density')
+      .eq('is_active', true)
+      .order('upload_date', { ascending: false });
+    if (error || !banks?.length) return;
+    for (const bank of banks) {
+      const localId = 'sb_' + bank.id;
+      // Pull full data for new/updated banks
+      const existing = S.pdfs().find(p=>p.id===localId);
+      const remoteQCount = bank.question_count;
+      if (existing && S.questions(localId).length === remoteQCount) continue; // up-to-date
+      const { data: bd } = await sb().from('bank_data')
+        .select('questions,concepts')
+        .eq('bank_id', bank.id)
+        .single();
+      if (!bd) continue;
+      // Store locally
+      if (!existing) {
+        S.savePDFs([...S.pdfs(), {
+          id: localId, name: bank.name, uploadDate: bank.upload_date,
+          processingComplete: true, questionCount: bank.question_count,
+          conceptCount: bank.concept_count, density: bank.density,
+          isSharedBank: true, supabaseBankId: bank.id, fromSupabase: true
+        }]);
+      } else {
+        S.savePDFs(S.pdfs().map(p=>p.id===localId?{...p,questionCount:bank.question_count}:p));
+      }
+      S.saveQuestions(localId, Array.isArray(bd.questions)?bd.questions:Object.values(bd.questions||{}));
+      S.saveConcepts(localId, Array.isArray(bd.concepts)?bd.concepts:Object.values(bd.concepts||{}));
+    }
+  } catch(e) { console.warn('loadMemberBanks:', e.message); }
+}
+
+async function deleteBankFromSupabase(localId) {
+  if (!isAdmin()) return;
+  // localId could be 'sb_XXXX' for Supabase banks or raw id for admin's local banks
+  const supabaseId = localId.startsWith('sb_') ? localId.slice(3) : localId;
+  try {
+    await sb().from('question_banks').delete().eq('id', supabaseId);
+  } catch(e) { console.warn('deleteBankFromSupabase:', e.message); }
 }
 
 // ── SHARE BANK ───────────────────────────────────────────────
@@ -1247,7 +1397,8 @@ function rateQuestion(qId, rating) {
   document.getElementById('thumb-up-'+qId)?.classList.toggle('thumb-active', rating===1);
   const downEl = document.getElementById('thumb-down-'+qId);
   if(downEl){ downEl.classList.toggle('thumb-active-neg', rating===-1); }
-  const {token, userId} = getAuth();
+  const token = STATE.currentUser ? 'auth' : null;
+  const userId = getUserId();
   const pdf = S.pdfs().find(p=>p.id===pdfId);
   if (token && userId) {
     fetch(`${FIREBASE_URL}/users/${userId}/ratings/${qId}.json?auth=${token}`,
@@ -1275,29 +1426,33 @@ async function doSignup() {
   btn.textContent='Creating account…'; btn.disabled=true;
   try {
     await authSignup(email, pass);
-    await loadProgressFromFirebase();
-    updateAuthUI();
+    // Session will be set by onAuthStateChange
     document.getElementById('auth-gate-modal').style.display='none';
-    gotoLibrary();
-  } catch(e) { err.textContent=e.message; }
+    // For Supabase email confirmation: some projects require email verification
+    err.style.color='var(--green)';
+    err.textContent='Account created! Check your email to verify, then log in.';
+  } catch(e) { err.style.color=''; err.textContent=e.message; }
   btn.textContent='Sign Up'; btn.disabled=false;
 }
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-password').value;
   const err = document.getElementById('login-error');
-  err.textContent='';
+  err.textContent=''; err.style.color='';
   if (!email||!pass) { err.textContent='Email and password required.'; return; }
   const btn = document.getElementById('login-btn');
   btn.textContent='Logging in…'; btn.disabled=true;
   try {
     await authLogin(email, pass);
-    await loadProgressFromFirebase();
-    updateAuthUI();
+    // onAuthStateChange handles the rest
     document.getElementById('auth-gate-modal').style.display='none';
     gotoLibrary();
   } catch(e) { err.textContent=e.message; }
   btn.textContent='Log In'; btn.disabled=false;
+}
+async function doGoogleLogin() {
+  try { await authGoogleLogin(); }
+  catch(e) { alert('Google sign-in failed: '+e.message); }
 }
 
 // ── SESSION PERSISTENCE ──────────────────────────────────────
@@ -1325,9 +1480,31 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   const el = document.getElementById('view-'+name);
   if (el) { el.classList.add('active'); window.scrollTo(0,0); }
+  if (name==='setup') renderSetupView();
 }
 function gotoLibrary() { renderLibrary(); showView('library'); }
 function gotoStats() { renderStats(); showView('stats'); }
+
+function renderSetupView() {
+  const adminSection = document.getElementById('setup-admin-section');
+  const memberSection = document.getElementById('setup-member-section');
+  if (!adminSection || !memberSection) return;
+  const admin = isAdmin();
+  const loggedIn = isLoggedIn();
+  if (loggedIn && !admin) {
+    // Member settings
+    adminSection.style.display = 'none';
+    memberSection.style.display = 'block';
+    const emailEl = document.getElementById('member-email-display');
+    if (emailEl) emailEl.textContent = STATE.currentUser?.email || '';
+    const examEl = document.getElementById('member-exam-date');
+    if (examEl) examEl.value = STATE.examDate || '';
+  } else {
+    // Admin (or not logged in) — show full settings
+    adminSection.style.display = 'block';
+    memberSection.style.display = 'none';
+  }
+}
 
 // ── Mindmap ────────────────────────────────────────────────────────
 const MM_CAT_COLORS = {
@@ -1865,20 +2042,22 @@ function mmCatFilter(cat, chipEl) {
 function init() {
   pdfjsLib.GlobalWorkerOptions.workerSrc=
     'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  // Initialize Supabase client
+  _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
   STATE.apiKey=S.get('apiKey','');
   STATE.examDate=S.get('examDate','');
   STATE.density=S.get('density','comprehensive');
   const def=new Date(); def.setMonth(3); def.setDate(6);
-  document.getElementById('exam-date-input').value=
-    STATE.examDate||def.toISOString().split('T')[0];
-  if(STATE.apiKey) document.getElementById('api-key-input').value=STATE.apiKey;
+  if (document.getElementById('exam-date-input'))
+    document.getElementById('exam-date-input').value=STATE.examDate||def.toISOString().split('T')[0];
+  if(STATE.apiKey && document.getElementById('api-key-input'))
+    document.getElementById('api-key-input').value=STATE.apiKey;
   setDensityUI(STATE.density);
-  // Always show header nav; auth buttons visibility handled by updateAuthUI
   document.getElementById('header-nav').style.display='flex';
-  updateAuthUI();
-  if(isLoggedIn()) loadProgressFromFirebase().catch(()=>{});
 
-  // Mark any PDFs stuck in processing (page was closed mid-run) as failed
+  // Mark any stuck-processing PDFs as failed
   const stalePdfs = S.pdfs().map(p =>
     (!p.processingComplete && !p.isSharedBank) ? {...p, processingComplete:true, processingFailed:true} : p
   );
@@ -1887,58 +2066,83 @@ function init() {
   // Check for shared bank URL param (?bank=KEY)
   const urlParams = new URLSearchParams(window.location.search);
   const bankKey = urlParams.get('bank');
-  if(bankKey) {
-    loadSharedBank(bankKey).then(result => {
-      if (result) {
-        const banner = document.getElementById('bank-loaded-banner');
-        if (banner) {
-          banner.style.display='flex';
-          banner.textContent=`✓ "${result.name}" loaded — ${result.count} questions ready to study`;
-        }
-      }
-      gotoLibrary();
-    });
-    return;
-  }
 
-  if(STATE.apiKey){
-    const sess=S.get('session');
-    if(sess&&sess.pdfId){
-      STATE.currentPdfId=sess.pdfId;
-      if(sess.type==='diagnostic'){
-        STATE._sessionType='diagnostic';
-        STATE.diagQs=sess.diagQs||[];
-        STATE.diagIdx=sess.diagIdx||0;
-        STATE.diagResults=sess.diagResults||[];
-        document.getElementById('diag-tot').textContent=STATE.diagQs.length;
-        showView('diagnostic');
-        renderDiagQ();
-      } else if(sess.type==='study'){
-        STATE._sessionType='study';
-        STATE.studyQueue=sess.studyQueue||[];
-        STATE.studyIdx=sess.studyIdx||0;
-        STATE.studyCorrect=sess.studyCorrect||0;
-        STATE.studyIncorrect=sess.studyIncorrect||0;
-        STATE.sessionLog=sess.sessionLog||[];
-        STATE.sessionConcepts=new Set(sess.sessionConcepts||[]);
-        STATE.sessionAnswers=sess.sessionAnswers||{};
-        STATE.sessionRated=sess.sessionRated||{};
-        document.getElementById('study-mode-label').textContent='Adaptive Study Session';
-        updateStudyHUD();
-        showView('study');
-        renderStudyQ();
+  // Listen for Supabase auth state changes
+  _supabase.auth.onAuthStateChange(async (event, session) => {
+    STATE.currentUser = session?.user || null;
+    updateAuthUI();
+    if (session?.user) {
+      await loadProgressFromSupabase().catch(()=>{});
+      await loadMemberBanks().catch(()=>{});
+      renderLibrary();
+    }
+  });
+
+  // Get existing session (async)
+  _supabase.auth.getSession().then(async ({data:{session}}) => {
+    STATE.currentUser = session?.user || null;
+    updateAuthUI();
+
+    if (bankKey) {
+      loadSharedBank(bankKey).then(result => {
+        if (result) {
+          const banner = document.getElementById('bank-loaded-banner');
+          if (banner) { banner.style.display='flex'; banner.textContent=`✓ "${result.name}" loaded — ${result.count} questions ready to study`; }
+        }
+        gotoLibrary();
+      });
+      return;
+    }
+
+    if (STATE.currentUser) {
+      await loadProgressFromSupabase().catch(()=>{});
+      await loadMemberBanks().catch(()=>{});
+    }
+
+    if (STATE.currentUser && !isAdmin()) {
+      // Member: go directly to library (no API key needed)
+      renderLibrary(); showView('library');
+    } else if(STATE.apiKey){
+      const sess=S.get('session');
+      if(sess&&sess.pdfId){
+        STATE.currentPdfId=sess.pdfId;
+        if(sess.type==='diagnostic'){
+          STATE._sessionType='diagnostic';
+          STATE.diagQs=sess.diagQs||[];
+          STATE.diagIdx=sess.diagIdx||0;
+          STATE.diagResults=sess.diagResults||[];
+          document.getElementById('diag-tot').textContent=STATE.diagQs.length;
+          showView('diagnostic');
+          renderDiagQ();
+        } else if(sess.type==='study'){
+          STATE._sessionType='study';
+          STATE.studyQueue=sess.studyQueue||[];
+          STATE.studyIdx=sess.studyIdx||0;
+          STATE.studyCorrect=sess.studyCorrect||0;
+          STATE.studyIncorrect=sess.studyIncorrect||0;
+          STATE.sessionLog=sess.sessionLog||[];
+          STATE.sessionConcepts=new Set(sess.sessionConcepts||[]);
+          STATE.sessionAnswers=sess.sessionAnswers||{};
+          STATE.sessionRated=sess.sessionRated||{};
+          document.getElementById('study-mode-label').textContent='Adaptive Study Session';
+          updateStudyHUD();
+          showView('study');
+          renderStudyQ();
+        } else { gotoLibrary(); }
       } else { gotoLibrary(); }
-    } else { gotoLibrary(); }
-  } else { showView('setup'); }
+    } else { showView('setup'); }
+  });
 
   const ua=document.getElementById('upload-area');
-  ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('dragover');});
-  ua.addEventListener('dragleave',()=>ua.classList.remove('dragover'));
-  ua.addEventListener('drop',e=>{
-    e.preventDefault(); ua.classList.remove('dragover');
-    const f=e.dataTransfer.files[0];
-    if(f&&f.type==='application/pdf') processNewPDF(f);
-  });
+  if (ua) {
+    ua.addEventListener('dragover',e=>{e.preventDefault();ua.classList.add('dragover');});
+    ua.addEventListener('dragleave',()=>ua.classList.remove('dragover'));
+    ua.addEventListener('drop',e=>{
+      e.preventDefault(); ua.classList.remove('dragover');
+      const f=e.dataTransfer.files[0];
+      if(f&&f.type==='application/pdf') processNewPDF(f);
+    });
+  }
 }
 
 // ── SETUP ────────────────────────────────────────────────────
@@ -1960,13 +2164,22 @@ function showSetupError(msg) {
   el.textContent=msg; el.style.display='block';
 }
 function saveSetup() {
-  const key=document.getElementById('api-key-input').value.replace(/[^\x20-\x7E]/g,'').trim();
-  const date=document.getElementById('exam-date-input').value;
+  // Members don't have access to API key — just go to library
+  if (isLoggedIn() && !isAdmin()) { gotoLibrary(); return; }
+  const key=document.getElementById('api-key-input')?.value.replace(/[^\x20-\x7E]/g,'').trim()||'';
+  const date=document.getElementById('exam-date-input')?.value||'';
   if(!key){showSetupError('Please enter your OpenAI API key before continuing.');return;}
   document.getElementById('setup-error').style.display='none';
   STATE.apiKey=key; STATE.examDate=date;
   S.set('apiKey',key); S.set('examDate',date); S.set('density',STATE.density);
   document.getElementById('header-nav').style.display='flex';
+  gotoLibrary();
+}
+function saveMemberSettings() {
+  // Members can update exam date
+  const date = document.getElementById('member-exam-date')?.value||'';
+  STATE.examDate = date;
+  S.set('examDate', date);
   gotoLibrary();
 }
 
@@ -2105,6 +2318,8 @@ function handleFileSelect(e) { const f=e.target.files[0]; if(f) processNewPDF(f)
 
 function deletePDF(id) {
   if (!confirm('Delete this PDF and all its data?')) return;
+  // If admin, also remove from Supabase
+  if (isAdmin()) deleteBankFromSupabase(id).catch(()=>{});
   S.savePDFs(S.pdfs().filter(p=>p.id!==id));
   localStorage.removeItem('msp2_c_'+id);
   localStorage.removeItem('msp2_q_'+id);
@@ -2342,6 +2557,8 @@ async function processNewPDF(file) {
     setProcStatusInline(id,'Ready to study ✓',100);
     const finalCost='$'+STATE._procCost.toFixed(3);
     plog(`✓ Done — ${master.length} concepts · ${uQuestions.length} questions · Cost: ${finalCost}`,'success');
+    // Push to Supabase so members can access it
+    pushBankToSupabase(id).catch(e=>plog('Supabase sync: '+e.message,'error'));
     // Brief pause so user can see completion, then go to Today
     setTimeout(()=>{ renderLibrary(); showView('library'); }, 1800);
 
@@ -4562,7 +4779,12 @@ document.addEventListener('DOMContentLoaded', init);
 <div id="view-login" class="view">
   <div class="auth-card card">
     <h2 style="margin-bottom:6px">Log in</h2>
-    <p class="text-muted" style="font-size:0.85rem;margin-bottom:24px">Log in to sync your progress and share question banks.</p>
+    <p class="text-muted" style="font-size:0.85rem;margin-bottom:24px">Log in to access your question banks and track your progress.</p>
+    <button class="btn-google" onclick="doGoogleLogin()">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google
+    </button>
+    <div class="auth-divider">or</div>
     <div class="form-group">
       <label class="label">Email</label>
       <input type="email" id="login-email" class="input" placeholder="you@example.com" autocomplete="email"/>
@@ -4588,7 +4810,12 @@ document.addEventListener('DOMContentLoaded', init);
 <div id="view-signup" class="view">
   <div class="auth-card card">
     <h2 style="margin-bottom:6px">Create account</h2>
-    <p class="text-muted" style="font-size:0.85rem;margin-bottom:24px">Sync your SRS progress and share question banks across devices.</p>
+    <p class="text-muted" style="font-size:0.85rem;margin-bottom:24px">Join to access shared question banks and sync your progress across devices.</p>
+    <button class="btn-google" onclick="doGoogleLogin()">
+      <svg viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Sign up with Google
+    </button>
+    <div class="auth-divider">or</div>
     <div class="form-group">
       <label class="label">Email</label>
       <input type="email" id="signup-email" class="input" placeholder="you@example.com" autocomplete="email"/>
