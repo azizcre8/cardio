@@ -1713,11 +1713,11 @@ function renderLibrary() {
   list.innerHTML=pdfs.map(pdf=>{
     const shortName=pdf.name.replace(/\.pdf$/i,'');
     if(!pdf.processingComplete){
-      return `<div class="chapter-row">
+      return `<div class="chapter-row" style="cursor:pointer" onclick="showView('processing')">
         <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0;letter-spacing:0.05em">PDF</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(shortName)}</div>
-          <div style="font-size:0.72rem;color:var(--text-dim);margin-top:3px" id="proc-status-${pdf.id}">Processing…</div>
+          <div style="font-size:0.72rem;color:var(--accent);margin-top:3px" id="proc-status-${pdf.id}">⟳ Processing… tap to view</div>
           <div class="chapter-bar" style="margin-top:8px"><div class="chapter-bar-fill" id="proc-bar-${pdf.id}" style="width:0%"></div></div>
         </div>
         <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deletePDF('${pdf.id}')">Delete</button>
