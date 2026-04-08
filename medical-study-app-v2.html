@@ -638,6 +638,25 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 .validate-issue{color:var(--amber);padding-left:10px;position:relative}
 .validate-issue::before{content:'·';position:absolute;left:3px}
 
+/* ── Thumbs rating ───────────────────────────────────────────── */
+.thumbs-bar{display:flex;gap:8px;margin-top:12px;align-items:center}
+.thumb-btn{background:none;border:1px solid var(--border);border-radius:999px;padding:3px 10px;cursor:pointer;font-size:0.75rem;color:var(--text-secondary);transition:all .12s;font-family:var(--font-sans)}
+.thumb-btn:hover{border-color:var(--border-med);color:var(--text-primary)}
+.thumb-btn.thumb-active{border-color:rgba(0,255,163,0.3);color:var(--green);background:rgba(0,255,163,0.07)}
+.thumb-btn.thumb-active-neg{border-color:rgba(255,61,113,0.3);color:var(--red);background:rgba(255,61,113,0.07)}
+
+/* ── Modal overlay ───────────────────────────────────────────── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:500}
+.modal-box{background:var(--bg-raised);border:1px solid var(--border-med);border-radius:var(--radius-lg);padding:28px;max-width:420px;width:90%;position:relative}
+.modal-title{font-size:1.05rem;font-weight:600;margin-bottom:6px}
+.modal-sub{font-size:0.82rem;color:var(--text-secondary);margin-bottom:22px;line-height:1.55}
+.modal-close{position:absolute;top:14px;right:16px;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1.1rem}
+.modal-close:hover{color:var(--text-primary)}
+.auth-error{color:var(--red);font-size:0.8rem;margin-top:8px;display:none}
+
+/* ── Auth view card centering ────────────────────────────────── */
+.auth-card{max-width:400px;margin:40px auto}
+
 /* ── Responsive ──────────────────────────────────────────────── */
 @media(max-width:580px){
   .today-hero{grid-template-columns:1fr 1fr}
@@ -668,6 +687,10 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
     <button class="nav-btn" onclick="gotoLibrary()">Library</button>
     <button class="nav-btn" onclick="gotoStats()">Stats</button>
     <button class="nav-btn" onclick="showView('setup')">Settings</button>
+    <span id="nav-user-email" style="font-size:0.7rem;color:var(--text-dim);display:none;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+    <button class="nav-btn" id="nav-login" onclick="showView('login')" style="display:none">Log In</button>
+    <button class="nav-btn" id="nav-signup" onclick="showView('signup')">Sign Up</button>
+    <button class="nav-btn" id="nav-logout" onclick="authLogout()" style="display:none">Log Out</button>
   </div>
 </div>
 
@@ -710,6 +733,7 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 <!-- TODAY (replaces Library) -->
 <div id="view-library" class="view">
   <div id="proc-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:rgba(0,242,255,0.06);border:1px solid rgba(0,242,255,0.18);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:var(--accent)"></div>
+  <div id="bank-loaded-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:rgba(0,255,163,0.06);border:1px solid rgba(0,255,163,0.2);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:var(--green)"></div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
     <div>
       <h1 style="font-family:var(--font-sans);font-size:1.4rem;font-weight:500;letter-spacing:-0.01em">Today</h1>
@@ -724,7 +748,7 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
   <!-- Chapter list header -->
   <div class="today-section-hdr">
     <span class="today-section-lbl">Chapters</span>
-    <label style="cursor:pointer">
+    <label id="lib-upload-label" style="cursor:pointer" onclick="if(!isLoggedIn()){event.preventDefault();requireAuth('PDF Upload');}">
       <span class="btn btn-secondary btn-sm">Upload PDF +</span>
       <input type="file" id="pdf-input" accept=".pdf" style="display:none" onchange="handleFileSelect(event)"/>
     </label>
@@ -955,6 +979,8 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 // ── CONFIG ──────────────────────────────────────────────────
+const FIREBASE_URL = "https://cardio-58e59-default-rtdb.firebaseio.com";
+const FIREBASE_API_KEY = "REPLACE_WITH_FIREBASE_API_KEY";
 const OPENAI_URL='https://api.openai.com/v1/chat/completions';
 const OPENAI_MODEL='gpt-4o-mini';
 const EMBED_URL='https://api.openai.com/v1/embeddings';
@@ -1014,6 +1040,206 @@ const S = {
   flagged: id => S.get('fl_'+id,[]),
   saveFlagged: (id,v) => S.set('fl_'+id,v)
 };
+
+// ── AUTH ─────────────────────────────────────────────────────
+function getAuth() {
+  return {
+    token: localStorage.getItem('msp2_authToken'),
+    userId: localStorage.getItem('msp2_userId'),
+    email: localStorage.getItem('msp2_userEmail')
+  };
+}
+function isLoggedIn() { return !!getAuth().token; }
+function setAuth(token, userId, email) {
+  localStorage.setItem('msp2_authToken', token);
+  localStorage.setItem('msp2_userId', userId);
+  localStorage.setItem('msp2_userEmail', email||'');
+}
+function clearAuth() {
+  ['msp2_authToken','msp2_userId','msp2_userEmail'].forEach(k=>localStorage.removeItem(k));
+}
+function updateAuthUI() {
+  const {token, email} = getAuth();
+  const loggedIn = !!token;
+  const el = id => document.getElementById(id);
+  if(el('nav-logout')) el('nav-logout').style.display = loggedIn ? '' : 'none';
+  if(el('nav-login')) el('nav-login').style.display = loggedIn ? 'none' : '';
+  if(el('nav-signup')) el('nav-signup').style.display = loggedIn ? 'none' : '';
+  if(el('nav-user-email')) { el('nav-user-email').textContent = email||''; el('nav-user-email').style.display = loggedIn ? '' : 'none'; }
+  if(el('lib-upload-label')) el('lib-upload-label').style.opacity = loggedIn ? '1' : '0.45';
+  if(el('lib-upload-label')) el('lib-upload-label').title = loggedIn ? '' : 'Create a free account to upload PDFs';
+}
+
+async function authSignup(email, password) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+    {method:'POST', headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({email, password, returnSecureToken:true})});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || 'Signup failed');
+  setAuth(d.idToken, d.localId, email);
+  return d;
+}
+async function authLogin(email, password) {
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
+    {method:'POST', headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({email, password, returnSecureToken:true})});
+  const d = await r.json();
+  if (!r.ok) throw new Error(d.error?.message || 'Login failed');
+  setAuth(d.idToken, d.localId, email);
+  return d;
+}
+function authLogout() {
+  clearAuth(); updateAuthUI();
+  gotoLibrary();
+}
+function requireAuth(feature) {
+  if (isLoggedIn()) return true;
+  const m = document.getElementById('auth-gate-modal');
+  if (m) { document.getElementById('auth-gate-feature').textContent = feature; m.style.display='flex'; }
+  return false;
+}
+
+// ── FIREBASE PROGRESS SYNC ───────────────────────────────────
+async function syncProgressToFirebase(q) {
+  const {token, userId} = getAuth();
+  if (!token || !userId) return;
+  try {
+    await fetch(`${FIREBASE_URL}/users/${userId}/progress/${q.id}.json?auth=${token}`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({easeFactor:q.easeFactor, interval:q.interval,
+        repetitions:q.repetitions, nextReview:q.nextReview,
+        lastReviewed:q.lastReviewed, timesReviewed:q.timesReviewed})
+    });
+  } catch(e) {}
+}
+async function loadProgressFromFirebase() {
+  const {token, userId} = getAuth();
+  if (!token || !userId) return;
+  try {
+    const r = await fetch(`${FIREBASE_URL}/users/${userId}/progress.json?auth=${token}`);
+    const data = await r.json();
+    if (!data) return;
+    S.pdfs().filter(p=>p.processingComplete).forEach(pdf=>{
+      const qs = S.questions(pdf.id); let changed=false;
+      qs.forEach((q,i)=>{ if(data[q.id]){ Object.assign(qs[i],data[q.id]); changed=true; } });
+      if(changed) S.saveQuestions(pdf.id,qs);
+    });
+  } catch(e) {}
+}
+
+// ── SHARE BANK ───────────────────────────────────────────────
+async function shareBank(pdfId) {
+  const pdf = S.pdfs().find(p=>p.id===pdfId);
+  if (!pdf) return;
+  const btn = document.getElementById('share-btn-'+pdfId);
+  if (btn) { btn.textContent='Sharing…'; btn.disabled=true; }
+  try {
+    const bank = {
+      questions: S.questions(pdfId),
+      pdfName: pdf.name.replace(/\.pdf$/i,''),
+      generatedDate: pdf.uploadDate||new Date().toISOString(),
+      questionCount: S.questions(pdfId).length,
+      createdBy: getAuth().email||''
+    };
+    const r = await fetch(`${FIREBASE_URL}/banks.json`,
+      {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bank)});
+    const d = await r.json();
+    const url = window.location.origin + window.location.pathname + '?bank=' + d.name;
+    document.getElementById('share-modal-url').value = url;
+    document.getElementById('share-modal-name').textContent = bank.pdfName;
+    document.getElementById('share-modal').style.display='flex';
+  } catch(e) { alert('Share failed: '+e.message); }
+  if (btn) { btn.textContent='Share'; btn.disabled=false; }
+}
+function closeShareModal() { document.getElementById('share-modal').style.display='none'; }
+function copyShareLink() {
+  const inp = document.getElementById('share-modal-url');
+  inp.select(); try { document.execCommand('copy'); } catch(e) { navigator.clipboard?.writeText(inp.value); }
+  const btn = document.getElementById('share-copy-btn');
+  btn.textContent='✓ Copied!'; setTimeout(()=>btn.textContent='Copy Link',2000);
+}
+async function loadSharedBank(key) {
+  try {
+    const r = await fetch(`${FIREBASE_URL}/banks/${key}.json`);
+    if (!r.ok) throw new Error('Not found');
+    const bank = await r.json();
+    if (!bank?.questions) throw new Error('Invalid bank');
+    const pdfId = 'bank_'+key;
+    if (!S.pdfs().find(p=>p.id===pdfId)) {
+      S.savePDFs([...S.pdfs(),{id:pdfId, name:bank.pdfName+'.pdf',
+        uploadDate:bank.generatedDate, processingComplete:true,
+        conceptCount:0, questionCount:bank.questions.length,
+        isSharedBank:true, bankKey:key}]);
+    }
+    S.saveQuestions(pdfId, bank.questions);
+    history.replaceState({},document.title,window.location.pathname);
+    return {pdfId, count:bank.questions.length, name:bank.pdfName};
+  } catch(e) { console.warn('loadSharedBank:',e.message); return null; }
+}
+
+// ── QUESTION RATING ──────────────────────────────────────────
+function rateQuestion(qId, rating) {
+  const pdfId = queuePdfId(qId);
+  const qs = S.questions(pdfId);
+  const idx = qs.findIndex(q=>q.id===qId);
+  if (idx<0) return;
+  qs[idx].rating=rating; qs[idx].rated=true;
+  S.saveQuestions(pdfId, qs);
+  document.getElementById('thumb-up-'+qId)?.classList.toggle('thumb-active', rating===1);
+  const downEl = document.getElementById('thumb-down-'+qId);
+  if(downEl){ downEl.classList.toggle('thumb-active-neg', rating===-1); }
+  const {token, userId} = getAuth();
+  const pdf = S.pdfs().find(p=>p.id===pdfId);
+  if (token && userId) {
+    fetch(`${FIREBASE_URL}/users/${userId}/ratings/${qId}.json?auth=${token}`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({rating,ratedAt:new Date().toISOString()})}).catch(()=>{});
+  }
+  if (pdf?.bankKey) {
+    fetch(`${FIREBASE_URL}/banks/${pdf.bankKey}/ratings/${qId}.json`,
+      {method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({rating,ratedAt:new Date().toISOString()})}).catch(()=>{});
+  }
+}
+
+// ── AUTH FORM HANDLERS ───────────────────────────────────────
+async function doSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const pass = document.getElementById('signup-password').value;
+  const pass2 = document.getElementById('signup-confirm').value;
+  const err = document.getElementById('signup-error');
+  err.textContent='';
+  if (!email||!pass) { err.textContent='Email and password required.'; return; }
+  if (pass!==pass2) { err.textContent='Passwords do not match.'; return; }
+  if (pass.length<6) { err.textContent='Password must be at least 6 characters.'; return; }
+  const btn = document.getElementById('signup-btn');
+  btn.textContent='Creating account…'; btn.disabled=true;
+  try {
+    await authSignup(email, pass);
+    await loadProgressFromFirebase();
+    updateAuthUI();
+    document.getElementById('auth-gate-modal').style.display='none';
+    gotoLibrary();
+  } catch(e) { err.textContent=e.message; }
+  btn.textContent='Sign Up'; btn.disabled=false;
+}
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value;
+  const err = document.getElementById('login-error');
+  err.textContent='';
+  if (!email||!pass) { err.textContent='Email and password required.'; return; }
+  const btn = document.getElementById('login-btn');
+  btn.textContent='Logging in…'; btn.disabled=true;
+  try {
+    await authLogin(email, pass);
+    await loadProgressFromFirebase();
+    updateAuthUI();
+    document.getElementById('auth-gate-modal').style.display='none';
+    gotoLibrary();
+  } catch(e) { err.textContent=e.message; }
+  btn.textContent='Log In'; btn.disabled=false;
+}
 
 // ── SESSION PERSISTENCE ──────────────────────────────────────
 function saveSession() {
@@ -1588,8 +1814,29 @@ function init() {
     STATE.examDate||def.toISOString().split('T')[0];
   if(STATE.apiKey) document.getElementById('api-key-input').value=STATE.apiKey;
   setDensityUI(STATE.density);
+  // Always show header nav; auth buttons visibility handled by updateAuthUI
+  document.getElementById('header-nav').style.display='flex';
+  updateAuthUI();
+  if(isLoggedIn()) loadProgressFromFirebase().catch(()=>{});
+
+  // Check for shared bank URL param (?bank=KEY)
+  const urlParams = new URLSearchParams(window.location.search);
+  const bankKey = urlParams.get('bank');
+  if(bankKey) {
+    loadSharedBank(bankKey).then(result => {
+      if (result) {
+        const banner = document.getElementById('bank-loaded-banner');
+        if (banner) {
+          banner.style.display='flex';
+          banner.textContent=`✓ "${result.name}" loaded — ${result.count} questions ready to study`;
+        }
+      }
+      gotoLibrary();
+    });
+    return;
+  }
+
   if(STATE.apiKey){
-    document.getElementById('header-nav').style.display='flex';
     const sess=S.get('session');
     if(sess&&sess.pdfId){
       STATE.currentPdfId=sess.pdfId;
@@ -1741,16 +1988,24 @@ function renderLibrary() {
       <div style="width:32px;height:32px;border-radius:8px;background:var(--bg-sunken);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.65rem;color:var(--text-dim);flex-shrink:0;letter-spacing:0.05em">PDF</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:0.85rem;font-weight:500;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(shortName)}</div>
-        <div style="font-size:0.72rem;color:var(--text-dim);margin-top:3px">${S.concepts(pdf.id).length} concepts · ${qCount} questions</div>
+        <div style="font-size:0.72rem;color:var(--text-dim);margin-top:3px">${S.concepts(pdf.id).length} concepts · ${qCount} questions${(()=>{const rated=S.questions(pdf.id).filter(q=>q.rated);const pos=rated.filter(q=>q.rating===1).length;return rated.length?` · <span style="color:var(--green)">${Math.round(pos/rated.length*100)}% 👍 (${rated.length})</span>`:''})()}</div>
         <div class="chapter-bar" style="margin-top:8px"><div class="chapter-bar-fill" style="width:${avg}%"></div></div>
       </div>
       ${due>0?`<span class="chapter-due-badge">${due} due</span>`:''}
+      ${!pdf.isSharedBank?`<button class="btn btn-secondary btn-sm" id="share-btn-${pdf.id}" onclick="event.stopPropagation();shareBank('${pdf.id}')">Share</button>`:''}
       <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();openStudy('${pdf.id}')">Study →</button>
     </div>`;
   }).join('');
 
   const banner=document.getElementById('all-due-banner');
   if(banner) banner.style.display='none';
+
+  const bankBanner=document.getElementById('bank-loaded-banner');
+  if(bankBanner && STATE._sharedBankLoaded) {
+    const b=STATE._sharedBankLoaded;
+    bankBanner.innerHTML=`<span>✓ Loaded <strong>${escHtml(b.count+' questions')}</strong> from shared bank: <strong>${escHtml(b.name)}</strong></span><button class="btn btn-primary btn-sm" onclick="openStudy('${b.pdfId}')">Start Studying →</button>`;
+    bankBanner.style.display='flex';
+  } else if(bankBanner) { bankBanner.style.display='none'; }
 
   const procBanner=document.getElementById('proc-banner');
   if(procBanner) {
@@ -1780,6 +2035,7 @@ function deletePDF(id) {
 let _timer,_startTime;
 
 async function processNewPDF(file) {
+  if (!requireAuth('PDF Upload & Question Generation')) return;
   const id=Date.now().toString();
   const dc=DENSITY[STATE.density];
   S.savePDFs([...S.pdfs(),{id,name:file.name,uploadDate:new Date().toISOString(),
@@ -3384,6 +3640,10 @@ function renderQCard(q, mode) {
     <div id="xpl_${q.id}" style="display:none">
       <div class="explanation-box" id="xplText_${q.id}">💡 ${escHtml(q.explanation||'No explanation provided.')}</div>
       <div id="srcQuote_${q.id}" style="display:none"></div>
+      <div class="thumbs-bar">
+        <button class="thumb-btn${q.rating===1?' thumb-active':''}" id="thumb-up-${q.id}" onclick="rateQuestion('${q.id}',1)" title="Good question">👍</button>
+        <button class="thumb-btn${q.rating===-1?' thumb-active-neg':''}" id="thumb-down-${q.id}" onclick="rateQuestion('${q.id}',-1)" title="Poor question">👎</button>
+      </div>
       ${mode==='diag'
         ? `<button class="btn btn-primary mt-3" style="width:100%" onclick="nextDiagQ()">Next →</button>`
         : `<div class="quality-bar">
@@ -3741,6 +4001,9 @@ function submitQuality(qId, quality) {
 
     // Single atomic write covers both the shown question and any proxied original
     S.saveQuestions(pdfId,qs);
+    // Sync progress to Firebase if logged in
+    syncProgressToFirebase(qs[idx]);
+    if(proxiedFromId && qs[qs.findIndex(q=>q.id===proxiedFromId)]) syncProgressToFirebase(qs[qs.findIndex(q=>q.id===proxiedFromId)]);
   }
   // Advance: if we're on a nav-back position, go forward from here
   STATE.studyIdx++;
@@ -4105,5 +4368,89 @@ document.addEventListener('keydown', e=>{
 // ── BOOT ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', init);
 </script>
+
+<!-- LOGIN VIEW -->
+<div id="view-login" class="view">
+  <div class="auth-card card">
+    <h2 style="margin-bottom:6px">Log in</h2>
+    <p class="text-muted" style="font-size:0.85rem;margin-bottom:24px">Log in to sync your progress and share question banks.</p>
+    <div class="form-group">
+      <label class="label">Email</label>
+      <input type="email" id="login-email" class="input" placeholder="you@example.com" autocomplete="email"/>
+    </div>
+    <div class="form-group">
+      <label class="label">Password</label>
+      <input type="password" id="login-password" class="input" placeholder="Password" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div id="login-error" class="auth-error" style="display:block"></div>
+    <button class="btn btn-primary" id="login-btn" style="width:100%;margin-top:8px" onclick="doLogin()">Log In</button>
+    <p style="text-align:center;margin-top:16px;font-size:0.82rem;color:var(--text-secondary)">
+      Don't have an account?
+      <button onclick="showView('signup')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.82rem;font-family:var(--font-sans);text-decoration:underline">Sign up</button>
+    </p>
+    <p style="text-align:center;margin-top:8px">
+      <button onclick="gotoLibrary()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.8rem;font-family:var(--font-sans)">← Back to Library</button>
+    </p>
+  </div>
+</div>
+
+<!-- SIGNUP VIEW -->
+<div id="view-signup" class="view">
+  <div class="auth-card card">
+    <h2 style="margin-bottom:6px">Create account</h2>
+    <p class="text-muted" style="font-size:0.85rem;margin-bottom:24px">Sync your SRS progress and share question banks across devices.</p>
+    <div class="form-group">
+      <label class="label">Email</label>
+      <input type="email" id="signup-email" class="input" placeholder="you@example.com" autocomplete="email"/>
+    </div>
+    <div class="form-group">
+      <label class="label">Password</label>
+      <input type="password" id="signup-password" class="input" placeholder="At least 6 characters" autocomplete="new-password"/>
+    </div>
+    <div class="form-group">
+      <label class="label">Confirm Password</label>
+      <input type="password" id="signup-confirm" class="input" placeholder="Repeat password" autocomplete="new-password"
+        onkeydown="if(event.key==='Enter')doSignup()"/>
+    </div>
+    <div id="signup-error" class="auth-error" style="display:block"></div>
+    <button class="btn btn-primary" id="signup-btn" style="width:100%;margin-top:8px" onclick="doSignup()">Create Account</button>
+    <p style="text-align:center;margin-top:16px;font-size:0.82rem;color:var(--text-secondary)">
+      Already have an account?
+      <button onclick="showView('login')" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:0.82rem;font-family:var(--font-sans);text-decoration:underline">Log in</button>
+    </p>
+    <p style="text-align:center;margin-top:8px">
+      <button onclick="gotoLibrary()" style="background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:0.8rem;font-family:var(--font-sans)">← Back to Library</button>
+    </p>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div id="share-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeShareModal()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeShareModal()">✕</button>
+    <div class="modal-title">Share Question Bank</div>
+    <p class="modal-sub">Anyone with this link can import this question bank and study it.</p>
+    <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:6px">Shared as: <span id="share-modal-name" style="color:var(--text-primary)"></span></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input id="share-modal-url" class="input" readonly style="flex:1;font-size:0.78rem"
+        onclick="this.select()" value=""/>
+      <button class="btn btn-secondary btn-sm" id="share-copy-btn" onclick="copyShareLink()">Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTH-GATE MODAL -->
+<div id="auth-gate-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-box" style="text-align:center">
+    <button class="modal-close" onclick="document.getElementById('auth-gate-modal').style.display='none'">✕</button>
+    <div class="modal-title" style="margin-bottom:10px">Account required</div>
+    <p class="modal-sub">Create a free account to use <strong id="auth-gate-feature">this feature</strong>.</p>
+    <div style="display:flex;gap:10px;justify-content:center;margin-top:4px">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('auth-gate-modal').style.display='none';showView('signup')">Sign Up — Free</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('auth-gate-modal').style.display='none';showView('login')">Log In</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
