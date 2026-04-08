@@ -1908,6 +1908,10 @@ async function processNewPDF(file) {
     })();
     plog(`After consolidation: ${master.length} concepts`);
 
+    plog('Building concept confusion map…');
+    const confusionMap = await generateConfusionMap(master, id);
+    plog(`Confusion map built — ${Object.keys(confusionMap).length} concepts with confusion pairs`);
+
     // ── Phase 5 + 6: RAG-grounded generation + Multi-Agent Clinical Audit
     plog('Phase 5: Generating questions (Writer Agent gpt-4o, RAG-grounded)…');
     const ragEnabled=chunkRecords.some(c=>c.embedding.length>0);
@@ -1928,7 +1932,7 @@ async function processNewPDF(file) {
       setProcStatusInline(id,`Writing ${label}…`,pct);
       plog(`Writer Agent → concepts ${label}…`,'writer');
       try {
-        const qs=await generateCoverageQuestions(batch,id,STATE.density,chunkRecords);
+        const qs=await generateCoverageQuestions(batch,id,STATE.density,chunkRecords,confusionMap);
 
         const ragPassagesMap={};
         if(ragEnabled) {
@@ -2375,7 +2379,7 @@ Return ONLY valid JSON — no markdown, no prose:
 
 // ── COVERAGE-FIRST QUESTION GENERATION ───────────────────────
 // allChunkRecords: ChunkRecord[] from Phase 2.5 (embeddings stored); may be empty for legacy calls
-async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[]) {
+async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[],confusionMap={}) {
   const dc=DENSITY[density];
   const all=[];
 
@@ -2427,10 +2431,16 @@ async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[])
           pageEstimate:c.pageEstimate||'',passages};
   });
 
-  const specsText=specs.map((cs,i)=>`
+  const specsText=specs.map((cs,i)=>{
+    const confusions = confusionMap[cs.name] || [];
+    const confusionLine = confusions.length
+      ? `Commonly confused with: ${confusions.map(c => `${c.pairConcept} (${c.reason})`).join('; ')}. Prioritise these as distractors where clinically appropriate.`
+      : '';
+    return `
 CONCEPT ${i+1}: ${cs.name} [${cs.category}] [${cs.importance}-yield] [Pages: ${cs.pageEstimate||'unknown'}]
-Key information: ${cs.facts}${cs.passages?`\nSource passages from PDF:\n${cs.passages}`:''}
-Required question levels: ${cs.levels.map(l=>l===1?'L1=recall/definition':l===2?'L2=mechanism/application':'L3=clinical vignette/comparison').join(', ')}`).join('\n');
+Key information: ${cs.facts}${cs.passages?`\nSource passages from PDF:\n${cs.passages}`:''}${confusionLine ? '\n' + confusionLine : ''}
+Required question levels: ${cs.levels.map(l=>l===1?'L1=recall/definition':l===2?'L2=mechanism/application':'L3=clinical vignette/comparison').join(', ')}`;
+  }).join('\n');
 
   const prompt=`You are a medical board exam writer. Generate MCQ questions with MANDATORY per-concept coverage.
 ${specsText}
@@ -2698,18 +2708,22 @@ Be strict but fair. REVISE when there is ONE clear, fixable issue. REJECT only w
 
 // ── Writer Agent: generate ONE question with full rubric ──────
 // ragPassages: optional string of retrieved PDF passages for grounding
-async function writerAgentGenerate(concept, level, pdfId, density, ragPassages='') {
+async function writerAgentGenerate(concept, level, pdfId, density, ragPassages='', confusionPairs='') {
   const levelLabel=level===1?'L1 — Recall / Definition':level===2?'L2 — Mechanism / Application':'L3 — Clinical Vignette / Comparison';
   const facts=[...(concept.keyFacts||[]),concept.clinicalRelevance||'',...(concept.associations||[]).slice(0,3)].filter(Boolean).join('; ');
 
   const sourceSection=ragPassages
     ?`\nSOURCE PASSAGES FROM PDF (use to ground the question and sourceQuote):\n${ragPassages}\n`:'';
 
+  const confusionSection = confusionPairs
+    ? `\nKNOWN CONFUSION PAIRS — use these as distractors where appropriate:\n${confusionPairs}\n`
+    : '';
+
   const prompt=`You are a specialist USMLE/COMLEX Writer Agent. Generate exactly ONE board-quality MCQ.
 
 CONCEPT: ${concept.concept} [${concept.category}] [${concept.importance}-yield]
 Required level: ${levelLabel}
-Key information: ${facts}${sourceSection}
+Key information: ${facts}${sourceSection}${confusionSection}
 
 BOARD-STANDARD WRITING RULES (all mandatory):
 1. The correct answer must be directly defensible from the key information or source passages above — no speculation.
