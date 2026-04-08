@@ -330,23 +330,41 @@ input:checked+.toggle-slider:before{transform:translateX(20px);background:#0c0d0
 .fill-l1{background:var(--blue)}.fill-l2{background:var(--accent)}.fill-l3{background:var(--green)}
 
 /* ── Density selector ───────────────────────────────────────── */
-.density-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.density-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .density-opt{
   background:var(--bg-raised);
-  border:1px solid var(--border);
+  border:1.5px solid var(--border);
   border-radius:var(--radius-md);
-  padding:16px 12px;
+  padding:14px 16px 14px 14px;
   cursor:pointer;
-  transition:all .15s;
-  text-align:center;
+  transition:border-color .15s, background .15s, box-shadow .15s;
+  text-align:left;
+  position:relative;
 }
-.density-opt:hover{border-color:var(--border-med)}
+.density-opt:hover{border-color:var(--border-med);background:var(--bg-surface)}
 .density-opt.selected{
   background:var(--accent-dim);
   border-color:var(--accent);
+  box-shadow:0 0 0 1px rgba(0,242,255,0.12);
 }
-.density-label{font-weight:500;font-size:0.85rem;margin-bottom:3px;color:var(--text-primary)}
-.density-desc{font-size:0.7rem;color:var(--text-tertiary)}
+.density-check{
+  position:absolute;top:11px;right:11px;
+  width:17px;height:17px;border-radius:50%;
+  border:1.5px solid var(--border-med);
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.6rem;font-weight:700;color:transparent;
+  transition:all .15s;background:var(--bg-sunken);
+}
+.density-opt.selected .density-check{
+  background:var(--accent);border-color:var(--accent);color:#07080B;
+}
+.density-label{font-weight:600;font-size:0.85rem;margin-bottom:4px;color:var(--text-primary);padding-right:22px}
+.density-desc{font-size:0.7rem;color:var(--text-secondary);line-height:1.45}
+.density-badge{
+  display:inline-block;font-size:0.56rem;font-weight:700;letter-spacing:0.07em;
+  text-transform:uppercase;background:rgba(0,242,255,0.13);color:var(--accent);
+  border-radius:999px;padding:1px 6px;margin-left:5px;vertical-align:middle;
+}
 
 /* ── Stats ──────────────────────────────────────────────────── */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;margin-bottom:20px}
@@ -715,16 +733,19 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
       <label class="label">Coverage Density</label>
       <div class="density-grid">
         <div class="density-opt" id="d-standard" onclick="setDensity('standard')">
+          <div class="density-check">✓</div>
           <div class="density-label">Standard</div>
-          <div class="density-desc">High-yield focus · faster</div>
+          <div class="density-desc">High-yield topics only · fastest to generate</div>
         </div>
         <div class="density-opt selected" id="d-comprehensive" onclick="setDensity('comprehensive')">
-          <div class="density-label">Comprehensive</div>
-          <div class="density-desc">All topics · recommended</div>
+          <div class="density-check">✓</div>
+          <div class="density-label">Comprehensive <span class="density-badge">Recommended</span></div>
+          <div class="density-desc">Full topic coverage · best for most students</div>
         </div>
         <div class="density-opt" id="d-boards" onclick="setDensity('boards')">
+          <div class="density-check">✓</div>
           <div class="density-label">Boards</div>
-          <div class="density-desc">Total coverage · thorough</div>
+          <div class="density-desc">Maximum depth · longest to generate</div>
         </div>
       </div>
     </div>
@@ -887,16 +908,19 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
     <div style="font-size:0.75rem;color:var(--text-tertiary);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.06em">Coverage Density</div>
     <div class="density-grid" id="study-density-grid">
       <div class="density-opt" id="sd-standard" onclick="setDensity('standard');updateStudyDensityUI()">
+        <div class="density-check">✓</div>
         <div class="density-label">Standard</div>
-        <div class="density-desc">High-yield focus</div>
+        <div class="density-desc">High-yield focus · faster</div>
       </div>
       <div class="density-opt" id="sd-comprehensive" onclick="setDensity('comprehensive');updateStudyDensityUI()">
-        <div class="density-label">Comprehensive</div>
-        <div class="density-desc">All topics</div>
+        <div class="density-check">✓</div>
+        <div class="density-label">Comprehensive <span class="density-badge">Recommended</span></div>
+        <div class="density-desc">Full topic coverage</div>
       </div>
       <div class="density-opt" id="sd-boards" onclick="setDensity('boards');updateStudyDensityUI()">
+        <div class="density-check">✓</div>
         <div class="density-label">Boards</div>
-        <div class="density-desc">Total coverage</div>
+        <div class="density-desc">Maximum depth</div>
       </div>
     </div>
     <p class="text-muted" style="margin-top:8px;font-size:0.75rem">Density affects new PDF processing — existing questions reflect the density used at upload time.</p>
