@@ -709,6 +709,7 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 
 <!-- TODAY (replaces Library) -->
 <div id="view-library" class="view">
+  <div id="proc-banner" style="display:none;align-items:center;justify-content:space-between;gap:12px;background:rgba(0,242,255,0.06);border:1px solid rgba(0,242,255,0.18);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;font-size:0.82rem;color:var(--accent)"></div>
   <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:20px">
     <div>
       <h1 style="font-family:var(--font-sans);font-size:1.4rem;font-weight:500;letter-spacing:-0.01em">Today</h1>
@@ -1750,6 +1751,17 @@ function renderLibrary() {
 
   const banner=document.getElementById('all-due-banner');
   if(banner) banner.style.display='none';
+
+  const procBanner=document.getElementById('proc-banner');
+  if(procBanner) {
+    if(STATE._processing) {
+      const title=document.getElementById('proc-title')?.textContent||'PDF';
+      procBanner.innerHTML=`<span>⟳ Processing <strong>${title}</strong>…</span><button class="btn btn-secondary btn-sm" onclick="showView('processing')">View Progress →</button>`;
+      procBanner.style.display='flex';
+    } else {
+      procBanner.style.display='none';
+    }
+  }
 }
 
 function handleFileSelect(e) { const f=e.target.files[0]; if(f) processNewPDF(f); }
@@ -1774,6 +1786,7 @@ async function processNewPDF(file) {
     processingComplete:false,conceptCount:0,questionCount:0,density:STATE.density}]);
 
   // Show rich processing view
+  STATE._processing=true;
   STATE._procCost=0;
   document.getElementById('proc-title').textContent=file.name.replace(/\.pdf$/i,'');
   document.getElementById('proc-log').innerHTML='';
@@ -1986,6 +1999,7 @@ async function processNewPDF(file) {
       :p));
 
     clearInterval(_timer);
+    STATE._processing=false;
     setProcStatus('Complete ✓',100);
     setProcStatusInline(id,'Ready to study ✓',100);
     const finalCost='$'+STATE._procCost.toFixed(3);
@@ -1995,6 +2009,7 @@ async function processNewPDF(file) {
 
   } catch(err) {
     clearInterval(_timer);
+    STATE._processing=false;
     plog('FATAL: '+err.message,'error');
     setProcStatus('❌ Error',0);
     setProcStatusInline(id,'❌ '+err.message,0);
