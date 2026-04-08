@@ -3683,45 +3683,120 @@ function questionFingerprint(q) {
   return text.split(/\s+/).filter(w => w.length > 4 && !stop.has(w)).slice(0,10).sort().join('|');
 }
 
-function dedupQuestions(arr) {
-  const seen = new Set();
-  const clCount = new Map();
-  const clusterCount = new Map();
-  const clusterCap = {high:3, medium:2, low:1};
-  const fingerprints = []; // [[fp, level], ...]
+// Detect the structural answer-form of a question for diversity scoring
+function detectAnswerForm(q) {
+  const s = (q.question||'').toLowerCase();
+  if (/\b(first|initial|earliest)\b/.test(s)) return 'sequence';
+  if (/\bnot\b.*\bfollowing\b|\bexcept\b|\bleast likely\b/.test(s)) return 'negation';
+  if (/\b(differ|distinguish|unlike|contrast|compare|versus)\b/.test(s)) return 'comparison';
+  if (/\bmechanism\b|\bwhy\b|\bhow does\b|\bwhat causes\b|\bleads to\b/.test(s)) return 'mechanism';
+  if (/\b(increase|decrease|change|higher|lower|greater|less)\b/.test(s)) return 'directional';
+  if (/\b(treat|manag|next step|therap|intervention)\b/.test(s)) return 'clinical';
+  if (/\b(located|found in|region|layer|structure)\b/.test(s)) return 'location';
+  return 'recall';
+}
 
-  return arr.filter(q => {
-    // Surface dedup: first 60 normalised chars
+// Score a question candidate given the set already selected for this cluster.
+// Higher score = prefer to keep. Scoring is heuristic (no API call).
+function scoreQuestion(q, alreadyKept) {
+  let score = 0;
+  const keptLevels = new Set(alreadyKept.map(k => k.level));
+  const keptForms  = new Set(alreadyKept.map(k => detectAnswerForm(k)));
+
+  // Level diversity: largest bonus for a level not yet represented
+  if (!keptLevels.has(q.level)) score += 30;
+
+  // Answer-form diversity: bonus for a new form
+  if (!keptForms.has(detectAnswerForm(q))) score += 20;
+
+  // Explanation quality: contrast language signals per-distractor coverage
+  const xpl = (q.explanation||'').toLowerCase();
+  ['however','whereas','unlike','in contrast','not because'].forEach(w => { if (xpl.includes(w)) score += 4; });
+  // Explanation length proxy (more words → more specific per-distractor coverage, up to a point)
+  score += Math.min(Math.floor(xpl.length / 120), 8);
+
+  // Has a sourceQuote (grounded in PDF text)
+  if (q.sourceQuote) score += 5;
+
+  // Option length parity — lower variance = better balanced distractors
+  const lens = (q.options||[]).map(o => (o||'').split(/\s+/).length);
+  if (lens.length) {
+    const avg = lens.reduce((s,l) => s+l, 0) / lens.length;
+    const variance = lens.reduce((s,l) => s + Math.pow(l-avg, 2), 0) / lens.length;
+    score -= Math.min(variance * 0.5, 8);
+  }
+
+  // Prefer higher-order thinking as a tiebreaker (L3 > L2 > L1)
+  score += q.level * 2;
+
+  return score;
+}
+
+// Greedy best-N selection from a cluster's candidate list.
+// Each pick maximises score(q, already_kept), ensuring level diversity is considered at every step.
+function selectBestForCluster(qs, cap) {
+  const kept = [];
+  const pool = [...qs];
+  while (kept.length < cap && pool.length) {
+    let bestIdx = 0, bestScore = -Infinity;
+    pool.forEach((q, i) => {
+      const s = scoreQuestion(q, kept);
+      if (s > bestScore) { bestScore = s; bestIdx = i; }
+    });
+    kept.push(pool.splice(bestIdx, 1)[0]);
+  }
+  return kept;
+}
+
+function dedupQuestions(arr) {
+  const clusterCap = {high:3, medium:2, low:1};
+
+  // ── Pass 1: surface dedup + fingerprint dedup (order-insensitive rejections) ──
+  const seen = new Set();
+  const fingerprints = [];
+  const pass1 = arr.filter(q => {
     const k = q.question.toLowerCase().replace(/\s+/g,' ').slice(0,60);
     if (seen.has(k)) return false;
     seen.add(k);
 
-    // Keyword fingerprint — reject near-rewrites of the same idea at the same level
     const fp = questionFingerprint(q);
     const fpWords = fp.split('|');
     const tooSimilar = fingerprints.some(([existFp, existLevel]) => {
       if (existLevel !== q.level) return false;
-      const existWords = existFp.split('|');
-      return fpWords.filter(w => existWords.includes(w)).length >= 5;
+      return fpWords.filter(w => existFp.split('|').includes(w)).length >= 5;
     });
     if (tooSimilar) return false;
     fingerprints.push([fp, q.level]);
+    return true;
+  });
 
-    // Per-concept per-level cap: max 2
+  // ── Pass 2: per-concept per-level cap (max 2) ────────────────────────────────
+  const clCount = new Map();
+  const pass2 = pass1.filter(q => {
     const clk = (q.conceptId||q.conceptName||'') + '_L' + q.level;
     const n = clCount.get(clk)||0;
     if (n >= 2) return false;
     clCount.set(clk, n+1);
-
-    // Per-cluster across all levels: high=3, medium=2, low=1
-    const ck = q.conceptId||q.conceptName||'';
-    const cn = clusterCount.get(ck)||0;
-    const cap = clusterCap[q.importance||'medium']||2;
-    if (cn >= cap) return false;
-    clusterCount.set(ck, cn+1);
-
     return true;
   });
+
+  // ── Pass 3: rank-and-select within each cluster up to cap ────────────────────
+  // Groups candidates by cluster, scores each using level/form/explanation/parity
+  // heuristics, then greedily picks the best N prioritising level diversity.
+  const groups = new Map();
+  pass2.forEach(q => {
+    const ck = q.conceptId||q.conceptName||'';
+    if (!groups.has(ck)) groups.set(ck, []);
+    groups.get(ck).push(q);
+  });
+
+  const result = [];
+  groups.forEach(qs => {
+    const cap = clusterCap[qs[0].importance||'medium']||2;
+    result.push(...(qs.length <= cap ? qs : selectBestForCluster(qs, cap)));
+  });
+
+  return result;
 }
 
 // ── MASTERY ENGINE ───────────────────────────────────────────
