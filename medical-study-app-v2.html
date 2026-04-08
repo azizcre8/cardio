@@ -1163,18 +1163,25 @@ async function loadSharedBank(key) {
     const r = await fetch(`${FIREBASE_URL}/banks/${key}.json`);
     if (!r.ok) throw new Error('Not found');
     const bank = await r.json();
-    if (!bank?.questions) throw new Error('Invalid bank');
+    if (!bank?.questions) throw new Error('Invalid bank — no questions field');
+    // Firebase stores arrays as {0:{…},1:{…}} objects — normalise back to array
+    const questions = Array.isArray(bank.questions)
+      ? bank.questions
+      : Object.values(bank.questions);
+    console.log('[loadSharedBank] fetched', questions.length, 'questions for bank', key);
     const pdfId = 'bank_'+key;
     if (!S.pdfs().find(p=>p.id===pdfId)) {
       S.savePDFs([...S.pdfs(),{id:pdfId, name:bank.pdfName+'.pdf',
         uploadDate:bank.generatedDate, processingComplete:true,
-        conceptCount:0, questionCount:bank.questions.length,
+        conceptCount:0, questionCount:questions.length,
         isSharedBank:true, bankKey:key}]);
     }
-    S.saveQuestions(pdfId, bank.questions);
+    S.saveQuestions(pdfId, questions);
+    const stored = S.questions(pdfId);
+    console.log('[loadSharedBank] localStorage verify:', stored.length, 'questions written for', pdfId);
     history.replaceState({},document.title,window.location.pathname);
-    return {pdfId, count:bank.questions.length, name:bank.pdfName};
-  } catch(e) { console.warn('loadSharedBank:',e.message); return null; }
+    return {pdfId, count:questions.length, name:bank.pdfName};
+  } catch(e) { console.warn('loadSharedBank:', e.message); return null; }
 }
 
 // ── QUESTION RATING ──────────────────────────────────────────
@@ -3310,6 +3317,12 @@ function startStudy() {
       renderStudyQ();
       return;
     }
+  }
+  const pdf=S.pdfs().find(p=>p.id===STATE.currentPdfId);
+  // Shared banks have no concepts — skip concept-based diagnostic and go straight to study
+  if(pdf?.isSharedBank || S.concepts(STATE.currentPdfId).length===0) {
+    startStudySession(STATE.currentPdfId);
+    return;
   }
   const mm=computeAllMastery(STATE.currentPdfId);
   const hasStudied=mm.some(m=>m.status!=='new');
