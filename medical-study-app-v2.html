@@ -2525,16 +2525,15 @@ async function processNewPDF(file) {
       S.saveFlagged(id, allHardRejected);
     }
 
-    // Coverage audit — log imbalances before dedup/save
-    const coverageIssues = auditCoverage(allQuestions, master);
-    if (coverageIssues.length) {
-      plog(`Coverage audit: ${coverageIssues.length} issue(s) detected`,'auditor');
-      coverageIssues.forEach(issue => plog(issue,'error'));
-    } else {
-      plog('Coverage audit: balanced ✓','success');
-    }
-
     const uQuestions=dedupQuestions(allQuestions);
+
+    // Coverage completeness audit on final saved bank (after coverage-first dedup)
+    const covAudit = auditCoverage(uQuestions, master);
+    plog(covAudit.summary, covAudit.errors.length ? 'error' : 'auditor');
+    covAudit.errors.forEach(e => plog(e,'error'));   // ❌ coverage failures
+    covAudit.issues.forEach(i => plog(i,'error'));   // ⚠ warnings
+    if (!covAudit.errors.length && !covAudit.issues.length)
+      plog('Coverage audit: all clusters fully covered ✓','success');
     S.saveQuestions(id,uQuestions);
     S.savePDFs(S.pdfs().map(p=>p.id===id
       ?{...p,processingComplete:true,conceptCount:master.length,
@@ -2991,32 +2990,55 @@ function canonicalizeConcepts(concepts) {
 }
 
 // ── COVERAGE AUDIT — detect imbalances after generation ──────────
+// Returns {summary, errors, issues}
+// errors  = coverage failures that must be logged prominently (0 questions for any cluster)
+// issues  = warnings (under-coverage, near-dupes, domain imbalance)
+// summary = one-line stat string
 function auditCoverage(questions, canonicalClusters) {
-  const clusterCap = {high:3, medium:2, low:1};
-  const byCluster = {}, byDomain = {}, qByCluster = {};
+  const CLUSTER_MIN = {high:2, medium:2, low:1};
+  const CLUSTER_CAP = {high:3, medium:2, low:1};
 
+  const byCluster = {}, byDomain = {}, qByCluster = {};
   questions.forEach(q => {
     const ck = q.conceptId||q.conceptName||'';
     byCluster[ck] = (byCluster[ck]||0) + 1;
     if (!qByCluster[ck]) qByCluster[ck] = [];
     qByCluster[ck].push(q);
-    const domain = q.coverageDomain || 'definition_recall';
-    byDomain[domain] = (byDomain[domain]||0) + 1;
+    byDomain[q.coverageDomain||'definition_recall'] = (byDomain[q.coverageDomain||'definition_recall']||0) + 1;
   });
 
   const total = questions.length;
-  const issues = [];
+  const errors = [], issues = [];
+  let clustersWithAny = 0, clustersMetMin = 0;
+  const uncoveredList = [], underCoveredList = [], overList = [];
 
-  // Per-cluster cap violations and zero-coverage high-yield
   canonicalClusters.forEach(c => {
     const ck = c.id||c.concept||'';
     const count = byCluster[ck]||0;
-    const cap = clusterCap[c.importance||'medium']||2;
-    if (count === 0 && c.importance === 'high')
-      issues.push(`⚠ High-yield "${c.concept}" has 0 questions`);
-    if (count > cap)
-      issues.push(`⚠ "${c.concept}" has ${count} questions (${c.importance}-yield cap: ${cap})`);
+    const min = CLUSTER_MIN[c.importance||'medium']||1;
+    const cap = CLUSTER_CAP[c.importance||'medium']||2;
+
+    if (count > 0) clustersWithAny++;
+    if (count >= min) clustersMetMin++;
+
+    if (count === 0) {
+      // Coverage failure: any meaningful cluster with 0 questions
+      uncoveredList.push(`"${c.concept}" [${c.importance}]`);
+      errors.push(`❌ COVERAGE FAILURE: "${c.concept}" [${c.importance}-yield] — 0 questions`);
+    } else if (count < min) {
+      underCoveredList.push(`"${c.concept}" (${count}/${min})`);
+      issues.push(`⚠ Under-covered: "${c.concept}" has ${count} question${count>1?'s':''} (minimum: ${min})`);
+    }
+    if (count > cap) {
+      overList.push(`"${c.concept}" (${count}/${cap})`);
+      issues.push(`⚠ Over-represented: "${c.concept}" has ${count} questions (cap: ${cap})`);
+    }
   });
+
+  // Batch-report uncovered clusters if many
+  if (uncoveredList.length > 3) {
+    errors.push(`Uncovered (${uncoveredList.length} total): ${uncoveredList.slice(0,5).join(', ')}${uncoveredList.length>5?` … +${uncoveredList.length-5} more`:''}`);
+  }
 
   // Near-duplicate detection within clusters (same level, 6+ shared content words)
   canonicalClusters.forEach(c => {
@@ -3028,12 +3050,12 @@ function auditCoverage(questions, canonicalClusters) {
         const wA = new Set((qs[i].question||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(w=>w.length>5));
         const wB = new Set((qs[j].question||'').toLowerCase().replace(/[^a-z0-9\s]/g,'').split(/\s+/).filter(w=>w.length>5));
         if ([...wA].filter(w=>wB.has(w)).length >= 6)
-          issues.push(`⚠ Near-duplicate pair in "${c.concept}" L${qs[i].level}: "${(qs[i].question||'').slice(0,55)}…"`);
+          issues.push(`⚠ Near-duplicate L${qs[i].level} pair in "${c.concept}": "${(qs[i].question||'').slice(0,50)}…"`);
       }
     }
   });
 
-  // Domain distribution check (only meaningful at scale ≥10 questions)
+  // Domain distribution check (meaningful at ≥10 questions)
   if (total >= 10) {
     const targets = {
       clinical_application:        [0.35, 0.40],
@@ -3042,16 +3064,19 @@ function auditCoverage(questions, canonicalClusters) {
       comparison_differential:     [0.10, 0.15],
       pressure_volume_quantitative:[0.10, 0.15]
     };
-    Object.entries(targets).forEach(([domain,[min,max]]) => {
+    Object.entries(targets).forEach(([domain,[dMin,dMax]]) => {
       const pct = (byDomain[domain]||0) / total;
-      if (pct < min * 0.5)
-        issues.push(`⚠ Domain "${domain}" under-represented: ${Math.round(pct*100)}% (target ${Math.round(min*100)}–${Math.round(max*100)}%)`);
-      else if (pct > max * 1.6)
-        issues.push(`⚠ Domain "${domain}" over-represented: ${Math.round(pct*100)}% (target ${Math.round(min*100)}–${Math.round(max*100)}%)`);
+      if (pct < dMin * 0.5)
+        issues.push(`⚠ Domain "${domain}" under-represented: ${Math.round(pct*100)}% (target ${Math.round(dMin*100)}–${Math.round(dMax*100)}%)`);
+      else if (pct > dMax * 1.6)
+        issues.push(`⚠ Domain "${domain}" over-represented: ${Math.round(pct*100)}% (target ${Math.round(dMin*100)}–${Math.round(dMax*100)}%)`);
     });
   }
 
-  return issues;
+  const n = canonicalClusters.length;
+  const summary = `Coverage: ${clustersWithAny}/${n} clusters with ≥1 question · ${clustersMetMin}/${n} met minimum · ${total} total questions`;
+
+  return {summary, errors, issues};
 }
 
 // ── CONCEPT CONFUSION MAP ─────────────────────────────────────
@@ -3749,51 +3774,82 @@ function selectBestForCluster(qs, cap) {
 }
 
 function dedupQuestions(arr) {
-  const clusterCap = {high:3, medium:2, low:1};
+  // Minimum questions to guarantee per cluster (coverage first)
+  const CLUSTER_MIN = {high:2, medium:2, low:1};
+  // Maximum questions allowed per cluster (cap after coverage is met)
+  const CLUSTER_CAP = {high:3, medium:2, low:1};
 
-  // ── Pass 1: surface dedup + fingerprint dedup (order-insensitive rejections) ──
+  // ── Step 0: Remove exact surface duplicates (same first 60 chars) ──────────
+  // These are true duplicates — safe to drop regardless of coverage.
   const seen = new Set();
-  const fingerprints = [];
-  const pass1 = arr.filter(q => {
+  const unique = arr.filter(q => {
     const k = q.question.toLowerCase().replace(/\s+/g,' ').slice(0,60);
     if (seen.has(k)) return false;
     seen.add(k);
-
-    const fp = questionFingerprint(q);
-    const fpWords = fp.split('|');
-    const tooSimilar = fingerprints.some(([existFp, existLevel]) => {
-      if (existLevel !== q.level) return false;
-      return fpWords.filter(w => existFp.split('|').includes(w)).length >= 5;
-    });
-    if (tooSimilar) return false;
-    fingerprints.push([fp, q.level]);
     return true;
   });
 
-  // ── Pass 2: per-concept per-level cap (max 2) ────────────────────────────────
-  const clCount = new Map();
-  const pass2 = pass1.filter(q => {
-    const clk = (q.conceptId||q.conceptName||'') + '_L' + q.level;
-    const n = clCount.get(clk)||0;
-    if (n >= 2) return false;
-    clCount.set(clk, n+1);
-    return true;
-  });
-
-  // ── Pass 3: rank-and-select within each cluster up to cap ────────────────────
-  // Groups candidates by cluster, scores each using level/form/explanation/parity
-  // heuristics, then greedily picks the best N prioritising level diversity.
+  // ── Step 1: Group all candidates by cluster ───────────────────────────────
   const groups = new Map();
-  pass2.forEach(q => {
+  unique.forEach(q => {
     const ck = q.conceptId||q.conceptName||'';
-    if (!groups.has(ck)) groups.set(ck, []);
+    if (!groups.has(ck)) groups.set(ck,[]);
     groups.get(ck).push(q);
   });
 
   const result = [];
-  groups.forEach(qs => {
-    const cap = clusterCap[qs[0].importance||'medium']||2;
-    result.push(...(qs.length <= cap ? qs : selectBestForCluster(qs, cap)));
+  const coverageKeptIds = new Set();
+
+  // ── Pass A: COVERAGE PASS — guarantee minimum for every cluster ───────────
+  // For each cluster, select the best questions up to its minimum target.
+  // selectBestForCluster is level-diversity-aware: it will prefer L1+L2+L3
+  // spread over same-level duplicates. No fingerprint dedup here — coverage
+  // guarantee is absolute. If only 1 question exists for a medium-yield
+  // cluster, we keep it even though the minimum is 2.
+  groups.forEach((qs, ck) => {
+    const imp = qs[0].importance||'medium';
+    const min = Math.min(CLUSTER_MIN[imp]||1, qs.length);
+    const kept = selectBestForCluster(qs, min);
+    kept.forEach(q => { coverageKeptIds.add(q.id); result.push(q); });
+  });
+
+  // ── Pass B: ENRICHMENT PASS — add up to cap after all coverage is met ─────
+  // Only questions not already kept in Pass A are eligible. Fingerprint dedup
+  // applies here to prevent near-duplicate enrichment questions globally.
+  // Better questions from later in generation can enter here — Pass A already
+  // picked the best for minimum coverage, so enrichment is purely additive.
+  const keptFPs = result.map(q => [questionFingerprint(q), q.level]);
+
+  groups.forEach((qs, ck) => {
+    const imp = qs[0].importance||'medium';
+    const cap = CLUSTER_CAP[imp]||2;
+    // Count how many this cluster already has from Pass A
+    const clusterKept = result.filter(q => (q.conceptId||q.conceptName||'') === ck);
+    if (clusterKept.length >= cap) return; // at or above cap, no enrichment
+
+    const pool = qs.filter(q => !coverageKeptIds.has(q.id));
+    const localKept = [...clusterKept];
+
+    while (localKept.length < cap && pool.length) {
+      let bestIdx = -1, bestScore = -Infinity;
+      pool.forEach((q, i) => {
+        // Fingerprint check against ALL globally kept questions (cross-cluster)
+        const fp = questionFingerprint(q);
+        const fpWords = fp.split('|');
+        const isDupe = keptFPs.some(([efp, el]) => {
+          if (el !== q.level) return false;
+          return fpWords.filter(w => efp.split('|').includes(w)).length >= 5;
+        });
+        if (isDupe) return;
+        const s = scoreQuestion(q, localKept);
+        if (s > bestScore) { bestScore = s; bestIdx = i; }
+      });
+      if (bestIdx === -1) break; // no valid enrichment candidates remain
+      const picked = pool.splice(bestIdx, 1)[0];
+      localKept.push(picked);
+      result.push(picked);
+      keptFPs.push([questionFingerprint(picked), picked.level]);
+    }
   });
 
   return result;
