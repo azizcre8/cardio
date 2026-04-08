@@ -3409,7 +3409,7 @@ function buildQueue(pdfId,limit=28) {
   const impRank={high:3,medium:2,low:1};
   const queue=[],addedIds=new Set();
 
-  function add(q){if(!addedIds.has(q.id)){addedIds.add(q.id);queue.push({...q});}}
+  function add(q,extra={}){if(!addedIds.has(q.id)){addedIds.add(q.id);queue.push({...q,pdfId,...extra});}}
 
   // Exam urgency: shift priorities when exam is close
   const examDate=STATE.examDate?new Date(STATE.examDate):null;
@@ -3506,9 +3506,9 @@ function startDueSession(pdfId) {
   dueQs.forEach(dueQ=>{
     const sibling=pickSibling(dueQ, allQs, addedIds);
     if(sibling.id===dueQ.id){
-      if(!addedIds.has(dueQ.id)){ addedIds.add(dueQ.id); queue.push({...dueQ,_bucket:'srs'}); }
+      if(!addedIds.has(dueQ.id)){ addedIds.add(dueQ.id); queue.push({...dueQ,pdfId,_bucket:'srs'}); }
     } else {
-      if(!addedIds.has(sibling.id)){ addedIds.add(sibling.id); queue.push({...sibling,_bucket:'srs',_proxiedFromId:dueQ.id}); }
+      if(!addedIds.has(sibling.id)){ addedIds.add(sibling.id); queue.push({...sibling,pdfId,_bucket:'srs',_proxiedFromId:dueQ.id}); }
     }
   });
   STATE.studyQueue=shuffle(queue);
@@ -3533,8 +3533,8 @@ function startAllDueSession() {
   const qsByPdf={};
   S.pdfs().filter(p=>p.processingComplete).forEach(pdf=>{ qsByPdf[pdf.id]=S.questions(pdf.id); });
   const allDue=[];
-  Object.entries(qsByPdf).forEach(([,qs])=>{
-    qs.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).forEach(q=>allDue.push({...q}));
+  Object.entries(qsByPdf).forEach(([pdfId,qs])=>{
+    qs.filter(q=>q.timesReviewed>0&&new Date(q.nextReview)<=now).forEach(q=>allDue.push({...q,pdfId}));
   });
   if(!allDue.length){alert('No cards are due across any deck right now.');return;}
   // Sort most overdue first, then build rotation-aware queue
@@ -3545,7 +3545,7 @@ function startAllDueSession() {
     if(sibling.id===dueQ.id){
       if(!addedIds.has(dueQ.id)){ addedIds.add(dueQ.id); queue.push({...dueQ,_bucket:'srs'}); }
     } else {
-      if(!addedIds.has(sibling.id)){ addedIds.add(sibling.id); queue.push({...sibling,_bucket:'srs',_proxiedFromId:dueQ.id}); }
+      if(!addedIds.has(sibling.id)){ addedIds.add(sibling.id); queue.push({...sibling,pdfId:dueQ.pdfId,_bucket:'srs',_proxiedFromId:dueQ.id}); }
     }
   });
   STATE.currentPdfId=null; // cross-deck mode
@@ -4033,15 +4033,30 @@ function submitQuality(qId, quality) {
 
 function endStudySession() {
   clearSession();
+  renderLibrary(); // refresh due counts + mastery before showing results
   const log=STATE.sessionLog;
-  const known=log.filter(l=>l.quality>=3).length, total=log.length;
-  document.getElementById('sr-summary').textContent=
-    total?`${known}/${total} marked as known (${Math.round(known/total*100)}%)`:'Session complete!';
-  document.getElementById('sr-stats').innerHTML=`
-    <div class="stat-card"><div class="stat-value" style="color:#4ade80">${known}</div><div class="stat-label">Known</div></div>
-    <div class="stat-card"><div class="stat-value" style="color:#f87171">${total-known}</div><div class="stat-label">To Review</div></div>
-    <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Answered</div></div>
-    <div class="stat-card"><div class="stat-value">${STATE.sessionConcepts.size}</div><div class="stat-label">Concepts</div></div>`;
+  const answered=log.length;
+  // Count correct/incorrect from sessionAnswers (reflects actual answer, not just quality rating)
+  const ansEntries=Object.values(STATE.sessionAnswers||{});
+  const totalAnswered=ansEntries.length||answered;
+  const known=log.filter(l=>l.quality>=3).length;
+  const toReview=answered-known;
+  if(totalAnswered===0){
+    document.getElementById('sr-summary').textContent='Session ended — no cards rated.';
+    document.getElementById('sr-stats').innerHTML=`
+      <div class="stat-card"><div class="stat-value" style="color:var(--text-secondary)">${STATE.studyCorrect}</div><div class="stat-label">Correct</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--text-secondary)">${STATE.studyIncorrect}</div><div class="stat-label">Incorrect</div></div>
+      <div class="stat-card"><div class="stat-value">${STATE.studyCorrect+STATE.studyIncorrect}</div><div class="stat-label">Answered</div></div>
+      <div class="stat-card"><div class="stat-value">${STATE.sessionConcepts.size}</div><div class="stat-label">Concepts</div></div>`;
+  } else {
+    document.getElementById('sr-summary').textContent=
+      `${known}/${answered} marked as known (${Math.round(known/answered*100)}%)`;
+    document.getElementById('sr-stats').innerHTML=`
+      <div class="stat-card"><div class="stat-value" style="color:#4ade80">${known}</div><div class="stat-label">Known</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:#f87171">${toReview}</div><div class="stat-label">To Review</div></div>
+      <div class="stat-card"><div class="stat-value">${answered}</div><div class="stat-label">Answered</div></div>
+      <div class="stat-card"><div class="stat-value">${STATE.sessionConcepts.size}</div><div class="stat-label">Concepts</div></div>`;
+  }
 
   // Cross-deck mode: aggregate mastery across all touched PDFs
   const touchedPdfIds=[...new Set(STATE.studyQueue.filter(q=>STATE.sessionConcepts.has(q.conceptId)).map(q=>q.pdfId).filter(Boolean))];
@@ -4094,6 +4109,7 @@ function finishDiagnostic() {
 
   const correct=STATE.diagResults.filter(r=>r.wasCorrect).length;
   const total=STATE.diagResults.length;
+  renderLibrary(); // pre-render updated due counts before user returns
   if(total===0) { gotoLibrary(); return; } // nothing to show — bail out safely
   const pct=Math.round(correct/total*100);
   document.getElementById('dr-summary').textContent=
