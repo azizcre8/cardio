@@ -2336,6 +2336,43 @@ function mergeInventory(inventories,pdfId) {
   }));
 }
 
+// ── CONCEPT CONFUSION MAP ─────────────────────────────────────
+async function generateConfusionMap(concepts, pdfId) {
+  const conceptList = concepts.map(c => `- ${c.concept} [${c.category}]`).join('\n');
+  const prompt = `You are a medical education expert. Given this list of concepts from a single medical chapter, identify pairs that students commonly confuse on board exams.
+
+CONCEPTS:
+${conceptList}
+
+For each confusion pair, explain in one sentence WHY students confuse them (similar presentation, overlapping mechanism, similar name, opposing effects, or commonly tested together).
+
+Rules:
+- Only include pairs with genuine, high-yield confusability — concepts a student could realistically mix up
+- Maximum 20 pairs
+- Do not fabricate pairs that are not genuinely confusable
+- Both concepts in each pair must appear in the list above
+
+Return ONLY valid JSON — no markdown, no prose:
+[{"conceptA":"exact name from list","conceptB":"exact name from list","reason":"one sentence why confused"}]`;
+
+  try {
+    const text = await callGemini(prompt, 2048, OPENAI_MODEL);
+    const pairs = parseJSON(text);
+    if (!Array.isArray(pairs)) return {};
+    const map = {};
+    pairs.filter(p => p.conceptA && p.conceptB && p.reason).forEach(p => {
+      if (!map[p.conceptA]) map[p.conceptA] = [];
+      if (!map[p.conceptB]) map[p.conceptB] = [];
+      map[p.conceptA].push({ pairConcept: p.conceptB, reason: p.reason });
+      map[p.conceptB].push({ pairConcept: p.conceptA, reason: p.reason });
+    });
+    return map;
+  } catch(e) {
+    console.warn('Confusion map generation failed:', e.message);
+    return {};
+  }
+}
+
 // ── COVERAGE-FIRST QUESTION GENERATION ───────────────────────
 // allChunkRecords: ChunkRecord[] from Phase 2.5 (embeddings stored); may be empty for legacy calls
 async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[]) {
