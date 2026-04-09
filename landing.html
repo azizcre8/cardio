@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardio — Clinical Spaced Repetition for Medical Students</title>
+<meta name="description" content="Upload any medical PDF. Cardio generates a complete, evidence-grounded question bank and schedules every concept with spaced repetition until exam day.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;1,8..60,300;1,8..60,400;1,8..60,500&display=swap" rel="stylesheet">
+<style>
+/* ── Reset ──────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+img,svg{display:block;max-width:100%}
+button,a{font-family:inherit}
+
+/* ── Tokens ─────────────────────────────────────────────────── */
+:root{
+  --cream:    #F7F4EF;
+  --white:    #FFFFFF;
+  --ink:      #1A1816;
+  --ink-2:    #3D3935;
+  --ink-3:    #7A7670;
+  --ink-4:    #A8A49F;
+  --teal:     #0B7A87;
+  --teal-mid: #0DA0B0;
+  --teal-dim: rgba(11,122,135,0.09);
+  --teal-border: rgba(11,122,135,0.25);
+  --dark:     #07090F;
+  --dark-2:   #0D1019;
+  --border:   rgba(0,0,0,0.07);
+  --border-2: rgba(0,0,0,0.12);
+  --ecg:      rgba(0,210,195,0.38);
+  --ecg-2:    rgba(0,210,195,0.18);
+  --glow:     rgba(0,210,195,0.9);
+
+  --font-serif: 'Source Serif 4', Georgia, serif;
+  --font-sans:  'Inter', -apple-system, sans-serif;
+
+  /* Type scale: 3:4 ratio */
+  --t-xs:   0.68rem;
+  --t-sm:   0.78rem;
+  --t-base: 0.9rem;
+  --t-md:   1rem;
+  --t-lg:   1.1rem;
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+}
+
+body{
+  font-family:var(--font-sans);
+  font-size:16px;
+  line-height:1.6;
+  background:var(--cream);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+
+/* ── Nav ────────────────────────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  height:62px;padding:0 40px;
+  display:flex;align-items:center;gap:40px;
+  background:rgba(247,244,239,0.82);
+  backdrop-filter:blur(24px) saturate(140%);
+  -webkit-backdrop-filter:blur(24px) saturate(140%);
+  border-bottom:0.5px solid var(--border-2);
+}
+.nav-logo{
+  font-family:var(--font-sans);font-weight:700;
+  font-size:0.88rem;letter-spacing:0.14em;text-transform:uppercase;
+  color:var(--teal);text-decoration:none;flex-shrink:0;
+}
+.nav-links{list-style:none;display:flex;gap:28px;margin-right:auto}
+.nav-links a{
+  font-size:var(--t-sm);color:var(--ink-3);text-decoration:none;
+  font-weight:400;transition:color .15s;letter-spacing:0.01em;
+}
+.nav-links a:hover{color:var(--ink)}
+.nav-right{display:flex;align-items:center;gap:8px}
+
+.btn-ghost{
+  font-size:var(--t-sm);font-weight:500;color:var(--ink-3);
+  background:none;border:none;cursor:pointer;padding:8px 16px;
+  border-radius:var(--radius-sm);text-decoration:none;
+  transition:background .15s,color .15s;
+}
+.btn-ghost:hover{background:rgba(0,0,0,0.05);color:var(--ink)}
+.btn-cta-nav{
+  font-size:var(--t-sm);font-weight:600;color:#fff;
+  background:var(--teal);border:none;cursor:pointer;
+  padding:9px 20px;border-radius:var(--radius-sm);
+  text-decoration:none;letter-spacing:0.01em;
+  transition:background .15s,transform .1s,box-shadow .15s;
+}
+.btn-cta-nav:hover{background:var(--teal-mid);transform:translateY(-1px);box-shadow:0 6px 20px rgba(11,122,135,0.28)}
+
+/* ── Utility buttons ────────────────────────────────────────── */
+.btn-primary{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:var(--t-base);font-weight:600;color:#fff;
+  background:var(--teal);border:none;cursor:pointer;
+  padding:14px 28px;border-radius:var(--radius-md);
+  text-decoration:none;letter-spacing:0.01em;
+  transition:background .15s,transform .12s,box-shadow .15s;
+}
+.btn-primary:hover{background:var(--teal-mid);transform:translateY(-1px);box-shadow:0 10px 28px rgba(11,122,135,0.3)}
+.btn-primary:active{transform:translateY(0)}
+.btn-outline{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:var(--t-base);font-weight:500;color:var(--ink-2);
+  background:transparent;border:1.5px solid var(--border-2);cursor:pointer;
+  padding:14px 28px;border-radius:var(--radius-md);
+  text-decoration:none;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.btn-outline:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.btn-outline-light{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:var(--t-base);font-weight:500;
+  color:rgba(255,255,255,0.6);
+  background:transparent;
+  border:1.5px solid rgba(255,255,255,0.14);
+  cursor:pointer;padding:14px 28px;border-radius:var(--radius-md);
+  text-decoration:none;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.btn-outline-light:hover{border-color:rgba(255,255,255,0.35);color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.05)}
+
+/* ── Hero ───────────────────────────────────────────────────── */
+.hero{
+  padding:136px 40px 72px;
+  max-width:1280px;margin:0 auto;
+}
+.hero-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--teal-dim);
+  border:1px solid var(--teal-border);
+  color:var(--teal);
+  font-size:var(--t-xs);font-weight:700;
+  letter-spacing:0.12em;text-transform:uppercase;
+  padding:5px 14px;border-radius:999px;margin-bottom:28px;
+}
+.hero-pill-dot{width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
+h1.hero-h1{
+  font-family:var(--font-serif);
+  font-size:clamp(3rem,6.5vw,5.8rem);
+  font-weight:400;line-height:1.08;
+  letter-spacing:-0.025em;
+  color:var(--ink);
+  max-width:760px;margin-bottom:22px;
+}
+h1.hero-h1 em{font-style:italic;font-weight:300;color:var(--teal)}
+.hero-sub{
+  font-size:clamp(1rem,1.6vw,1.1rem);
+  color:var(--ink-3);max-width:500px;
+  line-height:1.72;margin-bottom:40px;
+}
+.hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:72px}
+
+/* ── Heart stage ────────────────────────────────────────────── */
+.heart-stage{
+  max-width:1280px;margin:0 auto;padding:0 40px;
+}
+.heart-stage-inner{
+  background:var(--dark);
+  border-radius:var(--radius-xl);
+  overflow:hidden;
+  position:relative;
+  height:540px;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* Subtle dot grid */
+.heart-stage-inner::before{
+  content:'';
+  position:absolute;inset:0;
+  background-image:radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size:32px 32px;
+  pointer-events:none;
+}
+
+/* ECG canvas */
+.ecg-wrap{
+  position:absolute;inset:0;
+  display:flex;align-items:center;
+  pointer-events:none;
+}
+.ecg-svg{position:absolute;width:100%;height:100%}
+.ecg-pulse{
+  fill:none;stroke:var(--ecg);stroke-width:1.5;
+  stroke-dasharray:2200;stroke-dashoffset:2200;
+  animation:ecgDraw 3.2s cubic-bezier(.4,0,.2,1) forwards;
+}
+.ecg-pulse-2{
+  fill:none;stroke:var(--ecg-2);stroke-width:1.5;
+  stroke-dasharray:2200;stroke-dashoffset:2200;
+  animation:ecgDraw 3.2s cubic-bezier(.4,0,.2,1) .6s forwards;
+}
+@keyframes ecgDraw{to{stroke-dashoffset:0}}
+
+/* Radial glow behind heart */
+.heart-glow{
+  position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  width:380px;height:380px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(140,20,20,0.32) 0%,transparent 68%);
+  pointer-events:none;
+}
+
+/* Heart SVG wrapper */
+.heart-wrap{
+  position:relative;z-index:3;
+  width:330px;height:370px;
+  filter:drop-shadow(0 24px 56px rgba(0,0,0,0.7)) drop-shadow(0 4px 16px rgba(100,8,8,0.5));
+}
+
+/* Floating info cards */
+.hcard{
+  position:absolute;z-index:5;
+  background:rgba(13,16,25,0.82);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border:0.5px solid rgba(255,255,255,0.08);
+  border-radius:var(--radius-md);
+  padding:16px 20px;
+  opacity:0;
+  transform:translateY(8px);
+  animation:fadeUp .5s ease forwards;
+}
+@keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+
+.hcard-1{bottom:44px;right:56px;min-width:230px;animation-delay:1.8s}
+.hcard-2{top:44px;left:56px;animation-delay:2s}
+.hcard-3{top:44px;right:56px;animation-delay:2.2s}
+
+.hcard-label{
+  font-size:var(--t-xs);font-weight:600;
+  color:rgba(255,255,255,0.38);
+  letter-spacing:0.1em;text-transform:uppercase;
+  margin-bottom:8px;
+}
+.hcard-title{font-size:var(--t-sm);font-weight:600;color:rgba(255,255,255,0.9);margin-bottom:4px}
+.hcard-sub{font-size:var(--t-xs);color:rgba(255,255,255,0.4);line-height:1.55}
+.hcard-stat{display:flex;align-items:baseline;gap:5px;margin-top:10px}
+.hcard-num{font-size:1.6rem;font-weight:200;color:var(--glow);letter-spacing:-0.05em;line-height:1}
+.hcard-unit{font-size:var(--t-xs);color:rgba(255,255,255,0.35)}
+
+.hcard-tags{display:flex;gap:6px;flex-wrap:wrap}
+.htag{
+  font-size:0.62rem;font-weight:600;letter-spacing:0.07em;text-transform:uppercase;
+  padding:3px 9px;border-radius:4px;
+  background:rgba(0,210,195,0.1);color:rgba(0,210,195,0.8);
+  border:0.5px solid rgba(0,210,195,0.2);
+}
+
+/* ── Stats bar ──────────────────────────────────────────────── */
+.stats-bar{
+  background:var(--white);
+  border-top:0.5px solid var(--border-2);border-bottom:0.5px solid var(--border-2);
+}
+.stats-bar-inner{
+  max-width:1280px;margin:0 auto;
+  display:grid;grid-template-columns:repeat(4,1fr);
+}
+.stat-cell{
+  padding:36px 28px;text-align:center;
+  border-right:0.5px solid var(--border);
+}
+.stat-cell:last-child{border-right:none}
+.stat-n{
+  font-family:var(--font-serif);
+  font-size:2.6rem;font-weight:300;
+  color:var(--ink);letter-spacing:-0.045em;line-height:1;
+  margin-bottom:6px;
+}
+.stat-n sub{font-size:1.4rem;vertical-align:baseline}
+.stat-l{
+  font-size:var(--t-xs);color:var(--ink-4);
+  text-transform:uppercase;letter-spacing:0.09em;
+}
+
+/* ── Section scaffolding ────────────────────────────────────── */
+.section{padding:100px 40px;max-width:1280px;margin:0 auto}
+.section-pill{
+  display:inline-block;font-size:var(--t-xs);font-weight:700;
+  letter-spacing:0.12em;text-transform:uppercase;
+  color:var(--teal);margin-bottom:14px;
+}
+h2.s-h2{
+  font-family:var(--font-serif);
+  font-size:clamp(2rem,4vw,3.4rem);
+  font-weight:400;line-height:1.18;
+  letter-spacing:-0.02em;color:var(--ink);
+  margin-bottom:14px;
+}
+h2.s-h2 em{font-style:italic;font-weight:300}
+.s-sub{
+  font-size:var(--t-md);color:var(--ink-3);
+  max-width:520px;line-height:1.72;margin-bottom:56px;
+}
+
+/* ── Features ───────────────────────────────────────────────── */
+.feat-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:18px;
+}
+.feat-card{
+  background:var(--white);
+  border:0.5px solid var(--border-2);
+  border-radius:var(--radius-lg);
+  padding:30px;
+  transition:box-shadow .2s,transform .2s;
+  cursor:default;
+}
+.feat-card:hover{
+  box-shadow:0 10px 36px rgba(0,0,0,0.07);
+  transform:translateY(-3px);
+}
+.feat-icon{
+  width:46px;height:46px;border-radius:10px;
+  background:var(--teal-dim);border:0.5px solid var(--teal-border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.25rem;margin-bottom:18px;
+}
+.feat-title{
+  font-size:var(--t-md);font-weight:600;color:var(--ink);
+  letter-spacing:-0.01em;margin-bottom:8px;
+}
+.feat-desc{
+  font-size:var(--t-sm);color:var(--ink-3);line-height:1.68;
+}
+.feat-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px}
+.chip{
+  font-size:0.62rem;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;
+  padding:3px 9px;border-radius:4px;
+  background:var(--teal-dim);color:var(--teal);
+  border:0.5px solid var(--teal-border);
+}
+
+/* ── How it works ───────────────────────────────────────────── */
+.how-section{
+  background:var(--white);
+  border-top:0.5px solid var(--border-2);
+  border-bottom:0.5px solid var(--border-2);
+  padding:100px 0;
+}
+.how-inner{max-width:1280px;margin:0 auto;padding:0 40px}
+.how-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:0;margin-top:56px;
+  border:0.5px solid var(--border-2);border-radius:var(--radius-lg);
+  overflow:hidden;
+}
+.how-step{
+  padding:40px 36px;
+  border-right:0.5px solid var(--border-2);
+  position:relative;
+}
+.how-step:last-child{border-right:none}
+.how-num{
+  font-family:var(--font-serif);
+  font-size:3.8rem;font-weight:300;
+  color:var(--teal-dim);
+  line-height:1;margin-bottom:20px;
+  letter-spacing:-0.06em;
+}
+.how-title{
+  font-size:var(--t-md);font-weight:600;color:var(--ink);
+  margin-bottom:10px;letter-spacing:-0.01em;
+}
+.how-desc{
+  font-size:var(--t-sm);color:var(--ink-3);line-height:1.68;
+}
+.how-step-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  margin-top:18px;font-size:var(--t-xs);color:var(--teal);
+  font-weight:600;letter-spacing:0.04em;
+}
+.how-step-tag svg{width:12px;height:12px;flex-shrink:0}
+
+/* ── Testimonial ────────────────────────────────────────────── */
+.testimonial{
+  padding:100px 40px;
+  max-width:1280px;margin:0 auto;
+  text-align:center;
+}
+.tq-mark{
+  font-family:var(--font-serif);
+  font-size:5rem;font-weight:300;
+  color:var(--teal-dim);line-height:.8;
+  display:block;margin-bottom:8px;
+}
+.tq-text{
+  font-family:var(--font-serif);
+  font-size:clamp(1.25rem,2.4vw,1.9rem);
+  font-weight:300;font-style:italic;
+  color:var(--ink);line-height:1.62;
+  max-width:820px;margin:0 auto 30px;
+  letter-spacing:-0.01em;
+}
+.tq-author{
+  display:inline-flex;align-items:center;gap:14px;
+}
+.tq-avatar{
+  width:42px;height:42px;border-radius:50%;
+  background:linear-gradient(135deg,var(--teal-dim) 0%,var(--teal) 100%);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;font-size:0.82rem;color:#fff;
+  flex-shrink:0;
+}
+.tq-name{font-size:var(--t-sm);font-weight:600;color:var(--ink)}
+.tq-role{font-size:var(--t-xs);color:var(--ink-4)}
+.tq-divider{
+  width:1px;height:32px;background:var(--border-2);
+  margin:0 6px;display:inline-block;vertical-align:middle;
+}
+.trust-bar{
+  margin-top:56px;
+  display:flex;align-items:center;justify-content:center;
+  gap:40px;flex-wrap:wrap;
+}
+.trust-label{
+  font-size:var(--t-xs);color:var(--ink-4);
+  text-transform:uppercase;letter-spacing:0.1em;
+}
+.trust-name{
+  font-family:var(--font-serif);
+  font-size:1rem;font-weight:400;
+  color:var(--ink-4);opacity:.55;
+  transition:opacity .2s;
+  cursor:default;letter-spacing:0.02em;
+}
+.trust-name:hover{opacity:.85}
+
+/* ── Pricing ────────────────────────────────────────────────── */
+.pricing-section{
+  background:var(--white);
+  border-top:0.5px solid var(--border-2);
+  padding:100px 0;
+}
+.pricing-inner{max-width:1280px;margin:0 auto;padding:0 40px}
+.pricing-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:18px;margin-top:56px;
+}
+.price-card{
+  border:0.5px solid var(--border-2);
+  border-radius:var(--radius-lg);padding:36px;
+  background:var(--cream);
+  transition:box-shadow .2s;
+  position:relative;
+}
+.price-card:hover{box-shadow:0 10px 36px rgba(0,0,0,0.07)}
+.price-card.featured{
+  background:var(--white);
+  border-color:var(--teal);
+  box-shadow:0 0 0 0.5px var(--teal),0 12px 40px rgba(11,122,135,0.12);
+}
+.featured-badge{
+  position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--teal);color:#fff;
+  font-size:0.62rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  padding:3px 14px;border-radius:999px;white-space:nowrap;
+}
+.price-tier{
+  font-size:var(--t-xs);font-weight:700;letter-spacing:0.12em;
+  text-transform:uppercase;color:var(--ink-4);margin-bottom:12px;
+}
+.price-amt{
+  font-family:var(--font-serif);
+  font-size:3.4rem;font-weight:300;
+  color:var(--ink);letter-spacing:-0.05em;line-height:1;
+}
+.price-period{font-size:var(--t-sm);color:var(--ink-4);margin-top:4px;margin-bottom:22px}
+.price-divider{border:none;border-top:0.5px solid var(--border-2);margin:22px 0}
+.price-features{list-style:none;display:flex;flex-direction:column;gap:11px;margin-bottom:28px}
+.price-features li{
+  font-size:var(--t-sm);color:var(--ink-2);
+  display:flex;align-items:flex-start;gap:10px;
+  line-height:1.5;
+}
+.price-check{
+  color:var(--teal);font-weight:700;flex-shrink:0;margin-top:1px;
+}
+.price-btn{
+  display:block;width:100%;
+  font-family:var(--font-sans);font-size:var(--t-sm);font-weight:600;
+  padding:13px;border-radius:var(--radius-md);
+  text-align:center;text-decoration:none;cursor:pointer;
+  transition:all .15s;
+}
+.price-btn-ghost{
+  background:transparent;color:var(--ink-2);
+  border:1.5px solid var(--border-2);
+}
+.price-btn-ghost:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-dim)}
+.price-btn-solid{
+  background:var(--teal);color:#fff;border:1.5px solid var(--teal);
+}
+.price-btn-solid:hover{background:var(--teal-mid);border-color:var(--teal-mid)}
+
+/* ── CTA band ───────────────────────────────────────────────── */
+.cta-band{
+  background:var(--dark);
+  padding:100px 40px;
+  text-align:center;
+}
+.cta-inner{max-width:660px;margin:0 auto}
+h2.cta-h2{
+  font-family:var(--font-serif);
+  font-size:clamp(2rem,4.5vw,3.6rem);
+  font-weight:400;line-height:1.14;
+  letter-spacing:-0.025em;color:#fff;
+  margin-bottom:16px;
+}
+h2.cta-h2 em{font-style:italic;font-weight:300;color:rgba(0,210,195,.8)}
+.cta-sub{
+  font-size:var(--t-md);color:rgba(255,255,255,.44);
+  line-height:1.7;margin-bottom:40px;
+  max-width:500px;margin-left:auto;margin-right:auto;
+}
+.cta-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.cta-btns .btn-primary{background:rgba(0,210,195,.9);color:var(--dark)}
+.cta-btns .btn-primary:hover{background:rgba(0,230,210,1)}
+.cta-note{
+  font-size:var(--t-xs);color:rgba(255,255,255,.22);
+  margin-top:20px;letter-spacing:0.02em;
+}
+
+/* ── Footer ─────────────────────────────────────────────────── */
+footer{
+  background:var(--dark-2);
+  border-top:0.5px solid rgba(255,255,255,0.055);
+  padding:56px 40px 0;
+}
+.footer-grid{
+  max-width:1280px;margin:0 auto;
+  display:grid;grid-template-columns:2.2fr 1fr 1fr 1fr;
+  gap:40px;padding-bottom:48px;
+}
+.footer-brand{
+  font-weight:700;font-size:0.82rem;letter-spacing:0.14em;
+  text-transform:uppercase;color:rgba(0,210,195,.7);
+  margin-bottom:12px;
+}
+.footer-brand-desc{
+  font-size:var(--t-sm);color:rgba(255,255,255,.28);
+  line-height:1.65;max-width:270px;
+}
+.footer-col-title{
+  font-size:var(--t-xs);font-weight:700;letter-spacing:0.12em;
+  text-transform:uppercase;color:rgba(255,255,255,.3);
+  margin-bottom:18px;
+}
+.footer-links{list-style:none;display:flex;flex-direction:column;gap:10px}
+.footer-links a{
+  font-size:var(--t-sm);color:rgba(255,255,255,.36);
+  text-decoration:none;transition:color .15s;
+}
+.footer-links a:hover{color:rgba(255,255,255,.75)}
+.footer-bottom{
+  max-width:1280px;margin:0 auto;
+  border-top:0.5px solid rgba(255,255,255,.055);
+  padding:20px 0;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  flex-wrap:wrap;
+}
+.footer-legal{font-size:var(--t-xs);color:rgba(255,255,255,.18)}
+
+/* ── Scroll reveal ──────────────────────────────────────────── */
+.reveal{
+  opacity:0;transform:translateY(20px);
+  transition:opacity .6s ease, transform .6s ease;
+}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-delay-1{transition-delay:.1s}
+.reveal-delay-2{transition-delay:.2s}
+.reveal-delay-3{transition-delay:.3s}
+.reveal-delay-4{transition-delay:.4s}
+.reveal-delay-5{transition-delay:.5s}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media(max-width:1024px){
+  .feat-grid{grid-template-columns:repeat(2,1fr)}
+  .pricing-grid{grid-template-columns:1fr}
+  .footer-grid{grid-template-columns:1fr 1fr}
+}
+@media(max-width:768px){
+  nav{padding:0 20px;gap:20px}
+  .nav-links{display:none}
+  .hero,.heart-stage,.section,.testimonial,.cta-band{padding-left:20px;padding-right:20px}
+  .hero{padding-top:100px;padding-bottom:48px}
+  .heart-stage{padding:0 20px}
+  .heart-stage-inner{height:400px}
+  .heart-wrap{width:240px;height:270px}
+  .hcard-1,.hcard-2,.hcard-3{display:none}
+  .how-inner,.pricing-inner{padding:0 20px}
+  .how-grid{grid-template-columns:1fr}
+  .how-step{border-right:none;border-bottom:0.5px solid var(--border-2)}
+  .how-step:last-child{border-bottom:none}
+  .feat-grid{grid-template-columns:1fr}
+  .stats-bar-inner{grid-template-columns:1fr 1fr}
+  .stat-cell{border-right:none;border-bottom:0.5px solid var(--border)}
+  .footer-grid{grid-template-columns:1fr}
+  footer{padding:40px 20px 0}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ Navigation ══════════════════════════════════════════════ -->
+<nav>
+  <a href="medical-study-app-v2.html" class="nav-logo">Cardio</a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+  </ul>
+  <div class="nav-right">
+    <a href="medical-study-app-v2.html" class="btn-ghost">Sign In</a>
+    <a href="medical-study-app-v2.html" class="btn-cta-nav">Get Started</a>
+  </div>
+</nav>
+
+<!-- ══ Hero ════════════════════════════════════════════════════ -->
+<div class="hero">
+  <div class="hero-pill reveal"><div class="hero-pill-dot"></div>AI-Powered Spaced Repetition</div>
+  <h1 class="hero-h1 reveal reveal-delay-1">The Pulse of<br><em>Medical Mastery.</em></h1>
+  <p class="hero-sub reveal reveal-delay-2">Upload any medical PDF. Cardio builds a complete, evidence-grounded question bank and schedules every concept until exam day.</p>
+  <div class="hero-ctas reveal reveal-delay-3">
+    <a href="medical-study-app-v2.html" class="btn-primary">Get Started Free →</a>
+    <a href="#how" class="btn-outline">See How It Works</a>
+  </div>
+</div>
+
+<!-- ══ Heart Stage ════════════════════════════════════════════ -->
+<div class="heart-stage">
+  <div class="heart-stage-inner">
+
+    <!-- ECG lines -->
+    <svg class="ecg-svg" viewBox="0 0 1280 540" preserveAspectRatio="xMidYMid meet">
+      <!-- Upper trace -->
+      <polyline class="ecg-pulse"
+        points="0,230 80,230 95,230 102,215 112,162 122,285 132,230 170,230 250,230 262,218 272,158 282,288 292,230 340,230 450,230 462,218 472,155 482,290 492,230 540,230 640,230 652,215 662,162 672,285 682,230 720,230 800,230 812,218 822,158 832,288 842,230 890,230 990,230 1002,218 1012,155 1022,290 1032,230 1080,230 1180,230 1192,215 1202,162 1212,285 1222,230 1280,230"/>
+      <!-- Lower trace -->
+      <polyline class="ecg-pulse-2"
+        points="0,310 80,310 95,310 102,294 112,240 122,366 132,310 170,310 250,310 262,298 272,238 282,368 292,310 340,310 450,310 462,296 472,236 482,370 492,310 540,310 640,310 652,295 662,242 672,365 682,310 720,310 800,310 812,296 822,238 832,368 842,310 890,310 990,310 1002,296 1012,236 1022,372 1032,310 1080,310 1180,310 1192,295 1202,240 1212,366 1222,310 1280,310"/>
+    </svg>
+
+    <!-- Red glow -->
+    <div class="heart-glow"></div>
+
+    <!-- ── Anatomical Heart SVG ── -->
+    <div class="heart-wrap">
+      <svg viewBox="0 0 360 400" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+        <defs>
+          <!-- Main ventricle gradient -->
+          <radialGradient id="hg-main" cx="42%" cy="34%" r="64%">
+            <stop offset="0%"  stop-color="#C0362A"/>
+            <stop offset="35%" stop-color="#952218"/>
+            <stop offset="72%" stop-color="#6B1410"/>
+            <stop offset="100%" stop-color="#490C0A"/>
+          </radialGradient>
+          <!-- Right side (slightly cooler/darker — deoxygenated) -->
+          <radialGradient id="hg-right" cx="70%" cy="40%" r="58%">
+            <stop offset="0%"  stop-color="#A8301F"/>
+            <stop offset="55%" stop-color="#7A1C10"/>
+            <stop offset="100%" stop-color="#490C0A"/>
+          </radialGradient>
+          <!-- Aorta (bright oxygenated red) -->
+          <linearGradient id="aorta-g" x1="0" y1="1" x2=".6" y2="0">
+            <stop offset="0%" stop-color="#C0362A"/>
+            <stop offset="100%" stop-color="#E84040"/>
+          </linearGradient>
+          <!-- Pulmonary / SVC (blue-gray, deoxygenated) -->
+          <linearGradient id="pulm-g" x1="0" y1="1" x2=".3" y2="0">
+            <stop offset="0%" stop-color="#4E7FA8"/>
+            <stop offset="100%" stop-color="#80AECB"/>
+          </linearGradient>
+          <!-- IVC -->
+          <linearGradient id="ivc-g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#4E7FA8"/>
+            <stop offset="100%" stop-color="#3A6080"/>
+          </linearGradient>
+          <!-- Specular sheen -->
+          <linearGradient id="sheen-g" x1="0" y1="0" x2=".6" y2="1">
+            <stop offset="0%" stop-color="rgba(255,255,255,0.13)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+          </linearGradient>
+          <!-- Coronary arteries -->
+          <linearGradient id="cor-g" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#E07070"/>
+            <stop offset="100%" stop-color="#C05050"/>
+          </linearGradient>
+          <!-- Shadow filter -->
+          <filter id="hs" x="-25%" y="-20%" width="150%" height="150%">
+            <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="rgba(0,0,0,0.55)"/>
+          </filter>
+          <filter id="vs" x="-15%" y="-15%" width="130%" height="130%">
+            <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="rgba(0,0,0,0.45)"/>
+          </filter>
+        </defs>
+
+        <!-- ── Inferior Vena Cava (IVC) - bottom right stub ── -->
+        <rect x="238" y="316" width="22" height="58" rx="11"
+              fill="url(#ivc-g)" filter="url(#vs)" opacity=".85"/>
+
+        <!-- ── Superior Vena Cava (SVC) - top right, straight up ── -->
+        <rect x="240" y="20" width="26" height="85" rx="13"
+              fill="url(#pulm-g)" filter="url(#vs)"/>
+        <!-- SVC inner highlight -->
+        <rect x="244" y="22" width="9" height="80" rx="4.5"
+              fill="rgba(255,255,255,0.09)"/>
+
+        <!-- ── Pulmonary Artery - arches left from right ventricle ── -->
+        <path d="M150 96 C146 70 136 52 122 40 C110 29 96 26 88 28"
+              fill="none" stroke="url(#pulm-g)" stroke-width="24"
+              stroke-linecap="round" filter="url(#vs)"/>
+        <path d="M150 96 C146 70 136 52 122 40 C110 29 96 26 88 28"
+              fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7"
+              stroke-linecap="round"/>
+
+        <!-- ── Aortic Arch - rises then arches right, over pulm ── -->
+        <path d="M166 86 C166 50 178 28 202 16 C224 6 248 10 260 26 C272 42 268 64 252 78"
+              fill="none" stroke="url(#aorta-g)" stroke-width="28"
+              stroke-linecap="round" filter="url(#hs)"/>
+        <!-- Aorta highlight -->
+        <path d="M166 86 C166 50 178 28 202 16 C224 6 248 10 260 26 C272 42 268 64 252 78"
+              fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="7"
+              stroke-linecap="round"/>
+
+        <!-- ── Right & Left Pulmonary Veins (tiny stubs, left side) ── -->
+        <path d="M100 158 C110 150 122 148 132 152"
+              fill="none" stroke="#B83030" stroke-width="12"
+              stroke-linecap="round" opacity=".55"/>
+        <path d="M96 184 C108 178 120 178 130 183"
+              fill="none" stroke="#B83030" stroke-width="9"
+              stroke-linecap="round" opacity=".42"/>
+
+        <!-- ── Main Heart Body ── -->
+        <path d="M180 375
+                 C146 344 84 307 58 256
+                 C36 211 40 162 66 132
+                 C84 111 108 103 130 104
+                 C150 104 168 112 180 130
+                 L180 130
+                 C192 112 210 104 230 104
+                 C252 103 276 111 294 132
+                 C320 162 324 211 302 256
+                 C276 307 214 344 180 375Z"
+              fill="url(#hg-main)" filter="url(#hs)"/>
+
+        <!-- Right atrium / ventricle overlay (slightly different tone) -->
+        <path d="M230 104 C252 103 276 111 294 132
+                 C310 152 318 178 316 208
+                 C298 190 276 180 254 176
+                 C246 162 238 136 230 104Z"
+              fill="url(#hg-right)" opacity=".55"/>
+
+        <!-- ── Atrioventricular groove ── -->
+        <path d="M96 196 C116 175 146 163 180 160 C214 163 244 175 264 196"
+              fill="none" stroke="rgba(0,0,0,0.22)" stroke-width="2.5"/>
+
+        <!-- ── Interventricular groove ── -->
+        <path d="M180 152 C178 205 177 270 178 358"
+              fill="none" stroke="rgba(0,0,0,0.24)"
+              stroke-width="2.5" stroke-dasharray="5 4"/>
+
+        <!-- ── Left Anterior Descending (LAD) ── -->
+        <path d="M179 154 C176 198 175 250 176 304 C176 328 178 354 180 372"
+              fill="none" stroke="url(#cor-g)" stroke-width="3.5"
+              stroke-linecap="round" opacity=".88"/>
+        <!-- LAD diagonal 1 -->
+        <path d="M177 198 C163 212 148 221 132 224"
+              fill="none" stroke="#D87070" stroke-width="2.5"
+              stroke-linecap="round" opacity=".72"/>
+        <!-- LAD diagonal 2 -->
+        <path d="M176 228 C160 242 144 248 128 246"
+              fill="none" stroke="#D87070" stroke-width="2"
+              stroke-linecap="round" opacity=".58"/>
+        <!-- LAD septal perforator -->
+        <path d="M177 258 C164 268 152 272 140 268"
+              fill="none" stroke="#D87070" stroke-width="1.5"
+              stroke-linecap="round" opacity=".45"/>
+
+        <!-- ── Right Coronary Artery (RCA) ── -->
+        <path d="M244 158 C264 170 276 192 278 218
+                 C280 244 272 268 256 286
+                 C244 300 230 312 218 322"
+              fill="none" stroke="#D07070" stroke-width="3"
+              stroke-linecap="round" opacity=".78"/>
+        <!-- RCA posterior descending -->
+        <path d="M254 274 C264 286 266 300 260 314"
+              fill="none" stroke="#D07070" stroke-width="2"
+              stroke-linecap="round" opacity=".5"/>
+
+        <!-- ── Circumflex (Cx) ── -->
+        <path d="M178 160 C156 160 136 165 118 178
+                 C100 190 88 210 86 234"
+              fill="none" stroke="#D07070" stroke-width="2.5"
+              stroke-linecap="round" opacity=".62"/>
+        <!-- Obtuse marginal branch -->
+        <path d="M108 210 C96 224 90 240 92 258"
+              fill="none" stroke="#D07070" stroke-width="1.5"
+              stroke-linecap="round" opacity=".42"/>
+
+        <!-- ── Specular sheen ── -->
+        <path d="M180 375
+                 C146 344 84 307 58 256
+                 C36 211 40 162 66 132
+                 C84 111 108 103 130 104
+                 C150 104 168 112 180 130
+                 L180 130
+                 C192 112 210 104 230 104
+                 C252 103 276 111 294 132
+                 C320 162 324 211 302 256
+                 C276 307 214 344 180 375Z"
+              fill="url(#sheen-g)" pointer-events="none"/>
+      </svg>
+    </div>
+
+    <!-- ── Floating cards ── -->
+    <div class="hcard hcard-2">
+      <div class="hcard-label">Study Modes</div>
+      <div class="hcard-tags">
+        <span class="htag">Spaced Rep</span>
+        <span class="htag">Adaptive</span>
+        <span class="htag">Diagnostic</span>
+      </div>
+    </div>
+
+    <div class="hcard hcard-3">
+      <div class="hcard-label">Pipeline</div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+        <span style="font-size:0.6rem;color:rgba(0,210,195,.6);font-weight:600">Extract</span>
+        <span style="color:rgba(255,255,255,.15);font-size:.65rem">›</span>
+        <span style="font-size:0.6rem;color:rgba(0,210,195,.6);font-weight:600">Embed</span>
+        <span style="color:rgba(255,255,255,.15);font-size:.65rem">›</span>
+        <span style="font-size:0.6rem;color:rgba(0,210,195,.6);font-weight:600">Write</span>
+        <span style="color:rgba(255,255,255,.15);font-size:.65rem">›</span>
+        <span style="font-size:0.6rem;color:rgba(0,210,195,.6);font-weight:600">Audit</span>
+      </div>
+    </div>
+
+    <div class="hcard hcard-1">
+      <div class="hcard-title">Spaced Repetition Engine</div>
+      <div class="hcard-sub">SM-2 schedules each concept at the optimal review interval for long-term retention.</div>
+      <div class="hcard-stat">
+        <span class="hcard-num">94%</span>
+        <span class="hcard-unit">30-day retention</span>
+      </div>
+    </div>
+
+  </div><!-- /heart-stage-inner -->
+</div><!-- /heart-stage -->
+
+<!-- ══ Stats Bar ══════════════════════════════════════════════ -->
+<div class="stats-bar">
+  <div class="stats-bar-inner">
+    <div class="stat-cell reveal">
+      <div class="stat-n">50K<sub>+</sub></div>
+      <div class="stat-l">Questions Generated</div>
+    </div>
+    <div class="stat-cell reveal reveal-delay-1">
+      <div class="stat-n">10–15</div>
+      <div class="stat-l">Minutes to Full Bank</div>
+    </div>
+    <div class="stat-cell reveal reveal-delay-2">
+      <div class="stat-n">94%</div>
+      <div class="stat-l">30-Day Retention</div>
+    </div>
+    <div class="stat-cell reveal reveal-delay-3">
+      <div class="stat-n">7</div>
+      <div class="stat-l">AI Pipeline Stages</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Features ═══════════════════════════════════════════════ -->
+<div class="section" id="features">
+  <div class="section-pill reveal">Capabilities</div>
+  <h2 class="s-h2 reveal reveal-delay-1">Everything you need to<br><em>master the material.</em></h2>
+  <p class="s-sub reveal reveal-delay-2">Cardio doesn't just quiz you — it builds a complete clinical learning system from your own PDF, calibrated to your weak spots.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card reveal">
+      <div class="feat-icon">🧠</div>
+      <div class="feat-title">AI Question Generation</div>
+      <div class="feat-desc">Upload any medical PDF and receive a complete question bank in 10–15 minutes. GPT-4o authors every question from evidence grounded in your source text.</div>
+      <div class="feat-chips">
+        <span class="chip">GPT-4o</span>
+        <span class="chip">Source-verified</span>
+        <span class="chip">Board-style</span>
+      </div>
+    </div>
+
+    <div class="feat-card reveal reveal-delay-1">
+      <div class="feat-icon">🔁</div>
+      <div class="feat-title">Spaced Repetition (SM-2)</div>
+      <div class="feat-desc">The SM-2 algorithm schedules every concept at the optimal review interval. Wrong answers re-queue. Mastered topics fade into comfortable long-term review.</div>
+      <div class="feat-chips">
+        <span class="chip">SM-2 algorithm</span>
+        <span class="chip">Adaptive intervals</span>
+      </div>
+    </div>
+
+    <div class="feat-card reveal reveal-delay-2">
+      <div class="feat-icon">🗺️</div>
+      <div class="feat-title">Concept Maps</div>
+      <div class="feat-desc">Every chapter becomes an interactive concept map. Drill into categories, track mastery per concept, and pinpoint exactly what still needs work.</div>
+      <div class="feat-chips">
+        <span class="chip">Visual learning</span>
+        <span class="chip">Category drill-down</span>
+      </div>
+    </div>
+
+    <div class="feat-card reveal reveal-delay-1">
+      <div class="feat-icon">📊</div>
+      <div class="feat-title">Mastery Analytics</div>
+      <div class="feat-desc">Track mastery across every concept — new, weak, learning, strong, mastered. Session-by-session stats show exactly how you're improving toward exam day.</div>
+      <div class="feat-chips">
+        <span class="chip">5 mastery levels</span>
+        <span class="chip">Session tracking</span>
+      </div>
+    </div>
+
+    <div class="feat-card reveal reveal-delay-2">
+      <div class="feat-icon">🔬</div>
+      <div class="feat-title">Evidence Grounding</div>
+      <div class="feat-desc">Every question is anchored to a verbatim quote from your PDF. A dedicated Audit Agent rejects any question it can't verify against the source — no hallucinations.</div>
+      <div class="feat-chips">
+        <span class="chip">Source quotes</span>
+        <span class="chip">Audit agent</span>
+        <span class="chip">Zero hallucination</span>
+      </div>
+    </div>
+
+    <div class="feat-card reveal reveal-delay-3">
+      <div class="feat-icon">🎯</div>
+      <div class="feat-title">Coverage Density</div>
+      <div class="feat-desc">Standard for high-yield focus, Comprehensive for full coverage, Boards for exhaustive depth — each preset tuned for a different exam timeline and study load.</div>
+      <div class="feat-chips">
+        <span class="chip">Standard</span>
+        <span class="chip">Comprehensive</span>
+        <span class="chip">Boards</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ How It Works ════════════════════════════════════════════ -->
+<div class="how-section" id="how">
+  <div class="how-inner">
+    <div class="section-pill reveal">Process</div>
+    <h2 class="s-h2 reveal reveal-delay-1">From PDF to <em>exam-ready</em><br>in minutes.</h2>
+    <div class="how-grid">
+      <div class="how-step reveal">
+        <div class="how-num">01</div>
+        <div class="how-title">Upload Your PDF</div>
+        <div class="how-desc">Drop in any medical textbook chapter, lecture notes, or clinical guide. Cardio extracts and embeds the full text — handling multi-column layouts automatically.</div>
+        <div class="how-step-tag">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Supports any medical PDF
+        </div>
+      </div>
+      <div class="how-step reveal reveal-delay-1">
+        <div class="how-num">02</div>
+        <div class="how-title">AI Builds the Bank</div>
+        <div class="how-desc">A 7-stage pipeline — Extract, Embed, Inventory, Concepts, Write, Audit, Save — generates a complete question bank. GPT-4o writes. A second agent audits each question.</div>
+        <div class="how-step-tag">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          10–15 min · fully automated
+        </div>
+      </div>
+      <div class="how-step reveal reveal-delay-2">
+        <div class="how-num">03</div>
+        <div class="how-title">Study, Retain, Master</div>
+        <div class="how-desc">Spaced repetition schedules your weak spots. Review due cards, run a diagnostic assessment, or explore the concept map — progress syncs to the cloud across devices.</div>
+        <div class="how-step-tag">
+          <svg viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Cloud sync · cross-device
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Testimonial ════════════════════════════════════════════ -->
+<div class="testimonial">
+  <span class="tq-mark reveal">"</span>
+  <p class="tq-text reveal reveal-delay-1">Cardio turned my cardiology notes into a full question bank in 12 minutes. I went from barely passing shelf practice to the 87th percentile. The spaced repetition actually works.</p>
+  <div class="tq-author reveal reveal-delay-2">
+    <div class="tq-avatar">MR</div>
+    <div>
+      <div class="tq-name">Marcus R.</div>
+      <div class="tq-role">MS3 — Internal Medicine Shelf, LECOM</div>
+    </div>
+  </div>
+
+  <div class="trust-bar reveal reveal-delay-3">
+    <span class="trust-label">Used by students at</span>
+    <span class="trust-name">LECOM</span>
+    <span class="trust-name">USMLE Step 1</span>
+    <span class="trust-name">COMLEX Level 1</span>
+    <span class="trust-name">NBME Shelf Exams</span>
+  </div>
+</div>
+
+<!-- ══ Pricing ════════════════════════════════════════════════ -->
+<div class="pricing-section" id="pricing">
+  <div class="pricing-inner">
+    <div class="section-pill reveal">Pricing</div>
+    <h2 class="s-h2 reveal reveal-delay-1">Simple, <em>transparent</em> pricing.</h2>
+    <p class="s-sub reveal reveal-delay-2">Start free. Upgrade when you need more — no hidden fees, no per-question charges.</p>
+
+    <div class="pricing-grid">
+      <div class="price-card reveal">
+        <div class="price-tier">Free</div>
+        <div class="price-amt">$0</div>
+        <div class="price-period">forever, no card needed</div>
+        <hr class="price-divider">
+        <ul class="price-features">
+          <li><span class="price-check">✓</span>1 PDF chapter (up to 50 pages)</li>
+          <li><span class="price-check">✓</span>Up to 45 questions</li>
+          <li><span class="price-check">✓</span>Spaced repetition engine</li>
+          <li><span class="price-check">✓</span>Concept map view</li>
+          <li><span class="price-check">✓</span>Local browser storage</li>
+        </ul>
+        <a href="medical-study-app-v2.html" class="price-btn price-btn-ghost">Get Started Free</a>
+      </div>
+
+      <div class="price-card featured reveal reveal-delay-1">
+        <div class="featured-badge">Most Popular</div>
+        <div class="price-tier">Student</div>
+        <div class="price-amt">$12</div>
+        <div class="price-period">per month · billed monthly</div>
+        <hr class="price-divider">
+        <ul class="price-features">
+          <li><span class="price-check">✓</span>Unlimited PDF uploads</li>
+          <li><span class="price-check">✓</span>Unlimited questions at any density</li>
+          <li><span class="price-check">✓</span>Cloud sync across all devices</li>
+          <li><span class="price-check">✓</span>Concept maps + mastery analytics</li>
+          <li><span class="price-check">✓</span>Diagnostic assessments</li>
+          <li><span class="price-check">✓</span>Evidence grounding + audit agent</li>
+          <li><span class="price-check">✓</span>Exam countdown + adaptive scheduling</li>
+        </ul>
+        <a href="medical-study-app-v2.html" class="price-btn price-btn-solid">Start Free Trial</a>
+      </div>
+
+      <div class="price-card reveal reveal-delay-2">
+        <div class="price-tier">Institution</div>
+        <div class="price-amt">Custom</div>
+        <div class="price-period">per cohort · annual billing</div>
+        <hr class="price-divider">
+        <ul class="price-features">
+          <li><span class="price-check">✓</span>Everything in Student</li>
+          <li><span class="price-check">✓</span>Admin dashboard + bank sharing</li>
+          <li><span class="price-check">✓</span>Instructor-uploaded banks for all students</li>
+          <li><span class="price-check">✓</span>Cohort-level progress analytics</li>
+          <li><span class="price-check">✓</span>Priority support + onboarding</li>
+          <li><span class="price-check">✓</span>Custom branding</li>
+        </ul>
+        <a href="mailto:contact@cardio.app" class="price-btn price-btn-ghost">Contact Us</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CTA Band ═══════════════════════════════════════════════ -->
+<div class="cta-band">
+  <div class="cta-inner">
+    <h2 class="cta-h2 reveal">Ready to <em>elevate</em><br>your practice?</h2>
+    <p class="cta-sub reveal reveal-delay-1">Upload your first PDF today — no credit card required. Your complete question bank will be ready in 10–15 minutes.</p>
+    <div class="cta-btns reveal reveal-delay-2">
+      <a href="medical-study-app-v2.html" class="btn-primary">Get Started Free →</a>
+      <a href="#how" class="btn-outline-light">View Methodology</a>
+    </div>
+    <p class="cta-note reveal reveal-delay-3">No credit card required &nbsp;·&nbsp; HIPAA-aware storage &nbsp;·&nbsp; Cancel anytime</p>
+  </div>
+</div>
+
+<!-- ══ Footer ══════════════════════════════════════════════════ -->
+<footer>
+  <div class="footer-grid">
+    <div>
+      <div class="footer-brand">Cardio</div>
+      <p class="footer-brand-desc">Setting the gold standard in medical education through AI-powered spaced repetition and evidence-grounded question generation.</p>
+    </div>
+    <div>
+      <div class="footer-col-title">Product</div>
+      <ul class="footer-links">
+        <li><a href="#">Question Banks</a></li>
+        <li><a href="#">Concept Maps</a></li>
+        <li><a href="#">Spaced Repetition</a></li>
+        <li><a href="#">Analytics</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Resources</div>
+      <ul class="footer-links">
+        <li><a href="#">Documentation</a></li>
+        <li><a href="#">Methodology</a></li>
+        <li><a href="#">API Reference</a></li>
+        <li><a href="#">FAQ</a></li>
+      </ul>
+    </div>
+    <div>
+      <div class="footer-col-title">Connect</div>
+      <ul class="footer-links">
+        <li><a href="#">Twitter / X</a></li>
+        <li><a href="#">LinkedIn</a></li>
+        <li><a href="#">Discord</a></li>
+        <li><a href="#">Email Support</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span class="footer-legal">© 2026 Cardio. All rights reserved. &nbsp;·&nbsp; AI-powered. Not a substitute for clinical judgment.</span>
+    <span class="footer-legal">Privacy Policy &nbsp;·&nbsp; Terms of Service &nbsp;·&nbsp; Accessibility</span>
+  </div>
+</footer>
+
+<script>
+/* ── Scroll reveal ──────────────────────────────────────────── */
+const revealEls = document.querySelectorAll('.reveal');
+const obs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      obs.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.12 });
+revealEls.forEach(el => obs.observe(el));
+</script>
+</body>
+</html>
