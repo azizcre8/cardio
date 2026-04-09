@@ -1511,12 +1511,25 @@ function exportBank(pdfId) {
     concepts: concepts.map(c=>({ id:c.id, name:c.concept, level:c.level })),
     questions: questions.map(q=>({
       id: q.id,
-      concept: q.conceptName||'',
+      concept: q.conceptName||q.concept||'',
+      conceptId: q.conceptId||'',
       level: q.level||1,
       question: q.question,
       options: q.options||[],
-      answer: q.answer,
-      explanation: q.explanation||''
+      correctAnswer: q.correctAnswer,
+      answer: q.options?.[q.correctAnswer]||q.answer||'',
+      explanation: q.explanation||'',
+      sourceQuote: q.sourceQuote||'',
+      pageEstimate: q.pageEstimate||'',
+      optionExplanations: (()=>{
+        const meta=S.get('qMeta_'+q.pdfId);
+        return (meta&&meta[q.id])||q.optionExplanations||[];
+      })(),
+      importance: q.importance||'medium',
+      category: q.category||'',
+      timesReviewed: q.timesReviewed||0,
+      timesCorrect: q.timesCorrect||0,
+      timesIncorrect: q.timesIncorrect||0
     }))
   };
   const blob = new Blob([JSON.stringify(exportData, null, 2)], { type:'application/json' });
