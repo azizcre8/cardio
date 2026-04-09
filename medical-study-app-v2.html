@@ -1094,6 +1094,42 @@ const WRITER_MODEL='gpt-4o';   // Writer Agent — higher reasoning for question
 const AUDITOR_MODEL='gpt-4o';  // Audit Agent — judge role, same capability floor
 const MAX_REVISE_ITERATIONS=2; // max Writer→Audit loops before hard REJECT
 
+// ── P0 FEATURE FLAGS ──────────────────────────────────────────
+// Set to false to disable individual P0 improvements for A/B testing or rollback.
+//
+// IMPLEMENTATION NOTES
+// P0.1 TEXT QUALITY CHECK
+//   assessTextQuality() classifies each PDF as 'ok'|'poor'|'empty' based on avg chars/page
+//   and fraction of low-text pages (< 50 chars or > 15% non-ASCII). Result stored on PDF
+//   metadata as textQuality and surfaced as a console warning. extractInventory() skips
+//   chunks shorter than 80 chars to avoid hallucination anchors.
+//
+// P0.2 EVIDENCE GROUNDING GATE
+//   The Writer Agent is required to return evidenceStart/evidenceEnd character offsets and a
+//   verbatim sourceQuote from the retrieved chunk. verifyEvidenceSpan() first tries an exact
+//   offset match; on failure it falls back to a substring search across all concept source
+//   chunks. Questions that fail both checks are flagged evidenceValid:false and the Auditor
+//   is instructed to REVISE them. evidenceValid is persisted on every saved question object.
+//
+// P0.3 HYBRID RETRIEVAL (BM25 + Dense)
+//   buildBM25Index() tokenises all chunk texts into a term-frequency map and computes BM25
+//   IDF weights (k1=1.5, b=0.75). bm25Search() scores each chunk against a query string.
+//   reciprocalRankFusion() merges dense cosine ranks and sparse BM25 ranks using RRF (K=60).
+//   The BM25 index is built once after Phase 2.5 in processNewPDF and passed down through
+//   generateCoverageQuestions → retrieveTopChunks. Dense-only path is used when flag is off.
+//
+// P0.4 CONFUSION-CONSTRAINED DISTRACTORS
+//   buildConfusionCandidates() provides up to 6 hardcoded distractor candidates per concept
+//   across 10 confusion categories (beta-blocker/CCB, hypersensitivity types, ANS branches,
+//   gram stain, etc.). These are injected into each concept's spec block in the Writer prompt.
+//   DISTRACTOR RULES 8-9 and COMPETITIVE DISTRACTOR RULES are tightened to enforce the
+//   one-feature-difference constraint and require at least one candidate from the supplied list.
+//   runAuditAgent criterion 1 is upgraded to HOMOGENEITY + ONE-FEATURE RULE.
+const ENABLE_TEXT_QUALITY_CHECK  = true;
+const ENABLE_EVIDENCE_GATING     = true;
+const ENABLE_HYBRID_RETRIEVAL    = true;
+const ENABLE_CONFUSION_DISTRACTORS = true;
+
 // Coverage density presets
 const DENSITY={
   standard:{
@@ -2399,6 +2435,18 @@ async function processNewPDF(file) {
     const totalWords=pages.reduce((s,p)=>s+p.text.split(/\s+/).length,0);
     plog(`✓ ${pages.length} pages · ~${totalWords} words`,'success');
 
+    // P0.1 — text quality detection (guard: ENABLE_TEXT_QUALITY_CHECK)
+    STATE._currentPdfTextQuality = 'ok'; // default; overwritten below
+    if (ENABLE_TEXT_QUALITY_CHECK) {
+      const tq = assessTextQuality(pages);
+      STATE._currentPdfTextQuality = tq.quality;
+      if (tq.quality === 'empty') {
+        plog('⚠️ This PDF appears to be image-based or scanned. Text extraction returned very little content. Board question generation will likely fail. Use a PDF with a text layer (not a scanned image).');
+      } else if (tq.quality === 'poor') {
+        plog('⚠️ Text quality is low — multi-column layout or formatting may be reducing extraction accuracy. Some concepts may be missed.');
+      }
+    }
+
     // ── Phase 2: Chunk
     setPhase(2);
     const rawChunks=chunkText(pages,dc.words,dc.overlap);
@@ -2418,6 +2466,13 @@ async function processNewPDF(file) {
     } catch(e) {
       chunkRecords=rawChunks.map((c,i)=>({id:id+'_ch_'+i,pdfId:id,...c,chunkIndex:i,embedding:[]}));
       plog(`Embedding skipped: ${e.message} — using keyFacts fallback`,'error');
+    }
+
+    // ── Phase 2.6: Build BM25 sparse index (in-memory, no network call)
+    let _bm25Index = null;
+    if (ENABLE_HYBRID_RETRIEVAL && chunkRecords.length) {
+      _bm25Index = buildBM25Index(chunkRecords);
+      plog(`✓ BM25 index built over ${chunkRecords.length} chunks (hybrid retrieval active)`,'success');
     }
 
     // ── Phase 3: Content inventory per chunk
@@ -2468,6 +2523,7 @@ async function processNewPDF(file) {
     const capped=master.slice(0,conceptCap[STATE.density]||200);
     plog(`Phase 5: Processing top ${capped.length} concepts (capped from ${master.length})…`);
     const allQuestions=[], allHardRejected=[];
+    let _chunkMap=null; // P0.2 — lazy-built chunk-id→text map for evidence verification
     const batchSize=3;
     let auditPassed=0, auditRevised=0, auditHardRejected=0;
 
@@ -2480,7 +2536,7 @@ async function processNewPDF(file) {
       setProcStatusInline(id,`Writing ${label}…`,pct);
       plog(`Writer Agent → concepts ${label}…`,'writer');
       try {
-        const qs=await generateCoverageQuestions(batch,id,STATE.density,chunkRecords,confusionMap);
+        const qs=await generateCoverageQuestions(batch,id,STATE.density,chunkRecords,confusionMap,_bm25Index);
 
         const ragPassagesMap={};
         if(ragEnabled) {
@@ -2492,6 +2548,30 @@ async function processNewPDF(file) {
               ragPassagesMap[c.id]=topChunks.map(ch=>`> "${ch.text.slice(0,300)}" [page ${ch.startPage||'?'}]`).join('\n');
             });
           } catch(_) {}
+        }
+
+        // P0.2 — evidence grounding gate (guard: ENABLE_EVIDENCE_GATING)
+        if (ENABLE_EVIDENCE_GATING) {
+          // Build chunk map lazily (once per PDF run)
+          if (!_chunkMap) {
+            _chunkMap = {};
+            chunkRecords.forEach(c => { _chunkMap[c.id] = c.text; });
+          }
+          let evGrounded = 0;
+          const conceptLookup = {};
+          batch.forEach(c => { conceptLookup[c.id] = c; });
+          qs.forEach(q => {
+            const concept = conceptLookup[q.conceptId];
+            const chunkIds = concept?.sourceChunkIds || [];
+            // Concatenate all source-chunk texts for this concept as verification corpus
+            const chunkText = chunkIds.map(cid => _chunkMap[cid] || '').join('\n');
+            const ev = verifyEvidenceSpan(q.sourceQuote, q.evidenceStart||0, q.evidenceEnd||0, chunkText);
+            q.evidenceValid = ev.ok;
+            if (ev.ok) evGrounded++;
+          });
+          const evTotal = qs.length;
+          if (evTotal > 0)
+            plog(`Evidence check: ${evGrounded}/${evTotal} questions grounded in source text. ${evTotal - evGrounded} flagged as unverified.`);
         }
 
         setPhase(6);
@@ -2538,7 +2618,8 @@ async function processNewPDF(file) {
     S.savePDFs(S.pdfs().map(p=>p.id===id
       ?{...p,processingComplete:true,conceptCount:master.length,
           questionCount:uQuestions.length,flaggedCount:allHardRejected.length,
-          procCost:STATE._procCost}
+          procCost:STATE._procCost,
+          textQuality:STATE._currentPdfTextQuality||'ok'}
       :p));
 
     clearInterval(_timer);
@@ -2609,6 +2690,33 @@ async function extractText(file) {
     if(text.trim()) pages.push({page:i, text:text.trim()});
   }
   return pages; // [{page: number, text: string}]
+}
+
+// ── P0.1 — PDF TEXT QUALITY DETECTION ───────────────────────
+// Classifies extracted text as 'ok', 'poor', or 'empty' based on
+// character density and non-ASCII ratio. Called after extractText(),
+// before chunking. Does NOT abort — only warns.
+function assessTextQuality(pages) {
+  if (!pages || !pages.length)
+    return { quality: 'empty', avgCharsPerPage: 0, lowTextRatio: 1, totalChars: 0 };
+
+  const totalChars = pages.reduce((s, p) => s + (p.text || '').length, 0);
+  const avgCharsPerPage = totalChars / pages.length;
+
+  const lowPages = pages.filter(p => {
+    const t = p.text || '';
+    if (t.length < 50) return true;
+    const nonAscii = Array.from(t).filter(c => c.charCodeAt(0) > 127).length;
+    return nonAscii / t.length > 0.15;
+  }).length;
+  const lowTextRatio = lowPages / pages.length;
+
+  let quality;
+  if (avgCharsPerPage < 100)   quality = 'empty';
+  else if (lowTextRatio > 0.4) quality = 'poor';
+  else                         quality = 'ok';
+
+  return { quality, avgCharsPerPage, lowTextRatio, totalChars };
 }
 
 function chunkText(pages,wordsPerChunk,overlapFraction) {
@@ -2755,12 +2863,79 @@ function cosineSimilarity(a,b) {
   return dot/(Math.sqrt(na)*Math.sqrt(nb)||1e-9);
 }
 
-function retrieveTopChunks(allChunks,queryEmbedding,topK=RAG_TOP_K) {
-  return [...allChunks]
-    .filter(c=>c.embedding&&c.embedding.length>0)
-    .map(c=>({...c,_score:cosineSimilarity(c.embedding,queryEmbedding)}))
+function retrieveTopChunks(allChunks, queryEmbedding, topK=RAG_TOP_K, queryText='', bm25Index=null) {
+  const densePool = [...allChunks].filter(c=>c.embedding&&c.embedding.length>0);
+  const denseRanked = densePool
+    .map(c=>({...c, _score:cosineSimilarity(c.embedding, queryEmbedding)}))
     .sort((a,b)=>b._score-a._score)
-    .slice(0,topK);
+    .slice(0, topK*2); // oversample before fusion
+
+  if (ENABLE_HYBRID_RETRIEVAL && bm25Index && queryText) {
+    const sparseRanked = bm25Search(queryText, bm25Index, allChunks, topK*2);
+    return reciprocalRankFusion(denseRanked, sparseRanked, topK);
+  }
+  return denseRanked.slice(0, topK);
+}
+
+// ── BM25 SPARSE RETRIEVAL ──────────────────────────────────────
+
+function buildBM25Index(chunks) {
+  const k1=1.5, b=0.75;
+  const tokenize = t => (t||'').toLowerCase().replace(/[^a-z0-9]/g,' ').split(/\s+/).filter(Boolean);
+  const docTokens = chunks.map(c => tokenize(c.text));
+  const docLens = docTokens.map(t => t.length);
+  const avgdl = docLens.reduce((s,l)=>s+l,0) / (docLens.length||1);
+  // Build IDF: df per term
+  const df = {};
+  docTokens.forEach(tokens => {
+    new Set(tokens).forEach(t => { df[t]=(df[t]||0)+1; });
+  });
+  const N = chunks.length;
+  const idf = {};
+  Object.keys(df).forEach(t => {
+    idf[t] = Math.log((N - df[t] + 0.5) / (df[t] + 0.5) + 1);
+  });
+  return { docTokens, docLens, avgdl, idf, k1, b };
+}
+
+function bm25Search(query, index, chunks, k=10) {
+  if (!index) return [];
+  const { docTokens, docLens, avgdl, idf, k1, b } = index;
+  const tokenize = t => (t||'').toLowerCase().replace(/[^a-z0-9]/g,' ').split(/\s+/).filter(Boolean);
+  const qTokens = tokenize(query);
+  const scores = chunks.map((c, i) => {
+    const tokens = docTokens[i] || [];
+    const dl = docLens[i] || 0;
+    const tf = {};
+    tokens.forEach(t => { tf[t]=(tf[t]||0)+1; });
+    let score = 0;
+    qTokens.forEach(qt => {
+      const f = tf[qt]||0;
+      if (!f) return;
+      const idfVal = idf[qt]||0;
+      score += idfVal * (f*(k1+1)) / (f + k1*(1 - b + b*dl/avgdl));
+    });
+    return { ...c, _bm25Score: score };
+  });
+  return scores.sort((a,b)=>b._bm25Score-a._bm25Score).slice(0,k);
+}
+
+function reciprocalRankFusion(denseResults, sparseResults, k=10) {
+  const RRF_K = 60;
+  const scores = {};
+  const byId = {};
+  denseResults.forEach((c, rank) => {
+    scores[c.id] = (scores[c.id]||0) + 1/(RRF_K + rank + 1);
+    byId[c.id] = c;
+  });
+  sparseResults.forEach((c, rank) => {
+    scores[c.id] = (scores[c.id]||0) + 1/(RRF_K + rank + 1);
+    byId[c.id] = byId[c.id]||c;
+  });
+  return Object.keys(scores)
+    .map(id=>({ ...byId[id], _rrfScore: scores[id] }))
+    .sort((a,b)=>b._rrfScore-a._rrfScore)
+    .slice(0, k);
 }
 
 // Embed all raw chunks in batches; returns enriched ChunkRecord[]
@@ -2795,9 +2970,17 @@ async function extractInventory(chunkOrBatch,density,batchIdx=0,totalBatches=1,t
   const dc=DENSITY[density];
   // Accept ChunkRecord objects [{id,text,startPage,endPage,headers}] or plain strings
   const isRecords=Array.isArray(chunkOrBatch)&&chunkOrBatch.length&&typeof chunkOrBatch[0]==='object';
-  const records=isRecords?chunkOrBatch:
+  let records=isRecords?chunkOrBatch:
     (Array.isArray(chunkOrBatch)?chunkOrBatch.map((t,i)=>({id:'legacy_'+i,text:t,startPage:null,endPage:null}))
     :[{id:'legacy_0',text:chunkOrBatch,startPage:null,endPage:null}]);
+
+  // P0.1 — skip chunks shorter than 80 chars (garbage from scanned or blank pages)
+  records = records.filter(r => {
+    if ((r.text || '').length >= 80) return true;
+    console.warn(`[extractInventory] skipping chunk ${r.id||'?'} — only ${(r.text||'').length} chars`);
+    return false;
+  });
+  if (!records.length) return { headings: [], sourceChunkIds: [], concepts: [] };
 
   // Use real page numbers from chunk records (fall back to word-count estimate)
   const realStart=records.find(r=>r.startPage!=null)?.startPage;
@@ -3079,6 +3262,101 @@ function auditCoverage(questions, canonicalClusters) {
   return {summary, errors, issues};
 }
 
+// ── P0.2 — EVIDENCE SPAN VALIDATOR ───────────────────────────
+// Verifies that sourceQuote actually appears in chunkText.
+// Primary check: slice(evidenceStart, evidenceEnd) === sourceQuote
+// Fallback: chunkText.includes(sourceQuote) even if offsets are off
+function verifyEvidenceSpan(sourceQuote, evidenceStart, evidenceEnd, chunkText) {
+  if (!sourceQuote || sourceQuote === 'UNGROUNDED' || sourceQuote.length < 15)
+    return { ok: false, reason: 'missing_or_too_short' };
+  if (!chunkText) return { ok: false, reason: 'no_chunk_text' };
+
+  const extracted = chunkText.slice(evidenceStart, evidenceEnd);
+  if (extracted === sourceQuote) return { ok: true };
+
+  // Fallback: quote appears somewhere in chunk even if offsets are wrong
+  if (chunkText.includes(sourceQuote.trim())) return { ok: true, offsetCorrected: true };
+
+  return { ok: false, reason: 'not_found_in_chunk' };
+}
+
+// ── CONFUSION-CONSTRAINED DISTRACTOR CANDIDATES ───────────────
+// Returns up to 6 distractor candidates for a concept based on hardcoded confusion categories.
+// These supplement (not replace) the LLM-generated confusion map.
+function buildConfusionCandidates(concept) {
+  if (!ENABLE_CONFUSION_DISTRACTORS) return [];
+  const name = (concept.concept||'').toLowerCase();
+  const cat  = (concept.category||'').toLowerCase();
+  const candidates = [];
+
+  // Category 1: Beta-blocker vs CCB vs ACE-inhibitor confusion
+  if (/beta.?blocker|metoprolol|atenolol|carvedilol|propranolol/.test(name))
+    candidates.push('calcium channel blocker (CCB)', 'ACE inhibitor', 'ARB');
+  if (/calcium channel|amlodipine|nifedipine|diltiazem|verapamil/.test(name))
+    candidates.push('beta-blocker', 'ACE inhibitor', 'nitrate');
+
+  // Category 2: ACE inhibitor vs ARB
+  if (/ace inhibitor|lisinopril|enalapril|ramipril/.test(name))
+    candidates.push('ARB (angiotensin receptor blocker)', 'direct renin inhibitor');
+  if (/\barb\b|losartan|valsartan|irbesartan/.test(name))
+    candidates.push('ACE inhibitor', 'aldosterone antagonist');
+
+  // Category 3: Type I vs Type II hypersensitivity
+  if (/type i|type 1|ige.mediat|anaphyl|immediate hypersens/.test(name))
+    candidates.push('Type II hypersensitivity (cytotoxic)', 'Type III hypersensitivity (immune complex)', 'Type IV hypersensitivity (delayed)');
+  if (/type ii|type 2|cytotoxic hypersens/.test(name))
+    candidates.push('Type I hypersensitivity (IgE-mediated)', 'Type III (immune complex)');
+  if (/type iii|type 3|immune complex/.test(name))
+    candidates.push('Type II hypersensitivity', 'Type IV (delayed-type)');
+  if (/type iv|type 4|delayed.type|cell.mediat/.test(name))
+    candidates.push('Type I (IgE-mediated)', 'Type II (cytotoxic)');
+
+  // Category 4: Sympathetic vs Parasympathetic effects
+  if (/sympathetic|adrenergic|alpha.?1|beta.?1|beta.?2/.test(name))
+    candidates.push('parasympathetic (cholinergic) effect', 'muscarinic antagonist effect');
+  if (/parasympathetic|cholinergic|muscarinic|vagal/.test(name))
+    candidates.push('sympathetic (adrenergic) effect', 'nicotinic receptor effect');
+
+  // Category 5: MOA confusion — bacteriostatic vs bactericidal
+  if (/bacteriostatic|tetracycline|macrolide|chloramphenicol|clindamycin/.test(name))
+    candidates.push('bactericidal mechanism', 'cell wall synthesis inhibitor');
+  if (/bactericidal|penicillin|cephalosporin|aminoglycoside|fluoroquinolone/.test(name))
+    candidates.push('bacteriostatic mechanism', 'protein synthesis inhibitor (30S)', 'protein synthesis inhibitor (50S)');
+
+  // Category 6: Nephrotic vs Nephritic syndrome
+  if (/nephrotic/.test(name))
+    candidates.push('nephritic syndrome', 'rapidly progressive GN');
+  if (/nephritic/.test(name))
+    candidates.push('nephrotic syndrome', 'chronic kidney disease');
+
+  // Category 7: Upper vs Lower motor neuron signs
+  if (/upper motor neuron|umn/.test(name))
+    candidates.push('lower motor neuron (LMN) lesion', 'cerebellar lesion');
+  if (/lower motor neuron|lmn/.test(name))
+    candidates.push('upper motor neuron (UMN) lesion', 'neuromuscular junction disorder');
+
+  // Category 8: Metabolic acidosis vs alkalosis gap types
+  if (/metabolic acidosis/.test(name))
+    candidates.push('metabolic alkalosis', 'respiratory acidosis', 'anion-gap vs non-anion-gap distinction');
+  if (/metabolic alkalosis/.test(name))
+    candidates.push('metabolic acidosis', 'respiratory alkalosis');
+
+  // Category 9: Enzyme / receptor isoform confusion
+  if (/cox.?1|cox.?2|cyclooxygenase/.test(name))
+    candidates.push('COX-1 (constitutive, GI-protective)', 'COX-2 (inducible, inflammatory)');
+  if (/p450|cyp3a4|cyp2d6|cyp2c19/.test(name))
+    candidates.push('phase I metabolism (oxidation)', 'phase II metabolism (conjugation)');
+
+  // Category 10: Microbiology — gram-positive vs gram-negative
+  if (/gram.?positive|streptococ|staphylococ/.test(name))
+    candidates.push('gram-negative organism', 'anaerobe', 'acid-fast organism');
+  if (/gram.?negative|e\.?coli|klebsiella|pseudomonas/.test(name))
+    candidates.push('gram-positive organism', 'atypical organism (no cell wall)');
+
+  // Deduplicate and cap at 6
+  return [...new Set(candidates)].slice(0, 6);
+}
+
 // ── CONCEPT CONFUSION MAP ─────────────────────────────────────
 async function generateConfusionMap(concepts, pdfId) {
   const conceptList = concepts.map(c => `- ${c.concept} [${c.category}]`).join('\n');
@@ -3118,7 +3396,7 @@ Return ONLY valid JSON — no markdown, no prose:
 
 // ── COVERAGE-FIRST QUESTION GENERATION ───────────────────────
 // allChunkRecords: ChunkRecord[] from Phase 2.5 (embeddings stored); may be empty for legacy calls
-async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[],confusionMap={}) {
+async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[],confusionMap={},bm25Index=null) {
   const dc=DENSITY[density];
   const all=[];
 
@@ -3133,6 +3411,7 @@ async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[],
       const queryVecs=await embedTexts(queries);
       queryVecs.forEach((qVec,i)=>{
         const c=batch[i];
+        const queryText=queries[i];
         // Prefer known source chunks for this concept, then fill with similarity search
         const sourceIds=new Set(c.sourceChunkIds||[]);
         const sourceChunks=allChunkRecords.filter(r=>sourceIds.has(r.id)&&r.embedding.length>0);
@@ -3141,7 +3420,9 @@ async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[],
         const simChunks=retrieveTopChunks(
           allChunkRecords.filter(r=>!excluded.has(r.id)),
           qVec,
-          Math.max(0,RAG_TOP_K-sourceChunks.length)
+          Math.max(0,RAG_TOP_K-sourceChunks.length),
+          queryText,
+          bm25Index
         );
         // Merge: source chunks first (highest confidence), then similarity results
         conceptChunks[i]=[...sourceChunks,...simChunks].slice(0,RAG_TOP_K);
@@ -3175,9 +3456,14 @@ async function generateCoverageQuestions(batch,pdfId,density,allChunkRecords=[],
     const confusionLine = confusions.length
       ? `Commonly confused with: ${confusions.map(c => `${c.pairConcept} (${c.reason})`).join('; ')}. Prioritise these as distractors where clinically appropriate.`
       : '';
+    // P0.4: inject hardcoded confusion candidates for this concept
+    const hardcodedCandidates = buildConfusionCandidates(batch[i]);
+    const candidateLine = hardcodedCandidates.length
+      ? `Distractor candidates (use ≥1 when contextually appropriate): ${hardcodedCandidates.join('; ')}.`
+      : '';
     return `
 CONCEPT ${i+1}: ${cs.name} [${cs.category}] [${cs.importance}-yield] [Pages: ${cs.pageEstimate||'unknown'}] [Domain: ${cs.coverageDomain||'definition_recall'}]
-Key information: ${cs.facts}${cs.passages?`\nSource passages from PDF:\n${cs.passages}`:''}${confusionLine ? '\n' + confusionLine : ''}
+Key information: ${cs.facts}${cs.passages?`\nSource passages from PDF:\n${cs.passages}`:''}${confusionLine ? '\n' + confusionLine : ''}${candidateLine ? '\n' + candidateLine : ''}
 Required question levels: ${cs.levels.map(l=>l===1?'L1=recall/definition':l===2?'L2=mechanism/application':'L3=clinical vignette/comparison').join(', ')}`;
   }).join('\n');
 
@@ -3225,16 +3511,16 @@ NEGATION STEM RULES (applies only to questions containing "NOT," "EXCEPT," or "L
 22. The explanation for a negation stem must explicitly confirm why each true option IS correct, then explain why the keyed answer is the exception.
 
 DISTRACTOR RULES (strictly enforced):
-8. Distractors must belong to the SAME conceptual category as the correct answer.
+8. Distractors must belong to the SAME conceptual category as the correct answer AND differ from the correct answer by exactly ONE clinically meaningful feature (mechanism, drug class, organism type, complication type, etc.). A distractor that is a different drug class, a different hypersensitivity type, or a different autonomic branch is far superior to a vague foil.
    - If the answer is a complication of HBV, ALL distractors must also be liver complications — not NAFLD or alcohol unless they are directly relevant.
    - If the answer is a drug mechanism, ALL distractors must be drug mechanisms in the same class or clinical context.
    - NEVER offer an answer the question stem itself rules out. If the stem says "viral hepatitis," do not list "alcoholic steatohepatitis" unless alcohol use is part of the scenario.
-9. Each distractor must represent a genuine student misconception — something a knowledgeable student who hasn't fully mastered this concept would plausibly choose. If a distractor would only be chosen by someone who knows nothing, replace it.
-10. Never write near-duplicate questions within a batch
+9. Each distractor must represent a genuine student misconception — something a knowledgeable student who hasn't fully mastered this concept would plausibly choose. If a distractor would only be chosen by someone who knows nothing, replace it. STRONGLY PREFER distractors from the "Commonly confused with" and "Distractor candidates" lines when they are provided — these represent validated confusion pairs on real board exams.
+10. Never write near-duplicate questions within a batch.
 
 COMPETITIVE DISTRACTOR RULES (strictly enforced):
 - At least 2 distractors must be plausible enough that a partially-informed student (one who has studied but not mastered the concept) would seriously consider them. If you can only produce 1 genuinely tempting distractor, redesign the question.
-- At least 1 distractor must reflect a common misconception or a classic confusion pair — something students frequently misattribute, e.g. confusing mechanism A with mechanism B, or conflating two drugs in the same class. Use the "Commonly confused with" line if provided; otherwise draw from related concepts in the same chapter.
+- At least 1 distractor MUST be drawn from the "Commonly confused with" or "Distractor candidates" list if one is provided. Hallucinated confusion pairs are forbidden — use the supplied list or draw from related concepts explicitly named elsewhere in this prompt.
 - No distractor may be instantly eliminable by a student who simply knows the organ system, physiological domain, or question type — every distractor must require genuine understanding of the specific concept to rule out.
 - Trivial opposites (e.g., "increases X" vs "decreases X" when one is clearly wrong from the stem) are only acceptable if the student cannot determine direction without real knowledge.
 
@@ -3250,14 +3536,16 @@ EXPLANATION RULES:
     - DISTINCTION: One final sentence stating the single deciding clue that separates the correct answer from the most tempting distractor. This must be actionable: a student reading it should know exactly what to look for on future similar questions.
     Example format: "[Correct answer] because [mechanism]. [Most tempting distractor] is tempting because [shared feature], but fails here because [specific distinguishing reason]; whereas [correct answer] requires [specific condition]. [Other distractor] applies only when [different context]. The key distinction is [X] vs [Y]: remember that [deciding clue]."
     FAIL CONDITIONS: Explanation fails if (a) it never addresses any specific distractor by name or content, (b) it only says "the others are incorrect" without contrastive reasoning, or (c) it could apply to a different question on the same concept without modification.
-12. The "sourceQuote" field: write the single most relevant sentence from the key information provided above that DIRECTLY proves the correct answer is true. Precise, factual, and concise — quote or closely paraphrase the specific fact that settles the question.
+12. "sourceQuote": Copy this VERBATIM and EXACTLY from the source text provided in the passages above. It must be a substring that literally appears in the chunk text above — do not paraphrase, summarize, or invent. If no direct quote supports the correct answer, write the string UNGROUNDED.
+    "evidenceStart": integer — character offset where sourceQuote begins in the chunk text provided above (0-based index into the passage text).
+    "evidenceEnd": integer — character offset where sourceQuote ends in the chunk text provided above (exclusive, like String.slice).
 13. The "pageEstimate" field: use only the starting page number from the concept spec as a plain integer (e.g. "12", never "~12–17" or ranges).
 
 Return ONLY valid JSON array (no markdown, no code blocks).
 L1 example (5 options, correctAnswer 0-based index 0–4):
-[{"conceptName":"Pyloric Stenosis","level":1,"question":"Which physical exam finding is pathognomonic for hypertrophic pyloric stenosis?","options":["Olive-shaped mass in the epigastrium","Hyperactive bowel sounds in the RLQ","Rebound tenderness at McBurney's point","Succussion splash on abdominal auscultation","Dance's sign on palpation"],"correctAnswer":0,"explanation":"A palpable olive-shaped mass in the epigastrium represents the hypertrophied pylorus and is pathognomonic for HPS. The other findings are associated with different GI conditions.","sourceQuote":"Hypertrophic pyloric stenosis presents with a palpable, firm, olive-shaped mass in the epigastric region, representing the hypertrophied pyloric muscle.","pageEstimate":"12"}]
+[{"conceptName":"Pyloric Stenosis","level":1,"question":"Which physical exam finding is pathognomonic for hypertrophic pyloric stenosis?","options":["Olive-shaped mass in the epigastrium","Hyperactive bowel sounds in the RLQ","Rebound tenderness at McBurney's point","Succussion splash on abdominal auscultation","Dance's sign on palpation"],"correctAnswer":0,"explanation":"A palpable olive-shaped mass in the epigastrium represents the hypertrophied pylorus and is pathognomonic for HPS. The other findings are associated with different GI conditions.","sourceQuote":"Hypertrophic pyloric stenosis presents with a palpable, firm, olive-shaped mass in the epigastric region, representing the hypertrophied pyloric muscle.","evidenceStart":42,"evidenceEnd":178,"pageEstimate":"12"}]
 L2/L3 example (4 options, correctAnswer 0-based index 0–3):
-[{"conceptName":"Myenteric Plexus","level":2,"question":"Why does achalasia cause dysphagia to both solids and liquids equally?","options":["Loss of inhibitory myenteric neurons removes VIP/NO-mediated LES relaxation","Fibrosis of esophageal smooth muscle prevents peristaltic wave propagation","Excess ACh from overactive excitatory neurons causes sustained esophageal spasm","Autoimmune destruction of submucosal Meissner plexus blocks swallowing reflex"],"correctAnswer":0,"explanation":"Achalasia results from selective destruction of inhibitory myenteric neurons that release VIP and NO to relax the LES. Without inhibitory input, the LES fails to relax, causing aperistalsis and functional obstruction equally for liquids and solids.","sourceQuote":"Inhibitory neurons of the myenteric plexus release VIP and NO to relax the LES; selective loss of these neurons in achalasia causes aperistalsis and failure of LES relaxation.","pageEstimate":"5"}]
+[{"conceptName":"Myenteric Plexus","level":2,"question":"Why does achalasia cause dysphagia to both solids and liquids equally?","options":["Loss of inhibitory myenteric neurons removes VIP/NO-mediated LES relaxation","Fibrosis of esophageal smooth muscle prevents peristaltic wave propagation","Excess ACh from overactive excitatory neurons causes sustained esophageal spasm","Autoimmune destruction of submucosal Meissner plexus blocks swallowing reflex"],"correctAnswer":0,"explanation":"Achalasia results from selective destruction of inhibitory myenteric neurons that release VIP and NO to relax the LES. Without inhibitory input, the LES fails to relax, causing aperistalsis and functional obstruction equally for liquids and solids.","sourceQuote":"Inhibitory neurons of the myenteric plexus release VIP and NO to relax the LES; selective loss of these neurons in achalasia causes aperistalsis and failure of LES relaxation.","evidenceStart":0,"evidenceEnd":148,"pageEstimate":"5"}]
 
 correctAnswer is the 0-based index of the correct option. sourceQuote and pageEstimate are required for every question.`;
 
@@ -3303,6 +3591,9 @@ correctAnswer is the 0-based index of the correct option. sourceQuote and pageEs
           explanation:q.explanation||'',
           optionExplanations:[],  // generated lazily on first answer (see generateOptionExplanations)
           sourceQuote:typeof q.sourceQuote==='string'&&q.sourceQuote?q.sourceQuote:'',
+          evidenceStart:typeof q.evidenceStart==='number'?q.evidenceStart:0,
+          evidenceEnd:typeof q.evidenceEnd==='number'?q.evidenceEnd:0,
+          evidenceValid:null,  // set by verifyEvidenceSpan in processNewPDF
           pageEstimate:q.pageEstimate||concept.pageEstimate||'',
           coverageDomain:concept.coverageDomain||'definition_recall',
           interval:0,easeFactor:2.5,repetitions:0,
@@ -3358,7 +3649,8 @@ async function runAuditAgent(questions) {
   const qList=questions.map((q,i)=>`Q${i+1} [${q.conceptName||'?'}] L${q.level}
 Stem: ${q.question}
 Options: ${q.options.map((o,j)=>`${j===q.correctAnswer?'★':''}${_auditLetters[j]}) ${o}`).join(' | ')}
-SourceQuote: ${q.sourceQuote||'(none)'}`).join('\n\n');
+SourceQuote: ${q.sourceQuote||'(none)'}
+EvidenceValid: ${q.evidenceValid===false?'false':'true'}`).join('\n\n');
 
   const prompt=`You are a Senior USMLE/COMLEX Clinical Audit Agent performing board-standard quality review. You are acting as an impartial judge — not a question writer. Respond ONLY with valid JSON.
 
@@ -3367,9 +3659,10 @@ ${qList}
 
 EVALUATE EACH QUESTION strictly against these criteria:
 
-1. HOMOGENEITY — All distractors must belong to the exact same medical category as the correct answer.
+1. HOMOGENEITY + ONE-FEATURE RULE — All distractors must belong to the exact same medical category as the correct answer AND each distractor must differ from the correct answer by exactly one clinically meaningful feature (drug class, mechanism step, organism type, complication subtype, etc.).
    Fail example: correct answer is a drug mechanism; distractors are symptoms, anatomical structures, or lab values.
-   Pass requires: all options are the same type of entity (all drugs, all complications, all mechanisms, etc.)
+   Fail example: three distractors all differ from the correct answer in multiple independent dimensions — a student could rule them out without specific knowledge.
+   Pass requires: all options are the same type of entity (all drugs, all complications, all mechanisms, etc.) and each wrong option is wrong for one specific, identifiable reason.
    Note: L1 questions have 5 options (A-E), L2/L3 have 4 options (A-D) — both are correct formats.
 
 2. PLAUSIBILITY — Every distractor must be a near-miss that a knowledgeable student who hasn't fully mastered this concept would genuinely choose.
@@ -3379,7 +3672,9 @@ EVALUATE EACH QUESTION strictly against these criteria:
 
 4. LEAD-IN — The stem must be specific enough that a student can formulate the correct answer BEFORE seeing the options ("Which of the following is true about X" = fail; "A 32-year-old presents with… The most likely mechanism is…" = pass).
 
-5. TELL-SIGNS — The correct answer must not be identifiable without medical knowledge through any of these cues:
+5. EVIDENCE — The sourceQuote field must be a direct verbatim excerpt from the provided chunk text that proves the correct answer. If EvidenceValid is false or the quote is clearly fabricated (not plausibly from any medical textbook passage), verdict must be REVISE with criterion EVIDENCE.
+
+6. TELL-SIGNS — The correct answer must not be identifiable without medical knowledge through any of these cues:
    - LENGTH TELL: The correct answer is noticeably longer or contains more clauses than the distractors. All options must be comparable in length and grammatical complexity.
    - QUALIFIER TELL: Only the correct answer contains mechanistic connectors ("via," "due to," "resulting in," "caused by," "leading to") while distractors are bare noun phrases or vice versa. All options must use the same grammatical structure.
    - KEYWORD MIRROR: The correct answer repeats a specific uncommon term from the stem that does not appear in any distractor, making it the obvious match.
@@ -3595,6 +3890,7 @@ function normaliseQuestion(raw, concept, level, pdfId) {
     explanation:raw.explanation||'',
     optionExplanations:[], // generated lazily on first answer
     sourceQuote:typeof raw.sourceQuote==='string'?raw.sourceQuote:'',
+    evidenceValid: raw.evidenceValid != null ? raw.evidenceValid : null,
     pageEstimate:raw.pageEstimate||concept.pageEstimate||'',
     coverageDomain:concept.coverageDomain||'definition_recall',
     interval:0, easeFactor:2.5, repetitions:0,
