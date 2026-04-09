@@ -922,51 +922,180 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
 
 <!-- PROCESSING -->
 <div id="view-processing" class="view">
-  <div class="proc-outer">
-    <!-- Header -->
-    <div class="proc-header">
-      <div class="proc-header-left">
-        <div class="proc-icon">PDF</div>
-        <div>
-          <div class="proc-file-name" id="proc-title">Analyzing PDF…</div>
-          <div class="proc-file-sub" id="proc-subtitle">Keep this tab open — takes 10–15 min</div>
+  <div class="proc-lab-wrap">
+
+    <!-- ── LEFT: main pipeline ── -->
+    <div class="proc-lab-main">
+
+      <!-- Header row -->
+      <div class="proc-lab-hdr">
+        <div class="proc-header-left">
+          <div class="proc-icon">PDF</div>
+          <div>
+            <div class="proc-file-name" id="proc-title">Analyzing PDF…</div>
+            <div class="proc-file-sub" id="proc-subtitle">Processing in Pipeline Alpha</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-secondary btn-sm" onclick="gotoLibrary()" style="opacity:0.7">← Library</button>
+          <div class="proc-elapsed" id="pc-time">0s</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <button class="btn btn-secondary btn-sm" onclick="gotoLibrary()" style="opacity:0.7">← Study Existing</button>
-        <div class="proc-elapsed" id="pc-time">0s</div>
+
+      <!-- Status + progress bar -->
+      <div class="proc-lab-status-row">
+        <div class="proc-in-progress-pill" id="proc-status-pill">IN PROGRESS</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="proc-status-line" id="proc-status" style="text-align:left;min-height:auto">Starting…</div>
+            <div id="proc-pct-lbl" style="font-size:0.75rem;font-weight:600;color:var(--accent)">0%</div>
+          </div>
+          <div class="proc-bar-outer"><div class="proc-bar-fill" id="proc-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Pipeline stages as cards -->
+      <div class="proc-pipeline proc-pipeline-v2">
+        <div class="proc-phase-item" id="proc-ph-1">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Extract</div>
+            <div class="proc-stage-desc">OCR & Structure Normalization</div>
+          </div>
+        </div>
+        <div class="proc-phase-item" id="proc-ph-2">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Embed</div>
+            <div class="proc-stage-desc">Semantic vector indexing</div>
+          </div>
+        </div>
+        <div class="proc-phase-item" id="proc-ph-3">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Inventory</div>
+            <div class="proc-stage-desc">Extracting high-yield concepts…</div>
+          </div>
+        </div>
+        <div class="proc-phase-item" id="proc-ph-4">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Concepts</div>
+            <div class="proc-stage-desc">Mapping knowledge clusters</div>
+          </div>
+        </div>
+        <div class="proc-phase-item" id="proc-ph-5">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Write Qs</div>
+            <div class="proc-stage-desc">Generating clinical vignettes…</div>
+          </div>
+        </div>
+        <div class="proc-phase-item" id="proc-ph-6">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Audit</div>
+            <div class="proc-stage-desc">Evidence grounding & QA</div>
+          </div>
+        </div>
+        <div class="proc-phase-item" id="proc-ph-7">
+          <div class="proc-stage-icon"><div class="proc-phase-dot"></div></div>
+          <div class="proc-phase-connector"></div>
+          <div class="proc-stage-text">
+            <div class="proc-phase-name">Save</div>
+            <div class="proc-stage-desc">Writing to cloud storage</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Discoveries + accuracy row -->
+      <div class="proc-discoveries-row">
+        <div class="proc-discoveries-left">
+          <div class="proc-disc-label">✦ Key Discoveries</div>
+          <div class="proc-disc-stats">
+            <span id="pc-concepts">0</span> concepts identified ·
+            <span id="pc-chunks">0</span> source chunks ·
+            <span id="pc-questions">0</span> questions authored
+          </div>
+        </div>
+        <div class="proc-accuracy-block">
+          <div class="proc-disc-label" style="text-align:right">✓ Clinical Fidelity</div>
+          <div class="proc-accuracy-val"><span id="pc-cost">$0.000</span> <span style="font-size:0.68rem;color:var(--text-dim);font-weight:400">API cost</span></div>
+        </div>
+      </div>
+
+      <!-- Agent log -->
+      <div class="proc-log-panel">
+        <div class="proc-log-hdr"><div class="proc-log-pulse"></div>AGENT LOG</div>
+        <div class="proc-log" id="proc-log"></div>
       </div>
     </div>
 
-    <!-- Phase pipeline -->
-    <div class="proc-pipeline">
-      <div class="proc-phase-item" id="proc-ph-1"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Extract</div></div>
-      <div class="proc-phase-item" id="proc-ph-2"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Embed</div></div>
-      <div class="proc-phase-item" id="proc-ph-3"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Inventory</div></div>
-      <div class="proc-phase-item" id="proc-ph-4"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Concepts</div></div>
-      <div class="proc-phase-item" id="proc-ph-5"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Write Qs</div></div>
-      <div class="proc-phase-item" id="proc-ph-6"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Audit</div></div>
-      <div class="proc-phase-item" id="proc-ph-7"><div class="proc-phase-dot"></div><div class="proc-phase-connector"></div><div class="proc-phase-name">Save</div></div>
+    <!-- ── RIGHT: concept mini-map sidebar ── -->
+    <div class="proc-lab-sidebar">
+      <div class="proc-minimap-card">
+        <div class="proc-minimap-hdr">
+          <div class="proc-minimap-title">Concept Mini-Map</div>
+          <div class="proc-minimap-sub">Live preview of knowledge clusters</div>
+        </div>
+        <div class="proc-minimap-visual">
+          <svg width="100%" height="160" viewBox="0 0 240 160" xmlns="http://www.w3.org/2000/svg" style="display:block">
+            <!-- Central node -->
+            <circle cx="120" cy="80" r="24" fill="rgba(13,154,170,0.08)" stroke="rgba(13,154,170,0.28)" stroke-width="1.5">
+              <animate attributeName="r" values="24;26;24" dur="2.5s" repeatCount="indefinite"/>
+            </circle>
+            <!-- Satellite nodes -->
+            <circle cx="62" cy="38" r="14" fill="rgba(13,154,170,0.05)" stroke="rgba(13,154,170,0.16)" stroke-width="1">
+              <animate attributeName="opacity" values="0.5;1;0.5" dur="3s" begin="0.4s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="178" cy="38" r="14" fill="rgba(13,154,170,0.05)" stroke="rgba(13,154,170,0.16)" stroke-width="1">
+              <animate attributeName="opacity" values="0.5;1;0.5" dur="3s" begin="0.8s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="42" cy="118" r="12" fill="rgba(13,154,170,0.04)" stroke="rgba(13,154,170,0.12)" stroke-width="1">
+              <animate attributeName="opacity" values="0.4;0.9;0.4" dur="3.5s" begin="1.2s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="188" cy="118" r="12" fill="rgba(13,154,170,0.04)" stroke="rgba(13,154,170,0.12)" stroke-width="1">
+              <animate attributeName="opacity" values="0.4;0.9;0.4" dur="3.5s" begin="0.6s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="120" cy="145" r="10" fill="rgba(13,154,170,0.03)" stroke="rgba(13,154,170,0.10)" stroke-width="1">
+              <animate attributeName="opacity" values="0.3;0.8;0.3" dur="4s" begin="1.8s" repeatCount="indefinite"/>
+            </circle>
+            <!-- Edges -->
+            <line x1="120" y1="80" x2="62" y2="38" stroke="rgba(13,154,170,0.14)" stroke-width="1"/>
+            <line x1="120" y1="80" x2="178" y2="38" stroke="rgba(13,154,170,0.14)" stroke-width="1"/>
+            <line x1="120" y1="80" x2="42" y2="118" stroke="rgba(13,154,170,0.10)" stroke-width="1"/>
+            <line x1="120" y1="80" x2="188" y2="118" stroke="rgba(13,154,170,0.10)" stroke-width="1"/>
+            <line x1="120" y1="80" x2="120" y2="145" stroke="rgba(13,154,170,0.08)" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="proc-minimap-status">
+          <div class="proc-minimap-pill">UNLOCKING SOON</div>
+          <div class="proc-minimap-count" id="proc-minimap-count">Scanning for concepts…</div>
+          <button class="proc-minimap-pending-btn" disabled>PENDING PIPELINE COMPLETION</button>
+        </div>
+      </div>
+
+      <!-- Cited sources placeholder -->
+      <div class="proc-sidebar-meta">
+        <div class="proc-sidebar-meta-row">
+          <span class="proc-sidebar-meta-num" id="proc-pages-found">—</span>
+          <span class="proc-sidebar-meta-lbl">Pages Processed</span>
+        </div>
+        <div class="proc-sidebar-meta-divider"></div>
+        <div class="proc-sidebar-meta-row">
+          <span class="proc-sidebar-meta-num">AI</span>
+          <span class="proc-sidebar-meta-lbl">GPT-4o Pipeline</span>
+        </div>
+      </div>
     </div>
 
-    <!-- Progress -->
-    <div class="proc-bar-outer"><div class="proc-bar-fill" id="proc-bar" style="width:0%"></div></div>
-    <div class="proc-status-line" id="proc-status">Starting…</div>
-
-    <!-- Stats -->
-    <div class="proc-stats-grid">
-      <div class="proc-stat-card"><div class="proc-stat-num" id="pc-chunks">0</div><div class="proc-stat-lbl">Chunks</div></div>
-      <div class="proc-stat-card"><div class="proc-stat-num" id="pc-concepts">0</div><div class="proc-stat-lbl">Concepts</div></div>
-      <div class="proc-stat-card"><div class="proc-stat-num" id="pc-questions">0</div><div class="proc-stat-lbl">Questions</div></div>
-      <div class="proc-stat-card proc-cost-card"><div class="proc-stat-num" id="pc-cost">$0.000</div><div class="proc-stat-lbl">Cost</div></div>
-    </div>
-
-    <!-- Agent log -->
-    <div class="proc-log-panel">
-      <div class="proc-log-hdr"><div class="proc-log-pulse"></div>AGENT LOG</div>
-      <div class="proc-log" id="proc-log"></div>
-    </div>
-  </div>
+  </div><!-- /proc-lab-wrap -->
 </div>
 
 <!-- STUDY READY -->
@@ -5633,6 +5762,332 @@ body.light-mode .btn-google { background: #F7F4EF; border-color: rgba(0,0,0,0.12
   transition: background 0.15s !important;
 }
 body.light-mode .theme-toggle-btn { background: rgba(0,0,0,0.06) !important; }
+
+/* ════════════════════════════════════════════════════════════
+   PROCESSING VIEW — "Curating the Lab" layout
+   ════════════════════════════════════════════════════════════ */
+#view-processing.active { display: block !important; padding: 0 !important; }
+
+.proc-lab-wrap {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 0;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 24px 60px;
+  gap: 24px;
+  align-items: start;
+}
+
+.proc-lab-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+
+/* Header */
+.proc-lab-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Status pill + progress */
+.proc-lab-status-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.proc-in-progress-pill {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: rgba(13,154,170,0.12);
+  color: var(--accent);
+  border: 1px solid rgba(13,154,170,0.25);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Pipeline stages v2 — card grid */
+.proc-pipeline-v2 {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px !important;
+  padding: 0 !important;
+  flex-direction: unset !important;
+}
+.proc-pipeline-v2 .proc-phase-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  gap: 8px;
+  min-width: 0 !important;
+  position: relative;
+  transition: border-color 0.3s, background 0.3s;
+  flex: unset !important;
+}
+.proc-pipeline-v2 .proc-phase-connector { display: none !important; }
+.proc-pipeline-v2 .proc-stage-icon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.proc-pipeline-v2 .proc-phase-dot {
+  width: 10px !important; height: 10px !important;
+  flex-shrink: 0;
+}
+.proc-pipeline-v2 .proc-stage-text { display: flex; flex-direction: column; gap: 3px; }
+.proc-pipeline-v2 .proc-phase-name {
+  font-size: 0.72rem !important;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left !important;
+  margin-top: 0 !important;
+}
+.proc-stage-desc {
+  font-size: 0.62rem;
+  color: var(--text-tertiary);
+  line-height: 1.4;
+}
+.proc-pipeline-v2 .proc-phase-item.done {
+  background: rgba(0,255,163,0.03);
+  border-color: rgba(0,255,163,0.18);
+}
+.proc-pipeline-v2 .proc-phase-item.done .proc-phase-name { color: var(--green); }
+.proc-pipeline-v2 .proc-phase-item.done .proc-stage-desc { color: rgba(0,255,163,0.55); }
+.proc-pipeline-v2 .proc-phase-item.active {
+  background: rgba(13,154,170,0.05);
+  border-color: rgba(13,154,170,0.3);
+}
+.proc-pipeline-v2 .proc-phase-item.active .proc-phase-name { color: var(--accent); }
+
+/* Discoveries row */
+.proc-discoveries-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.proc-disc-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 5px;
+}
+.proc-disc-stats {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.proc-accuracy-block { text-align: right; flex-shrink: 0; }
+.proc-accuracy-val {
+  font-size: 1.4rem;
+  font-weight: 200;
+  color: var(--accent);
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+  margin-top: 4px;
+}
+
+/* ── Sidebar ── */
+.proc-lab-sidebar { display: flex; flex-direction: column; gap: 14px; }
+
+.proc-minimap-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.proc-minimap-hdr { padding: 16px 18px 0; }
+.proc-minimap-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+.proc-minimap-sub { font-size: 0.68rem; color: var(--text-dim); }
+.proc-minimap-visual {
+  padding: 12px 18px 0;
+  background: var(--bg-sunken);
+  margin: 12px 0 0;
+}
+.proc-minimap-status {
+  padding: 14px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.proc-minimap-pill {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  border: 1px solid rgba(13,154,170,0.2);
+  border-radius: 999px;
+  padding: 3px 9px;
+  display: inline-block;
+  width: fit-content;
+}
+.proc-minimap-count {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+.proc-minimap-pending-btn {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: not-allowed;
+  font-family: var(--font-sans);
+  width: 100%;
+}
+
+.proc-sidebar-meta {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  gap: 0;
+  align-items: center;
+}
+.proc-sidebar-meta-row {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+}
+.proc-sidebar-meta-num {
+  font-size: 1.3rem;
+  font-weight: 200;
+  color: var(--accent);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.proc-sidebar-meta-lbl {
+  font-size: 0.58rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.proc-sidebar-meta-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 8px;
+}
+
+@media(max-width: 768px) {
+  .proc-lab-wrap { grid-template-columns: 1fr; padding: 20px 16px 48px; }
+  .proc-pipeline-v2 { grid-template-columns: repeat(2, 1fr) !important; }
+  .proc-lab-sidebar { display: none; }
+}
+
+/* ════════════════════════════════════════════════════════════
+   LIBRARY HOME — polished hero cards & deck cards
+   ════════════════════════════════════════════════════════════ */
+
+/* Hero stat cards */
+.today-stat-card {
+  border-radius: 16px !important;
+  padding: 24px !important;
+  border-width: 1px !important;
+}
+.today-stat-card.primary {
+  border-left: 3px solid var(--accent) !important;
+}
+.today-stat-num {
+  font-family: 'Source Serif 4', Georgia, serif !important;
+  font-size: 3rem !important;
+  font-weight: 300 !important;
+  letter-spacing: -0.06em !important;
+  line-height: 1 !important;
+}
+.today-stat-label {
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+  margin-top: 8px !important;
+}
+
+/* Library header */
+#view-library h1 {
+  font-family: 'Source Serif 4', Georgia, serif !important;
+  font-size: 1.8rem !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.025em !important;
+}
+
+/* Deck cards */
+.deck-card {
+  border-radius: 16px !important;
+  padding: 22px 24px !important;
+  border-width: 1px !important;
+  margin-bottom: 12px !important;
+}
+.deck-card.has-due {
+  border-left: 3px solid var(--accent) !important;
+}
+.deck-icon {
+  width: 40px !important; height: 40px !important;
+  border-radius: 12px !important;
+  font-size: 0.58rem !important;
+  font-weight: 700 !important;
+  background: var(--accent-dim) !important;
+  border-color: rgba(13,154,170,0.2) !important;
+  color: var(--accent) !important;
+}
+.deck-name {
+  font-size: 0.97rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+}
+.deck-bar {
+  height: 5px !important;
+  border-radius: 999px !important;
+}
+.deck-mastery-pct {
+  font-size: 0.8rem !important;
+  font-weight: 700 !important;
+  color: var(--accent) !important;
+}
+.deck-due-pill {
+  font-size: 0.65rem !important;
+  font-weight: 700 !important;
+}
+
+/* Chapters section header */
+.today-section-lbl {
+  font-size: 0.68rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  color: var(--text-secondary) !important;
+}
 </style>
 
 <script>
