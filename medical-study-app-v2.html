@@ -740,6 +740,7 @@ h3{font-size:0.9rem;font-weight:500;margin-bottom:6px;color:var(--text-secondary
     <button class="nav-btn" id="nav-login" onclick="showView('login')" style="display:none">Log In</button>
     <button class="nav-btn" id="nav-signup" onclick="showView('signup')">Sign Up</button>
     <button class="nav-btn" id="nav-logout" onclick="authLogout()" style="display:none">Log Out</button>
+    <button class="nav-btn theme-toggle-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode" style="padding:6px 10px;font-size:1rem;line-height:1">🌙</button>
   </div>
 </div>
 
@@ -5465,6 +5466,190 @@ document.addEventListener('DOMContentLoaded', init);
     </p>
   </div>
 </div>
+
+<!-- ── UI REVAMP OVERRIDES ───────────────────────────────────── -->
+<style>
+/* ── Light mode tokens ──────────────────────────────────────── */
+body.light-mode {
+  --bg:           #F7F4EF;
+  --bg-raised:    #FFFFFF;
+  --bg-surface:   #EFECE7;
+  --bg-sunken:    #E5E2DD;
+  --bg-glass:     rgba(255,255,255,0.80);
+  --border:       rgba(0,0,0,0.06);
+  --border-med:   rgba(0,0,0,0.11);
+  --accent:       #0B7A87;
+  --accent-dim:   rgba(11,122,135,0.09);
+  --accent-glow:  rgba(11,122,135,0.25);
+  --high-yield:   #C0392B;
+  --high-yield-dim: rgba(192,57,43,0.09);
+  --mastered-c:   #0B8C5A;
+  --text-primary:   #1A1816;
+  --text-secondary: #5A5650;
+  --text-tertiary:  #9A9590;
+  --text-dim:       #B0ABA6;
+  --green:  #0B8C5A;
+  --red:    #C0392B;
+  --amber:  #B07A00;
+  --blue:   #1A6BB5;
+}
+
+body.light-mode .app-header {
+  background: rgba(247,244,239,0.85);
+  border-bottom-color: rgba(0,0,0,0.10);
+}
+body.light-mode .card {
+  background: #FFFFFF;
+  border-color: rgba(0,0,0,0.10);
+}
+body.light-mode .btn-secondary {
+  background: #EFECE7;
+  border-color: rgba(0,0,0,0.12);
+  color: #3D3935;
+}
+body.light-mode .btn-secondary:hover {
+  background: #E5E2DD;
+  border-color: rgba(0,0,0,0.18);
+  color: #1A1816;
+}
+body.light-mode .input {
+  background: #F7F4EF;
+  border-color: rgba(0,0,0,0.15);
+  color: #1A1816;
+}
+body.light-mode .input:focus { border-color: #0B7A87; }
+body.light-mode .option-btn {
+  background: #FFFFFF;
+  border-color: rgba(0,0,0,0.08);
+  color: #1A1816;
+}
+body.light-mode .option-btn:hover:not(:disabled) {
+  background: rgba(11,122,135,0.06);
+  border-color: rgba(11,122,135,0.3);
+  transform: none;
+  box-shadow: 0 0 0 1.5px rgba(11,122,135,0.15);
+}
+body.light-mode .explanation-box {
+  background: rgba(11,122,135,0.04);
+  border-color: rgba(11,122,135,0.15);
+}
+body.light-mode .modal-box { background: #FFFFFF; border-color: rgba(0,0,0,0.12); }
+body.light-mode .quality-btn { background: #EFECE7; border-color: rgba(0,0,0,0.08); }
+body.light-mode .pdf-stat-card { background: #FFFFFF; border-color: rgba(0,0,0,0.08); }
+body.light-mode .stat-card { background: #FFFFFF; border-color: rgba(0,0,0,0.08); }
+body.light-mode .stats-hero { background: #FFFFFF; border-color: rgba(0,0,0,0.08); }
+body.light-mode .today-hero-card { background: #FFFFFF; border-color: rgba(0,0,0,0.08); }
+body.light-mode .density-opt { background: #EFECE7; border-color: rgba(0,0,0,0.10); }
+body.light-mode .density-opt.selected { background: rgba(11,122,135,0.09); border-color: #0B7A87; }
+body.light-mode .btn-google { background: #F7F4EF; border-color: rgba(0,0,0,0.12); }
+
+/* ── Accent token alignment with landing page ───────────────── */
+:root {
+  --accent:      #0D9AAA;
+  --accent-dim:  rgba(13,154,170,0.09);
+  --accent-glow: rgba(13,154,170,0.22);
+}
+
+/* ── 2×2 Quizlet-style question options ─────────────────────── */
+.options-list {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.option-btn {
+  min-height: 88px;
+  height: 100%;
+  padding: 18px 20px;
+  border-radius: 14px !important;
+  align-items: center;
+  gap: 14px;
+  font-size: 0.88rem;
+  transition: all 0.18s ease;
+  border-width: 1.5px !important;
+}
+.option-btn:hover:not(:disabled) {
+  transform: none !important;
+  box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 16px rgba(0,0,0,0.15) !important;
+  border-color: var(--accent) !important;
+}
+.option-letter {
+  font-size: 0.82rem;
+  font-weight: 700;
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid var(--border-med);
+  flex-shrink: 0;
+  transition: background 0.18s, border-color 0.18s;
+}
+.option-btn:hover:not(:disabled) .option-letter {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.option-btn.correct .option-letter { background: rgba(0,255,163,0.12); border-color: rgba(0,255,163,0.4); }
+.option-btn.incorrect .option-letter { background: rgba(255,61,113,0.12); border-color: rgba(255,61,113,0.4); }
+@media(max-width:600px){ .options-list { grid-template-columns: 1fr !important; } }
+
+/* ── Study topbar ─── stretch to full viewport width ────────── */
+.study-topbar { top: 62px; }
+
+/* ── Auth cards — premium centered design ───────────────────── */
+.auth-card {
+  max-width: 440px;
+  margin: 48px auto;
+  background: var(--bg-raised);
+  border: 0.5px solid var(--border-med);
+  border-radius: 20px;
+  padding: 40px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+}
+.auth-card h2 {
+  font-family: 'Source Serif 4', Georgia, serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.auth-card p.text-muted {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+/* ── Library hero cards ─────────────────────────────────────── */
+.today-hero-card {
+  border-radius: 16px !important;
+  padding: 22px 24px !important;
+}
+
+/* ── Theme toggle button ────────────────────────────────────── */
+.theme-toggle-btn {
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+}
+body.light-mode .theme-toggle-btn { background: rgba(0,0,0,0.06) !important; }
+</style>
+
+<script>
+/* ── Theme toggle ───────────────────────────────────────────── */
+function toggleTheme() {
+  const light = document.body.classList.toggle('light-mode');
+  localStorage.setItem('cardio-theme', light ? 'light' : 'dark');
+  document.getElementById('theme-toggle').textContent = light ? '☀️' : '🌙';
+}
+(function() {
+  if (localStorage.getItem('cardio-theme') === 'light') {
+    document.body.classList.add('light-mode');
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.textContent = '☀️';
+  }
+})();
+</script>
 
 <!-- SHARE MODAL -->
 <div id="share-modal" class="modal-overlay" style="display:none" onclick="if(event.target===this)closeShareModal()">

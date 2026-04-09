@@ -156,6 +156,12 @@ h1.hero-h1{
   max-width:760px;margin-bottom:22px;
 }
 h1.hero-h1 em{font-style:italic;font-weight:300;color:var(--teal)}
+.hero-tagline{
+  font-size:var(--t-sm);font-weight:500;
+  color:var(--teal);letter-spacing:0.04em;
+  margin-bottom:12px;margin-top:-14px;
+  font-style:italic;
+}
 .hero-sub{
   font-size:clamp(1rem,1.6vw,1.1rem);
   color:var(--ink-3);max-width:500px;
@@ -186,23 +192,11 @@ h1.hero-h1 em{font-style:italic;font-weight:300;color:var(--teal)}
 }
 
 /* ECG canvas */
-.ecg-wrap{
+#ecg-canvas{
   position:absolute;inset:0;
-  display:flex;align-items:center;
+  width:100%;height:100%;
   pointer-events:none;
 }
-.ecg-svg{position:absolute;width:100%;height:100%}
-.ecg-pulse{
-  fill:none;stroke:var(--ecg);stroke-width:1.5;
-  stroke-dasharray:2200;stroke-dashoffset:2200;
-  animation:ecgDraw 3.2s cubic-bezier(.4,0,.2,1) forwards;
-}
-.ecg-pulse-2{
-  fill:none;stroke:var(--ecg-2);stroke-width:1.5;
-  stroke-dasharray:2200;stroke-dashoffset:2200;
-  animation:ecgDraw 3.2s cubic-bezier(.4,0,.2,1) .6s forwards;
-}
-@keyframes ecgDraw{to{stroke-dashoffset:0}}
 
 /* Radial glow behind heart */
 .heart-glow{
@@ -634,6 +628,7 @@ footer{
 <div class="hero">
   <div class="hero-pill reveal"><div class="hero-pill-dot"></div>AI-Powered Spaced Repetition</div>
   <h1 class="hero-h1 reveal reveal-delay-1">The Pulse of<br><em>Medical Mastery.</em></h1>
+  <p class="hero-tagline reveal reveal-delay-1">Anki, but with practice questions.</p>
   <p class="hero-sub reveal reveal-delay-2">Upload any medical PDF. Cardio builds a complete, evidence-grounded question bank and schedules every concept until exam day.</p>
   <div class="hero-ctas reveal reveal-delay-3">
     <a href="medical-study-app-v2.html" class="btn-primary">Get Started Free →</a>
@@ -645,15 +640,8 @@ footer{
 <div class="heart-stage">
   <div class="heart-stage-inner">
 
-    <!-- ECG lines -->
-    <svg class="ecg-svg" viewBox="0 0 1280 540" preserveAspectRatio="xMidYMid meet">
-      <!-- Upper trace -->
-      <polyline class="ecg-pulse"
-        points="0,230 80,230 95,230 102,215 112,162 122,285 132,230 170,230 250,230 262,218 272,158 282,288 292,230 340,230 450,230 462,218 472,155 482,290 492,230 540,230 640,230 652,215 662,162 672,285 682,230 720,230 800,230 812,218 822,158 832,288 842,230 890,230 990,230 1002,218 1012,155 1022,290 1032,230 1080,230 1180,230 1192,215 1202,162 1212,285 1222,230 1280,230"/>
-      <!-- Lower trace -->
-      <polyline class="ecg-pulse-2"
-        points="0,310 80,310 95,310 102,294 112,240 122,366 132,310 170,310 250,310 262,298 272,238 282,368 292,310 340,310 450,310 462,296 472,236 482,370 492,310 540,310 640,310 652,295 662,242 672,365 682,310 720,310 800,310 812,296 822,238 832,368 842,310 890,310 990,310 1002,296 1012,236 1022,372 1032,310 1080,310 1180,310 1192,295 1202,240 1212,366 1222,310 1280,310"/>
-    </svg>
+    <!-- Live ECG canvas -->
+    <canvas id="ecg-canvas"></canvas>
 
     <!-- Red glow -->
     <div class="heart-glow"></div>
@@ -1141,6 +1129,81 @@ const obs = new IntersectionObserver((entries) => {
   });
 }, { threshold: 0.12 });
 revealEls.forEach(el => obs.observe(el));
+
+/* ── Live ECG canvas animation ─────────────────────────────── */
+(function() {
+  const canvas = document.getElementById('ecg-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width  = rect.width  || window.innerWidth;
+    canvas.height = rect.height || 540;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  /* PQRST waveform: returns y-offset (px) for position t in [0, CYCLE) */
+  const CYCLE = 320; // px per beat
+  function pqrst(t, amp) {
+    const x = ((t % CYCLE) + CYCLE) % CYCLE;
+    // Flat baseline most of the time
+    if (x < 100) return 0;
+    // P wave (small bump)
+    if (x < 116) return -amp * 0.10 * Math.sin(Math.PI * (x - 100) / 16);
+    // PR segment
+    if (x < 130) return 0;
+    // Q dip
+    if (x < 134) return amp * 0.10 * (x - 130) / 4;
+    // R peak (sharp spike)
+    if (x < 140) return amp * 0.10 - amp * ((x - 134) / 6);
+    if (x < 146) return -amp + amp * ((x - 140) / 6);
+    // S wave (undershoot)
+    if (x < 152) return amp * 0.18 * (x - 146) / 6;
+    if (x < 158) return amp * 0.18 - amp * 0.18 * (x - 152) / 6;
+    // ST segment
+    if (x < 172) return 0;
+    // T wave (smooth bump)
+    if (x < 208) return -amp * 0.22 * Math.sin(Math.PI * (x - 172) / 36);
+    // TP baseline
+    return 0;
+  }
+
+  const traces = [
+    { yFrac: 0.40, amp: 54, alpha: 0.40, phase: 0   },
+    { yFrac: 0.64, amp: 36, alpha: 0.20, phase: 160  },
+  ];
+
+  let scrollX = 0;
+  const speed = 1.6; // px per frame
+
+  function draw() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    traces.forEach(({ yFrac, amp, alpha, phase }) => {
+      const midY = H * yFrac;
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(0,210,195,${alpha})`;
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap  = 'round';
+
+      for (let px = 0; px <= W; px += 1.5) {
+        const waveX = px + scrollX + phase;
+        const wy    = midY + pqrst(waveX, amp);
+        px === 0 ? ctx.moveTo(px, wy) : ctx.lineTo(px, wy);
+      }
+      ctx.stroke();
+    });
+
+    scrollX += speed;
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+})();
 </script>
 </body>
 </html>
