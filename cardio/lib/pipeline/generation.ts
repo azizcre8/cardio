@@ -182,6 +182,13 @@ export function normaliseQuestion(
     evidence_start:      typeof raw.evidenceStart === 'number' ? raw.evidenceStart as number : 0,
     evidence_end:        typeof raw.evidenceEnd === 'number' ? raw.evidenceEnd as number : 0,
     chunk_id:            null,
+    evidence_match_type: (raw.evidenceMatchType as Question['evidence_match_type']) ?? null,
+    decision_target:     typeof raw.decisionTarget === 'string' ? raw.decisionTarget : null,
+    deciding_clue:       typeof raw.decidingClue === 'string' ? raw.decidingClue : null,
+    most_tempting_distractor: typeof raw.mostTemptingDistractor === 'string' ? raw.mostTemptingDistractor : null,
+    why_tempting:        typeof raw.whyTempting === 'string' ? raw.whyTempting : null,
+    why_fails:           typeof raw.whyFails === 'string' ? raw.whyFails : null,
+    option_set_flags:    Array.isArray(raw.optionSetFlags) ? raw.optionSetFlags as string[] : null,
     flagged:             false,
     flag_reason:         null,
   };
@@ -246,6 +253,29 @@ export async function generateCoverageQuestions(
         );
         conceptChunks[i] = [...sourceChunks, ...simChunks].slice(0, RAG_TOP_K);
       }
+
+      // Negative RAG: retrieve chunks for top confusion neighbors to ground distractors
+      if (process.env.ENABLE_NEGATIVE_RAG !== 'false') {
+        try {
+          const neighborQueries = batch.map(c => {
+            const confusions = confusionMap[c.name] ?? [];
+            return confusions.slice(0, 2).join('; ');
+          });
+          const hasNeighbors = neighborQueries.some(q => q.length > 0);
+          if (hasNeighbors) {
+            const neighborVecs = await embedTexts(neighborQueries.map((q, i) => q || batch[i]!.name));
+            neighborVecs.forEach((nVec, i) => {
+              if (!neighborQueries[i]) return;
+              retrieveTopChunks(pdfId, nVec, neighborQueries[i]!, bm25Index, allChunkRecords, 2)
+                .then(neighborChunks => {
+                  (conceptChunks[i] as ChunkRecord[] & { _neighborPassages?: string[] })._neighborPassages =
+                    neighborChunks.map(ch => ch.text.slice(0, 200));
+                })
+                .catch(() => { /* non-fatal */ });
+            });
+          }
+        } catch { /* non-fatal */ }
+      }
     } catch (e) {
       console.warn('RAG embedding failed for batch — falling back to no-RAG:', (e as Error).message);
       conceptChunks = batch.map(() => []);
@@ -269,15 +299,26 @@ export async function generateCoverageQuestions(
       return `> "${ch.text.slice(0, 350).replace(/"/g, "'")}"  [${pageRange}]`;
     }).join('\n');
 
+    // L3 grounding guard: downgrade L3→L2 if chunks lack clinical context
+    let guardedLevels = levels;
+    if (process.env.ENABLE_L3_GROUNDING_GUARD !== 'false' && levels.includes(3)) {
+      const chunks = conceptChunks[i] ?? [];
+      if (!hasClinicalPresentationSupport(chunks)) {
+        guardedLevels = Array.from(new Set(levels.map(l => l === 3 ? 2 : l)));
+        console.log(`[Pipeline] L3→L2 downgrade: ${c.name} (insufficient clinical context in chunks)`);
+      }
+    }
+    const neighborPassages = ((conceptChunks[i] as ChunkRecord[] & { _neighborPassages?: string[] })._neighborPassages ?? []);
     return {
-      name:           c.name,
-      category:       c.category,
-      importance:     c.importance,
-      levels,
+      name:             c.name,
+      category:         c.category,
+      importance:       c.importance,
+      levels:           guardedLevels,
       facts,
-      pageEstimate:   c.pageEstimate ?? '',
+      pageEstimate:     c.pageEstimate ?? '',
       passages,
-      coverageDomain: c.coverageDomain ?? 'definition_recall',
+      neighborSnippets: neighborPassages,
+      coverageDomain:   c.coverageDomain ?? 'definition_recall',
     };
   });
 
@@ -291,96 +332,100 @@ export async function generateCoverageQuestions(
       ? `Distractor candidates (use ≥1 when contextually appropriate): ${hardcodedCandidates.join('; ')}.`
       : '';
 
+    const neighborLine = (cs as typeof cs & { neighborSnippets?: string[] }).neighborSnippets?.length
+      ? `Distractor grounding (neighbor concepts): ${(cs as typeof cs & { neighborSnippets?: string[] }).neighborSnippets!.map(s => `"${s}"`).join(' | ')}`
+      : '';
     return `
 CONCEPT ${i + 1}: ${cs.name} [${cs.category}] [${cs.importance}-yield] [Pages: ${cs.pageEstimate || 'unknown'}] [Domain: ${cs.coverageDomain || 'definition_recall'}]
-Key information: ${cs.facts}${cs.passages ? `\nSource passages from PDF:\n${cs.passages}` : ''}${confusionLine ? '\n' + confusionLine : ''}${candidateLine ? '\n' + candidateLine : ''}
+Key information: ${cs.facts}${cs.passages ? `\nSource passages from PDF:\n${cs.passages}` : ''}${confusionLine ? '\n' + confusionLine : ''}${candidateLine ? '\n' + candidateLine : ''}${neighborLine ? '\n' + neighborLine : ''}
 Required question levels: ${cs.levels.map((l: number) => l === 1 ? 'L1=recall/definition' : l === 2 ? 'L2=mechanism/application' : 'L3=clinical vignette/comparison').join(', ')}`;
   }).join('\n');
 
   const prompt = `You are a medical board exam writer. Generate MCQ questions with MANDATORY per-concept coverage.
 ${specsText}
 
+ITEM DESIGN PROCESS (follow for every question):
+Step 1 — Choose a decisionTarget: one of: diagnosis / mechanism / pathophysiology / distinguishing feature / next best step / adverse effect / contraindication / complication / interpretation / comparison
+Step 2 — Identify the decidingClue: the SINGLE clue that separates the correct answer from the strongest distractor
+Step 3 — Identify the mostTemptingDistractor: the best wrong answer a partially-informed student would pick
+Step 4 — Write the question so that knowing the decidingClue is necessary and sufficient to choose the correct answer
+
 LEVEL STEM RULES (strictly enforced):
-- Level 1: Recall only. Simple direct questions are acceptable.
-- Level 2: MUST test mechanism, comparison, or "why/how" reasoning. NEVER write a Level 2 question that is just a definition or "what is the role/function of X" — that is Level 1. Level 2 must require the student to explain HOW something works, WHY a process occurs, or COMPARE two related concepts.
-- Level 3: MUST be a clinical vignette. Format: "[Age]-year-old [male/female] presents with [specific symptoms]. Which of the following [best explains/is most likely/is the next best step]?" Every Level 3 question must have a patient with age, sex, and clinical presentation. Abstract stems at Level 3 are not allowed.
+- Level 1: Recall/discrimination only. Direct questions acceptable. CLASSIC ASSOCIATIONS: pathognomonic signs, eponyms, classic triads, drug-disease links. Vary openers — do NOT start every L1 with "What is...".
+- Level 2: MUST test mechanism, comparison, or why/how reasoning. NEVER write L2 as a definition or "what is the role/function of X" — that is L1. L2 must require explaining HOW something works, WHY a process occurs, or COMPARE two related concepts.
+- Level 3: MUST open with "[Age]-year-old [male/female] presents with [specific symptoms]." Every L3 MUST have age, sex, and ≥2 specific clinical details. Abstract stems at L3 are REJECTED. Only include vignette details that are purposeful — no fluff.
 
 QUALITY RULES (strictly enforced):
-1. Generate EXACTLY the required levels for every concept — no skipping, no merging
-2. L1: direct recall but must require genuine knowledge, not just word-matching. CLASSIC ASSOCIATION RULE: if the concept has a pathognomonic sign, eponym, memorable drug-disease link, or classic boards triad, write that as the L1 question using a pattern-recognition format — e.g. "Which finding is pathognomonic for X?", "Which drug is classically associated with Y in neonates?", "What is the triad of Z?" These rapid-fire one-liners are heavily tested on boards. STEM VARIETY: do NOT start every L1 question with "What is..." — vary openers: "Which of the following best describes...", "A hallmark feature of X is...", "X is characterised by...", "Which finding is most associated with...", "A patient with X would most likely have...", "The defining histological feature of X is..."
-3. L2: must test mechanism, pathophysiology, or clinical application — not surface recall
-4. L3: must open with a brief patient scenario (age, presentation, key finding) then ask the question
+1. One question = one concept = one cognitive task. The decidingClue must be singular.
+2. Generate EXACTLY the required levels for every concept — no skipping, no merging.
+3. All options must belong to the SAME comparison class (all drugs, all mechanisms, all diagnoses, etc.).
+4. At least 2 distractors must be genuinely competitive — a partially-informed student must seriously consider them.
+5. Distractors should reflect real misconception types: related mechanism but wrong condition; related condition but wrong mechanism; right diagnosis but wrong next step; wrong timing/severity/location; classic confusion pair from supplied confusion candidates.
 
-OPTION COUNT RULES (strictly enforced):
-5. Level 1 questions MUST have exactly 5 answer choices (A-E). Level 2 and Level 3 questions MUST have exactly 4 answer choices (A-D). This matches USMLE Step 1 format. correctAnswer is still a 0-based index (0=A, 1=B, 2=C, 3=D, 4=E for L1).
+OPTION COUNT RULES:
+6. L1: exactly 5 answer choices (A-E). L2/L3: exactly 4 answer choices (A-D). correctAnswer is 0-based index.
 
-ANSWER POSITION RULES (strictly enforced):
-6. Vary the position of the correct answer — do NOT consistently place it in position A or B. Distribute correct answers evenly across all positions.
-7. All answer options must be approximately the same length. The correct answer must NOT be noticeably longer, more detailed, or more specific than the distractors. If you need to add detail to the correct answer, add equivalent detail to the distractors too.
+TELL-SIGN RULES (strictly enforced):
+7. LENGTH PARITY: All options within 3 words of each other. Correct answer must NOT be longer.
+8. STRUCTURAL PARITY: All options use identical grammatical form.
+9. NO KEYWORD MIRRORING: If correct answer uses a rare stem term, ≥2 distractors must too.
+10. SPECIFICITY MATCHING: If correct names a specific pathway/receptor, distractors must too.
+11. THE BLINDFOLD TEST: Could a test-taker eliminate 2 distractors without medical knowledge? If yes, rewrite.
 
-TELL-SIGN RULES (strictly enforced — these allow guessing without medical knowledge):
-11. LENGTH PARITY: Count the words in each option before finalizing. If the correct answer is more than 3 words longer than any distractor, trim it or expand the distractors to match.
-12. STRUCTURAL PARITY: All options must use identical grammatical structure. If the correct answer is "[Mechanism] → [Effect]", every distractor must also be "[Mechanism] → [Effect]". Never mix bare noun phrases with full mechanistic phrases across options.
-13. NO KEYWORD MIRRORING: If your correct answer contains a rare or specific term from the stem, at least 2 distractors must also contain that same term (applied incorrectly) — otherwise remove it from the correct answer.
-14. SPECIFICITY MATCHING: If the correct answer names a specific pathway or receptor, distractors must also name specific (but wrong) pathways or receptors — not vague categories.
-15. THE BLINDFOLD TEST: Before finalizing, ask yourself: "Could a smart test-taker eliminate 2 distractors using only test-taking strategy and no medical knowledge?" If yes, rewrite until the answer is no.
+CONVERGENCE RULES (strictly enforced):
+12. THEME DIVERSITY: Each distractor represents a distinctly different mechanism/pathway/concept.
+13. NO SHARED DOMINANT WORDS: No single term dominates 3+ options unless it appears in all.
+14. THE OUTLIER TEST: No single option is the obvious odd-one-out by theme or polarity.
+15. CROSS-CONCEPT DISTRACTORS: Prefer distractors that are correct in a different context.
+16. NO POLARITY CLUSTERING: Mix directional changes across options.
 
-CONVERGENCE RULES (strictly enforced — these allow outlier elimination without medical knowledge):
-16. THEME DIVERSITY: Each distractor must represent a distinctly different mechanism, pathway, or clinical concept. Never write 2 or more distractors that are variations of the same theme (e.g., three distractors all involving vasodilation, or three all involving inflammation).
-17. NO SHARED DOMINANT WORDS: Scan all 4 options. If 3 or more options share a clinically significant word or root (e.g., "vasodilation," "fibrosis," "necrosis," "sodium"), rewrite until no single term dominates 3+ options. Common articles, prepositions, and conjunctions are exempt.
-18. THE OUTLIER TEST: Before finalizing, ask: "Is one option the obvious odd-one-out based on theme alone?" If yes — whether that outlier is the correct answer or a distractor — rewrite until all 4 options feel like they belong to the same conceptual neighborhood without any single one standing apart.
-19. CROSS-CONCEPT DISTRACTORS: Prefer distractors drawn from related but distinct concepts covered elsewhere in the same chapter. A distractor that is correct in a different context is far harder to eliminate than one invented purely as a foil.
+DISTRACTOR RULES:
+17. Distractors must differ from correct answer by exactly ONE clinically meaningful feature.
+18. Each distractor = genuine misconception. STRONGLY PREFER distractor candidates from the "Commonly confused with" and "Distractor candidates" lines when provided.
+19. At least 1 distractor drawn from the confusion candidate list when supplied.
+20. No distractor that is physiologically impossible or medically fabricated.
 
-20. NO DISTRACTOR CLUSTERING: Before finalizing, scan all distractors for shared keywords longer than 5 letters. If any word appears in 2 or more distractors but NOT in the correct answer, replace one of those distractors with a conceptually distinct alternative.
-21. NO POLARITY CLUSTERING: Do not write distractors that all describe the same directional change (e.g., all "increased X," all "decreased Y") unless the correct answer also fits that pattern. Mixed polarities across options are required.
-
-NEGATION STEM RULES (applies only to questions containing "NOT," "EXCEPT," or "LEAST likely"):
-19. AVOID negation stems at Level 1. They test reading comprehension more than medical knowledge at the recall level. Only use negation stems at Level 2 or Level 3.
-20. When writing a negation stem, ALL options except the correct answer (the one answer that is NOT true/applicable) must be definitively and unambiguously true statements about the concept. If you cannot verify that 3 out of 4 options are clearly true, do not use a negation stem — rewrite as a positive stem instead.
-21. Never write a negation stem where the false option is false because of a minor technicality or ambiguous wording. The false option must be clearly and substantively wrong — a common misconception or a plausible-sounding but incorrect claim.
-22. The explanation for a negation stem must explicitly confirm why each true option IS correct, then explain why the keyed answer is the exception.
-
-DISTRACTOR RULES (strictly enforced):
-8. Distractors must belong to the SAME conceptual category as the correct answer AND differ from the correct answer by exactly ONE clinically meaningful feature (mechanism, drug class, organism type, complication type, etc.). A distractor that is a different drug class, a different hypersensitivity type, or a different autonomic branch is far superior to a vague foil.
-   - If the answer is a complication of HBV, ALL distractors must also be liver complications — not NAFLD or alcohol unless they are directly relevant.
-   - If the answer is a drug mechanism, ALL distractors must be drug mechanisms in the same class or clinical context.
-   - NEVER offer an answer the question stem itself rules out. If the stem says "viral hepatitis," do not list "alcoholic steatohepatitis" unless alcohol use is part of the scenario.
-9. Each distractor must represent a genuine student misconception — something a knowledgeable student who hasn't fully mastered this concept would plausibly choose. If a distractor would only be chosen by someone who knows nothing, replace it. STRONGLY PREFER distractors from the "Commonly confused with" and "Distractor candidates" lines when they are provided — these represent validated confusion pairs on real board exams.
-10. Never write near-duplicate questions within a batch.
-
-COMPETITIVE DISTRACTOR RULES (strictly enforced):
-- At least 2 distractors must be plausible enough that a partially-informed student (one who has studied but not mastered the concept) would seriously consider them. If you can only produce 1 genuinely tempting distractor, redesign the question.
-- At least 1 distractor MUST be drawn from the "Commonly confused with" or "Distractor candidates" list if one is provided. Hallucinated confusion pairs are forbidden — use the supplied list or draw from related concepts explicitly named elsewhere in this prompt.
-- No distractor may be instantly eliminable by a student who simply knows the organ system, physiological domain, or question type — every distractor must require genuine understanding of the specific concept to rule out.
-- Trivial opposites (e.g., "increases X" vs "decreases X" when one is clearly wrong from the stem) are only acceptable if the student cannot determine direction without real knowledge.
-
-ANSWER FORM VARIETY (strictly enforced across the batch):
-- Do NOT default to "increases/decreases/no change" answer structures for consecutive questions in the batch.
-- Vary answer forms across the batch: mechanism ("X occurs because…"), sequence ("The FIRST change is…"), comparison ("X differs from Y in that…"), exception ("Unlike other [class], X does NOT…"), cause-vs-effect ("X leads to Y by…"), location/function ("X is located in / responsible for…"), clinical implication ("This finding indicates…"), numeric/relative relationship ("X is approximately [N]x greater than Y when…").
-- If you are writing more than 2 questions in the same batch that both ask about directional changes (increase/decrease), convert at least one to a mechanism, comparison, or clinical-implication form instead.
+NEGATION STEMS (NOT/EXCEPT/LEAST):
+21. Avoid at L1. At L2/L3: all non-keyed options must be definitively, unambiguously true.
+22. False option must be substantially wrong, not a technicality.
 
 EXPLANATION RULES:
-11. The "explanation" field MUST contain three parts in this order:
-    - WHY CORRECT: One sentence stating why the correct answer is right (key mechanism or fact).
-    - WHY WRONG: For EACH distractor, one clause explaining why it is wrong FOR THIS SPECIFIC QUESTION — not just that it is incorrect in general, but what specific feature of this question makes it wrong. Use contrast language: "whereas," "however," "unlike," "in contrast," "not because." You MUST name the most tempting distractor explicitly and explain both WHY it is tempting (what it has in common with the correct answer) AND WHY it fails here (what specific feature distinguishes the correct answer from it).
-    - DISTINCTION: One final sentence stating the single deciding clue that separates the correct answer from the most tempting distractor. This must be actionable: a student reading it should know exactly what to look for on future similar questions.
-    Example format: "[Correct answer] because [mechanism]. [Most tempting distractor] is tempting because [shared feature], but fails here because [specific distinguishing reason]; whereas [correct answer] requires [specific condition]. [Other distractor] applies only when [different context]. The key distinction is [X] vs [Y]: remember that [deciding clue]."
-    FAIL CONDITIONS: Explanation fails if (a) it never addresses any specific distractor by name or content, (b) it only says "the others are incorrect" without contrastive reasoning, or (c) it could apply to a different question on the same concept without modification.
-12. "sourceQuote": Copy this VERBATIM and EXACTLY from the source text provided in the passages above. It must be a substring that literally appears in the chunk text above — do not paraphrase, summarize, or invent. If no direct quote supports the correct answer, write the string UNGROUNDED.
-    "evidenceStart": integer — character offset where sourceQuote begins in the chunk text provided above (0-based index into the passage text).
-    "evidenceEnd": integer — character offset where sourceQuote ends in the chunk text provided above (exclusive, like String.slice).
-13. The "pageEstimate" field: use only the starting page number from the concept spec as a plain integer (e.g. "12", never "~12–17" or ranges).
+23. Explanation MUST include:
+   - WHY CORRECT: one sentence (key mechanism/fact)
+   - WHY WRONG: for each distractor, one clause with contrast language (whereas/however/unlike/in contrast). Name the mostTemptingDistractor explicitly: why it is tempting AND why it fails.
+   - DISTINCTION: one final sentence — "Key distinction: [decidingClue] — remember that [reusable rule]."
+   Format: "[Correct] because [mechanism]. [MostTempting] is tempting because [shared feature], but fails because [specific reason]; [other distractor] applies only when [context]. Key distinction: [decidingClue]."
+
+EVIDENCE:
+24. sourceQuote: copy VERBATIM from source passages above. Must be a literal substring of the provided text. If none supports the correct answer, write UNGROUNDED.
+25. evidenceStart/evidenceEnd: character offsets in the passage text (optional, best-effort).
+
+ANSWER FORM VARIETY:
+26. Vary forms across batch: mechanism, sequence, comparison, exception, cause-effect, clinical implication. No more than 2 directional-change questions per batch.
 
 Return ONLY valid JSON array (no markdown, no code blocks).
-L1 example (5 options, correctAnswer 0-based index 0–4):
-[{"conceptName":"Pyloric Stenosis","level":1,"question":"Which physical exam finding is pathognomonic for hypertrophic pyloric stenosis?","options":["Olive-shaped mass in the epigastrium","Hyperactive bowel sounds in the RLQ","Rebound tenderness at McBurney's point","Succussion splash on abdominal auscultation","Dance's sign on palpation"],"correctAnswer":0,"explanation":"A palpable olive-shaped mass in the epigastrium represents the hypertrophied pylorus and is pathognomonic for HPS. The other findings are associated with different GI conditions.","sourceQuote":"Hypertrophic pyloric stenosis presents with a palpable, firm, olive-shaped mass in the epigastric region, representing the hypertrophied pyloric muscle.","evidenceStart":42,"evidenceEnd":178,"pageEstimate":"12"}]
-L2/L3 example (4 options, correctAnswer 0-based index 0–3):
-[{"conceptName":"Myenteric Plexus","level":2,"question":"Why does achalasia cause dysphagia to both solids and liquids equally?","options":["Loss of inhibitory myenteric neurons removes VIP/NO-mediated LES relaxation","Fibrosis of esophageal smooth muscle prevents peristaltic wave propagation","Excess ACh from overactive excitatory neurons causes sustained esophageal spasm","Autoimmune destruction of submucosal Meissner plexus blocks swallowing reflex"],"correctAnswer":0,"explanation":"Achalasia results from selective destruction of inhibitory myenteric neurons that release VIP and NO to relax the LES. Without inhibitory input, the LES fails to relax, causing aperistalsis and functional obstruction equally for liquids and solids.","sourceQuote":"Inhibitory neurons of the myenteric plexus release VIP and NO to relax the LES; selective loss of these neurons in achalasia causes aperistalsis and failure of LES relaxation.","evidenceStart":0,"evidenceEnd":148,"pageEstimate":"5"}]
 
-correctAnswer is the 0-based index of the correct option. sourceQuote and pageEstimate are required for every question.`;
+L1 example (5 options):
+[{"conceptName":"Pyloric Stenosis","level":1,"question":"Which physical exam finding is pathognomonic for hypertrophic pyloric stenosis?","options":["Olive-shaped epigastric mass","Hyperactive bowel sounds in RLQ","Rebound tenderness at McBurney's","Succussion splash on auscultation","Dance's sign on palpation"],"correctAnswer":0,"explanation":"A palpable olive-shaped mass in the epigastrium represents the hypertrophied pylorus and is pathognomonic for HPS. Hyperactive RLQ sounds suggest small bowel obstruction; McBurney's rebound indicates appendicitis; succussion splash is seen in gastric outlet obstruction from other causes; Dance's sign is associated with intussusception. Key distinction: pathognomonic HPS mass is olive-shaped and epigastric, not RLQ.","sourceQuote":"Hypertrophic pyloric stenosis presents with a palpable, firm, olive-shaped mass in the epigastric region.","evidenceStart":0,"evidenceEnd":90,"pageEstimate":"12","decisionTarget":"distinguishing feature","decidingClue":"olive-shaped epigastric mass is pathognomonic for HPS","mostTemptingDistractor":"Succussion splash on auscultation","whyTempting":"also a sign of gastric outlet obstruction","whyFails":"succussion splash occurs in any outlet obstruction, not specific to HPS"}]
+
+L2 example (4 options):
+[{"conceptName":"Myenteric Plexus","level":2,"question":"Why does achalasia cause dysphagia to both solids and liquids equally from the onset?","options":["Loss of inhibitory myenteric neurons abolishes VIP/NO-mediated LES relaxation","Fibrosis of esophageal smooth muscle prevents peristaltic propagation","Excess ACh from overactive excitatory neurons sustains esophageal spasm","Autoimmune destruction of Meissner submucosal plexus blocks swallowing reflex"],"correctAnswer":0,"explanation":"Achalasia results from selective destruction of inhibitory myenteric neurons that release VIP and NO to relax the LES. Without inhibitory input, the LES fails to relax, causing functional obstruction equally for liquids and solids. Fibrosis-based dysphagia would affect solids before liquids; excess ACh would cause intermittent spasm, not persistent failure; Meissner plexus is tempting because it sounds neuromuscular, but Meissner governs secretion, not peristalsis. Key distinction: inhibitory myenteric neuron loss — remember aperistalsis + equal-dysphagia = inhibitory loss, not excitatory or submucosal.","sourceQuote":"Inhibitory neurons of the myenteric plexus release VIP and NO to relax the LES; selective loss of these neurons in achalasia causes aperistalsis and failure of LES relaxation.","evidenceStart":0,"evidenceEnd":148,"pageEstimate":"5","decisionTarget":"mechanism","decidingClue":"inhibitory myenteric neurons (not excitatory or submucosal)","mostTemptingDistractor":"Autoimmune destruction of Meissner submucosal plexus blocks swallowing reflex","whyTempting":"both involve neural destruction in the esophagus","whyFails":"Meissner plexus controls secretion; myenteric plexus controls motility"}]
+
+L3 example (4 options):
+[{"conceptName":"Hypersensitivity Pneumonitis","level":3,"question":"A 52-year-old farmer presents with dyspnea and dry cough that worsen during work and improve on weekends. Chest CT shows bilateral ground-glass opacities. BAL reveals lymphocytosis. Which mechanism best explains the lung injury?","options":["CD4+ T-cell–mediated granulomatous inflammation from repeated antigen exposure","IgE-mediated mast cell degranulation triggered by inhaled organic dust","Neutrophil-dominant acute lung injury from endotoxin in moldy hay","Type II cytotoxic antibody response against alveolar basement membrane"],"correctAnswer":0,"explanation":"Hypersensitivity pneumonitis is a Type IV reaction driven by CD4+ T cells. IgE-mediated disease would cause immediate wheezing, not subacute work-related dyspnea — it is tempting because inhaled triggers are shared, but the lymphocytic BAL and granulomas rule it out. Neutrophil-dominant injury causes acute febrile illness without granulomas. Anti-GBM targets the basement membrane causing pulmonary-renal syndrome. Key distinction: lymphocytic BAL + granulomas = Type IV T-cell, not IgE — remember work-related pattern + lymphocytic BAL always points to HP.","sourceQuote":"Hypersensitivity pneumonitis is characterized by lymphocytic alveolitis and granuloma formation driven by CD4+ T cells.","evidenceStart":0,"evidenceEnd":120,"pageEstimate":"18","decisionTarget":"mechanism","decidingClue":"lymphocytic BAL + granulomas = Type IV T-cell, not IgE (Type I)","mostTemptingDistractor":"IgE-mediated mast cell degranulation triggered by inhaled organic dust","whyTempting":"both are triggered by inhaled antigens with respiratory symptoms","whyFails":"IgE causes immediate wheezing; lymphocytic BAL and granulomas indicate delayed T-cell response"}]
+
+correctAnswer is the 0-based index. sourceQuote and pageEstimate are required. Include decisionTarget, decidingClue, mostTemptingDistractor, whyTempting, whyFails in every question.`;
 
   try {
-    const { text, costUSD } = await callOpenAI(prompt, 8192, OPENAI_MODEL);
+    // Dynamic model routing: L2/L3 concepts use WRITER_MODEL for better first drafts.
+    const hasHigherLevel = batch.some(c => {
+      const levels = dc.levels[c.importance as keyof typeof dc.levels] ?? [1, 2];
+      return levels.some(l => l >= 2);
+    });
+    const enableDynamic = process.env.ENABLE_DYNAMIC_MODEL_ROUTING !== 'false';
+    const draftModel = (enableDynamic && hasHigherLevel) ? WRITER_MODEL : OPENAI_MODEL;
+    console.log(`[Pipeline] Writer draft model: ${draftModel} (${hasHigherLevel ? 'L2/L3 present' : 'L1-only batch'})`);
+    const { text, costUSD } = await callOpenAI(prompt, 8192, draftModel);
     totalCost += costUSD;
     const qs = parseJSON(text);
     if (!Array.isArray(qs)) return { questions: all, costUSD: totalCost };
@@ -408,21 +453,24 @@ correctAnswer is the 0-based index of the correct option. sourceQuote and pageEs
         // Run evidence gating (P0.2) if enabled
         const enableGating = process.env.ENABLE_EVIDENCE_GATING !== 'false';
         let evidenceValid: boolean | null = null;
+        let evidenceResult: ReturnType<typeof verifyEvidenceSpan> | null = null;
         if (enableGating && q.sourceQuote && q.sourceQuote !== 'UNGROUNDED') {
-          const sourceChunk = conceptChunks[batch.indexOf(concept)]?.[0];
-          if (sourceChunk) {
-            const result = verifyEvidenceSpan(
+          // Use all source chunks for this concept as the verification corpus
+          const sourceChunks = conceptChunks[batch.indexOf(concept)] ?? [];
+          const corpusText = sourceChunks.map(ch => ch.text).join('\n');
+          if (corpusText) {
+            evidenceResult = verifyEvidenceSpan(
               q.sourceQuote as string,
-              q.evidenceStart as number,
-              q.evidenceEnd as number,
-              sourceChunk.text,
+              q.evidenceStart as number ?? 0,
+              q.evidenceEnd as number ?? 0,
+              corpusText,
             );
-            evidenceValid = result.ok;
+            evidenceValid = evidenceResult.ok;
           }
         }
 
         const normed = normaliseQuestion(
-          { ...q, evidenceValid },
+          { ...q, evidenceValid, evidenceMatchType: evidenceResult?.evidenceMatchType ?? null },
           concept,
           parseInt(String(q.level)) || 1,
           pdfId,
@@ -506,12 +554,17 @@ EXPLANATION RULES:
 18. The "explanation" field MUST contain three parts in this order:
     - WHY CORRECT: One sentence stating why the correct answer is right (key mechanism or fact).
     - WHY WRONG: For each distractor, one clause explaining why it is wrong FOR THIS SPECIFIC QUESTION — not just that it is incorrect in general, but what specific feature of this question makes it wrong. Use contrast language: "whereas," "however," "unlike," "in contrast," "not because."
-    - DISTINCTION: One final sentence stating the single most important conceptual distinction that separates the correct answer from the most tempting distractor.
-    Example format: "[Correct answer] because [mechanism]. [Distractor A], however, applies only when [context]. [Distractor B] is incorrect here because [reason], whereas the correct answer requires [specific condition]. The key distinction is [X] vs [Y]."
+    - DISTINCTION: One final sentence: "Key distinction: [decidingClue] — remember that [reusable rule]."
+    Example format: "[Correct answer] because [mechanism]. [MostTempting] is tempting because [shared feature], but fails because [specific reason]; [other distractor] applies only when [context]. Key distinction: [decidingClue] — remember that [reusable rule]."
+
+ITEM DESIGN PROCESS (required):
+1. Choose decisionTarget (diagnosis/mechanism/pathophysiology/distinguishing feature/next best step/adverse effect/contraindication/complication/interpretation/comparison)
+2. Identify decidingClue: the single clue separating correct from mostTemptingDistractor
+3. Identify mostTemptingDistractor: the best near-miss a partially-informed student would choose
 
 Return a single JSON object only — no markdown, no prose:
-L1: {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}"}
-L2/L3: {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}"}`;
+L1: {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}
+L2/L3: {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}`;
 
   const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL);
   const rawParsed = parseJSON(text);
@@ -523,7 +576,7 @@ L2/L3: {"conceptName":"${concept.name}","level":${level},"question":"...","optio
 
 export async function writerAgentRevise(
   concept:     ConceptSpec,
-  prevQuestion: { stem: string; options: string[]; answer: number; level: number; pageEstimate?: string },
+  prevQuestion: { stem: string; options: string[]; answer: number; level: number; pageEstimate?: string; decidingClue?: string; decisionTarget?: string; mostTemptingDistractor?: string },
   criterion:   string,
   critique:    string,
   ragPassages: string,
@@ -543,11 +596,15 @@ export async function writerAgentRevise(
     ? `\nSOURCE PASSAGES FROM PDF:\n${ragPassages}\n`
     : '';
 
+  const metadataContext = prevQuestion.decidingClue
+    ? `\nDesign metadata: decisionTarget=${prevQuestion.decisionTarget ?? '?'} | decidingClue="${prevQuestion.decidingClue}" | mostTemptingDistractor="${prevQuestion.mostTemptingDistractor ?? '?'}"`
+    : '';
+
   const prompt = `You are a specialist USMLE/COMLEX Writer Agent. Revise the question below based on the auditor's feedback.
 
 CONCEPT: ${concept.name} [${concept.category}]
 Required level: ${levelLabel}
-Key information: ${facts}${sourceSection}
+Key information: ${facts}${sourceSection}${metadataContext}
 
 PREVIOUS VERSION (do NOT repeat its flaws):
 Stem: ${prevQuestion.stem}
@@ -558,11 +615,22 @@ Specific fix required: "${critique}"
 
 Address ONLY the named criterion. Keep everything else correct (same concept, same level, same category constraints). Apply all standard board rules: same-category distractors, equal option lengths, no length tells, stem answerable before options.
 
-Return a single JSON object only — no markdown, no prose:
-{"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}"}`;
+Return a single JSON object only — no markdown, no prose (include metadata fields if you improved them):
+{"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}`;
 
   const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL);
   const rawParsed = parseJSON(text);
   const raw = Array.isArray(rawParsed) ? rawParsed[0] : rawParsed;
   return { raw: raw as Record<string, unknown>, costUSD };
+}
+
+// ─── L3 Grounding Guard ───────────────────────────────────────────────────────
+// Returns true if chunks contain sufficient clinical-context language for L3 vignettes.
+export function hasClinicalPresentationSupport(chunks: ChunkRecord[]): boolean {
+  if (process.env.ENABLE_L3_GROUNDING_GUARD === 'false') return true;
+  const clinicalSignals = /\b(patient|presents?|year.old|male|female|complain|symptom|sign|vital|lab|imaging|exam|diagnosis|management|treatment|history|physical|workup|finding|fever|pain|dyspnea|fatigue|nausea|vomiting|diarrhea|rash|edema|tachycardia|bradycardia|hypertension|hypotension|biopsy|CBC|BMP|CXR|CT|MRI|EKG|ECG)\b/i;
+  const combined = chunks.map(ch => ch.text ?? '').join(' ');
+  const matchCount = (combined.match(clinicalSignals) ?? []).length;
+  const wordCount = combined.split(/\s+/).length;
+  return matchCount >= Math.max(2, wordCount / 200);
 }

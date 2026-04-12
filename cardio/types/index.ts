@@ -102,6 +102,19 @@ export interface Question {
   evidence_end: number | null;
   chunk_id: string | null;
 
+  // Evidence match metadata
+  evidence_match_type: 'exact' | 'normalized' | 'fuzzy' | 'none' | null;
+
+  // Item design metadata
+  decision_target: string | null;
+  deciding_clue: string | null;
+  most_tempting_distractor: string | null;
+  why_tempting: string | null;
+  why_fails: string | null;
+
+  // Programmatic flags
+  option_set_flags: string[] | null;
+
   // Flags
   flagged: boolean;
   flag_reason: string | null;
@@ -293,4 +306,9 @@ export interface FeatureFlags {
   enableEvidenceGating: boolean;
   enableHybridRetrieval: boolean;
   enableConfusionDistractors: boolean;
+  enableDynamicModelRouting: boolean;
+  enableNegativeRag: boolean;
+  enableFuzzyEvidenceMatch: boolean;
+  enableL3GroundingGuard: boolean;
+  enableStructuralChunking: boolean;
 }
