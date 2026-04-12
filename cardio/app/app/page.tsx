@@ -6,7 +6,7 @@ import LibraryView from '@/components/LibraryView';
 import StudyView from '@/components/StudyView';
 import StatsView from '@/components/StatsView';
 import SettingsView from '@/components/SettingsView';
-import type { PDF, StudyQueueItem } from '@/types';
+import type { PDF } from '@/types';
 
 export type AppView = 'library' | 'study' | 'stats' | 'settings';
 
@@ -18,7 +18,7 @@ export default function AppPage() {
   const [userId,     setUserId]     = useState<string | null>(null);
 
   useEffect(() => {
-    supabaseBrowser.auth.getUser().then(({ data }) => {
+    supabaseBrowser.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
       setUserId(data.user?.id ?? null);
     });
   }, []);
@@ -30,14 +30,14 @@ export default function AppPage() {
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .then(({ data }) => setPdfs((data ?? []) as PDF[]));
+      .then(({ data }: { data: PDF[] | null }) => setPdfs((data ?? []) as PDF[]));
 
     supabaseBrowser
       .from('users')
       .select('exam_date')
       .eq('id', userId)
       .single()
-      .then(({ data }) => setExamDate(data?.exam_date ?? null));
+      .then(({ data }: { data: { exam_date: string | null } | null }) => setExamDate(data?.exam_date ?? null));
   }, [userId]);
 
   function startStudy(pdfId: string) {
@@ -45,33 +45,59 @@ export default function AppPage() {
     setView('study');
   }
 
+  const navBtnClass = (v: AppView) =>
+    `text-xs font-semibold tracking-widest uppercase transition-colors whitespace-nowrap px-1 py-0.5 ${
+      view === v
+        ? 'text-[var(--accent)]'
+        : 'text-[var(--text-dim)] hover:text-[var(--text-secondary)]'
+    }`;
+
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Nav */}
-      <nav className="border-b border-gray-800 px-4 py-3 flex items-center gap-6">
-        <span className="text-red-500 font-bold text-lg tracking-wider">CARDIO</span>
-        <button
+      {/* ── Nav ── */}
+      <nav
+        className="flex items-center gap-5 px-5 py-0 h-[56px] border-b"
+        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+      >
+        {/* Brand */}
+        <div
+          className="cursor-pointer flex items-baseline gap-2 mr-2 flex-shrink-0"
           onClick={() => setView('library')}
-          className={`text-sm ${view === 'library' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
-        >Library</button>
-        <button
-          onClick={() => setView('stats')}
-          className={`text-sm ${view === 'stats' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
-        >Stats</button>
-        <button
-          onClick={() => setView('settings')}
-          className={`text-sm ${view === 'settings' ? 'text-white' : 'text-gray-400 hover:text-white'}`}
-        >Settings</button>
+        >
+          <span
+            className="text-base font-bold tracking-widest uppercase"
+            style={{ color: 'var(--accent)' }}
+          >
+            Cardio
+          </span>
+          <span
+            className="text-[0.58rem] font-medium tracking-[0.13em] uppercase hidden sm:block"
+            style={{ color: 'var(--text-dim)' }}
+          >
+            Clinical Spaced Repetition
+          </span>
+        </div>
+
+        {/* Nav links */}
+        <button onClick={() => setView('library')}  className={navBtnClass('library')}>Library</button>
+        <button onClick={() => setView('stats')}    className={navBtnClass('stats')}>Stats</button>
+        <button onClick={() => setView('settings')} className={navBtnClass('settings')}>Settings</button>
+
         <div className="ml-auto">
           <button
             onClick={() => supabaseBrowser.auth.signOut().then(() => window.location.href = '/login')}
-            className="text-xs text-gray-500 hover:text-red-400"
-          >Sign out</button>
+            className="text-xs font-semibold tracking-widest uppercase whitespace-nowrap transition-colors"
+            style={{ color: 'var(--text-dim)' }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
+          >
+            Sign Out
+          </button>
         </div>
       </nav>
 
-      {/* Body */}
-      <main className="flex-1 p-4">
+      {/* ── Body ── */}
+      <main className="flex-1 px-4 py-6">
         {view === 'library' && (
           <LibraryView
             pdfs={pdfs}

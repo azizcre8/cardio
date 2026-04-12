@@ -2,26 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Design tokens (cream/teal — matches medical-study-app-v2.html light mode) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg:            #F7F4EF;
+  --bg-raised:     #FFFFFF;
+  --bg-sunken:     #EFECE7;
+  --border:        rgba(0,0,0,0.08);
+  --border-med:    rgba(0,0,0,0.14);
+  --text-primary:  #1A1816;
+  --text-secondary:#5C5753;
+  --text-dim:      #9B9693;
+  --accent:        #0D9AAA;
+  --accent-dim:    rgba(13,154,170,0.09);
+  --accent-glow:   rgba(13,154,170,0.22);
+  --green:         #16a34a;
+  --red:           #dc2626;
+  --amber:         #d97706;
+  --radius-sm:     6px;
+  --radius-md:     10px;
+  --radius-lg:     14px;
+  --shadow-sm:     0 1px 4px rgba(0,0,0,0.07);
+  --shadow-md:     0 4px 16px rgba(0,0,0,0.10);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-balance { text-wrap: balance; }
+  .font-serif   { font-family: 'Source Serif 4', Georgia, serif; }
 }

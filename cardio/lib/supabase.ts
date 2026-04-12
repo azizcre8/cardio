@@ -1,29 +1,32 @@
 import { createClient } from '@supabase/supabase-js';
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// ─── Browser client (anon key, safe for client components) ───────────────────
+// ─── Browser client ─────────────────────────────────────────────────────────
+// This is safe to use in any "use client" file
+export const supabaseBrowser = (() => {
+  if (typeof window === 'undefined') return null as any;
+  const { createClientComponentClient } = require('@supabase/auth-helpers-nextjs');
+  return createClientComponentClient();
+})();
 
-export const supabaseBrowser = createClient(supabaseUrl, supabaseAnonKey);
-
-// ─── Server Component client (uses session cookie) ───────────────────────────
-// Call inside a Server Component or Route Handler — not at module level.
-
+// ─── Server Component client ────────────────────────────────────────────────
+// Call this inside your API routes or Server Components
 export function supabaseServer() {
+  const { createServerComponentClient } = require('@supabase/auth-helpers-nextjs');
+  const { cookies } = require('next/headers');
   const cookieStore = cookies();
   return createServerComponentClient({ cookies: () => cookieStore });
 }
 
-// ─── Admin client (service role — NEVER expose to browser) ───────────────────
-// Use only in API routes and server-side pipeline code.
-
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-});
+// ─── Admin client (Now hidden from the browser) ─────────────────────────────
+// We only initialize this if we are NOT in a browser to prevent crashes
+export const supabaseAdmin = typeof window === 'undefined' 
+  ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  : null as any;

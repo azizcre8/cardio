@@ -104,7 +104,7 @@ FIELD DEFINITIONS:
 
 Extract ${minMax} concepts per section. Every named structure, disease, drug, test, mechanism, complication, contraindication, classic association, or board-tested detail in the text must be captured.`;
 
-  const text = await callOpenAI(prompt, Math.min(4000 * records.length, 16384), OPENAI_MODEL);
+  const { text } = await callOpenAI(prompt, Math.min(4000 * records.length, 16384), OPENAI_MODEL);
   const data = parseJSON(text);
   const arr = Array.isArray(data) ? data : (data.concepts || []);
   const headings: string[] = !Array.isArray(data) && Array.isArray(data.headings) ? data.headings : [];
@@ -318,7 +318,7 @@ Return ONLY valid JSON — no markdown, no prose:
 [{"conceptA":"exact name from list","conceptB":"exact name from list","reason":"one sentence why confused"}]`;
 
   try {
-    const text = await callOpenAI(prompt, 2048, OPENAI_MODEL);
+    const { text } = await callOpenAI(prompt, 2048, OPENAI_MODEL);
     const pairs = parseJSON(text);
     if (!Array.isArray(pairs)) return {};
 

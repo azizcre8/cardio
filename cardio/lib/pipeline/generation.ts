@@ -184,16 +184,6 @@ export function normaliseQuestion(
     chunk_id:            null,
     flagged:             false,
     flag_reason:         null,
-    // SRS initial state
-    interval:            0,
-    ease_factor:         2.5,
-    repetitions:         0,
-    next_review:         new Date().toISOString(),
-    last_reviewed:       null as unknown as string,
-    times_reviewed:      0,
-    times_correct:       0,
-    times_incorrect:     0,
-    quality_history:     [],
   };
 }
 

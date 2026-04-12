@@ -3,8 +3,6 @@
  *
  * Request: multipart/form-data { pdf: File, density: string }
  * Response: text/event-stream of ProcessEvent JSON objects
- *
- * Client reads via fetch() + ReadableStream (NOT EventSource — SSE only supports GET).
  */
 
 import { NextRequest } from 'next/server';
@@ -24,7 +22,7 @@ import {
 import type { ProcessEvent, Density, DensityConfig } from '@/types';
 import { DENSITY_CONFIG } from '@/types';
 
-export const maxDuration = 300; // Vercel Pro — upgrade to Supabase Edge Fn for longer jobs
+export const maxDuration = 300; 
 export const runtime    = 'nodejs';
 
 // ─── SSE helpers ─────────────────────────────────────────────────────────────
@@ -45,7 +43,6 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.id;
 
-  // ── Parse form data
   let formData: FormData;
   try {
     formData = await req.formData();
@@ -63,10 +60,8 @@ export async function POST(req: NextRequest) {
 
   const dc: DensityConfig = DENSITY_CONFIG[density];
 
-  // ── Plan limit check
   try {
     const monthlyCount = await getAndMaybeResetMonthlyCount(userId);
-    // Fetch plan from profile
     const { data: profile } = await supabaseServer().from('users').select('plan').eq('id', userId).single();
     const tier = (profile?.plan as keyof typeof PLAN_LIMITS) ?? 'free';
     const limits = PLAN_LIMITS[tier];
@@ -80,7 +75,6 @@ export async function POST(req: NextRequest) {
     return new Response(`Plan check failed: ${(e as Error).message}`, { status: 500 });
   }
 
-  // Create PDF row immediately so we have an ID for the stream
   const pdfRow = await insertPDF({
     user_id:    userId,
     name:       pdfFile.name,
@@ -93,16 +87,23 @@ export async function POST(req: NextRequest) {
   });
   const pdfId = pdfRow.id;
 
-  // ── Start SSE stream
   const stream = new ReadableStream({
     async start(controller) {
+      let isClosed = false; // Safety Valve 1: Track closure state
+
       const emit = (ev: ProcessEvent) => {
-        controller.enqueue(new TextEncoder().encode(encodeEvent(ev)));
+        if (isClosed) return; // Don't send data if closed
+        try {
+          controller.enqueue(new TextEncoder().encode(encodeEvent(ev)));
+        } catch (e) {
+          console.error("Stream enqueue error:", e);
+        }
       };
 
       const fail = (msg: string) => {
         emit({ phase: 0, message: `Error: ${msg}`, pct: 0 });
-        controller.close();
+        // Safety Valve 2: We no longer call controller.close() here. 
+        // We let the 'finally' block handle it exclusively.
       };
 
       try {
@@ -144,7 +145,6 @@ export async function POST(req: NextRequest) {
           emit({ phase: 3, message: `Phase 3: Embedding ${done}/${total}…`, pct });
         });
 
-        // Save chunks with embeddings
         await insertChunks(
           chunkRecords.map(c => ({
             id:         c.id,
@@ -159,14 +159,13 @@ export async function POST(req: NextRequest) {
           })),
         );
 
-        // Build BM25 index in memory for this pipeline run
         const bm25Index = buildBM25Index(chunkRecords);
         emit({ phase: 3, message: 'Phase 3: Embeddings complete', pct: 28 });
 
         // ── Phase 4: Concept inventory
         emit({ phase: 4, message: 'Phase 4: Extracting concept inventory…', pct: 30 });
 
-        const BATCH_SIZE = 3; // chunks per inventory call
+        const BATCH_SIZE = 3; 
         const inventories = [];
         const totalBatches = Math.ceil(chunkRecords.length / BATCH_SIZE);
 
@@ -186,7 +185,6 @@ export async function POST(req: NextRequest) {
         emit({ phase: 5, message: 'Phase 5: Building confusion map…', pct: 54 });
         const confusionMap = await generateConfusionMap(canonical.map(c => ({ name: c.name, category: c.category })));
 
-        // Save concepts
         const conceptRows = canonical.map(c => toConceptRow(c, pdfId, userId));
         const savedConcepts = await insertConcepts(conceptRows);
         emit({ phase: 5, message: `Phase 5: ${savedConcepts.length} concepts saved`, pct: 58 });
@@ -194,16 +192,14 @@ export async function POST(req: NextRequest) {
         // ── Phase 6: Question generation + audit
         emit({ phase: 6, message: 'Phase 6: Generating questions…', pct: 60 });
 
-        // Apply plan limits to question count
         const { data: profileRow } = await supabaseServer().from('users').select('plan').eq('id', userId).single();
-        const tier = ((profileRow?.plan) as keyof typeof PLAN_LIMITS) ?? 'free';
-        const maxQuestionsPerPdf = PLAN_LIMITS[tier].maxQuestionsPerPdf;
+        const genTier = ((profileRow?.plan) as keyof typeof PLAN_LIMITS) ?? 'free';
+        const maxQuestionsPerPdf = PLAN_LIMITS[genTier].maxQuestionsPerPdf;
 
         let totalQuestions = 0;
         let totalCostUSD   = 0;
-        const allPassedQuestions: Array<ReturnType<typeof generateCoverageQuestions> extends Promise<{ questions: Array<infer Q> }> ? Q : never> = [];
+        const allPassedQuestions: any[] = [];
 
-        // Build concept specs for generation
         const conceptSpecs = savedConcepts.map((c, i) => ({
           id:               c.id,
           name:             c.name,
@@ -211,10 +207,10 @@ export async function POST(req: NextRequest) {
           importance:       c.importance,
           keyFacts:         (canonical[i]?.coverageDomain ? canonical[i]! : canonical.find(cc => cc.name === c.name) ?? canonical[i]!).keyFacts ?? [],
           clinicalRelevance: (canonical.find(cc => cc.name === c.name))?.clinicalRelevance ?? '',
-          associations:     (canonical.find(cc => cc.name === c.name))?.associations ?? [],
-          pageEstimate:     (canonical.find(cc => cc.name === c.name))?.pageEstimate ?? '',
-          coverageDomain:   (canonical.find(cc => cc.name === c.name))?.coverageDomain ?? 'definition_recall',
-          chunk_ids:        (canonical.find(cc => cc.name === c.name))?.sourceChunkIds ?? [],
+          associations:      (canonical.find(cc => cc.name === c.name))?.associations ?? [],
+          pageEstimate:      (canonical.find(cc => cc.name === c.name))?.pageEstimate ?? '',
+          coverageDomain:    (canonical.find(cc => cc.name === c.name))?.coverageDomain ?? 'definition_recall',
+          chunk_ids:         (canonical.find(cc => cc.name === c.name))?.sourceChunkIds ?? [],
         }));
 
         const GEN_BATCH = 3;
@@ -225,7 +221,6 @@ export async function POST(req: NextRequest) {
           );
           totalCostUSD += costUSD;
 
-          // Audit
           const ragPassages: Record<string, string> = {};
           batch.forEach(c => {
             const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
@@ -237,21 +232,19 @@ export async function POST(req: NextRequest) {
           );
           totalCostUSD += auditCost;
 
-          // Save hard-rejected questions to flagged table
           for (const hr of hardRejected) {
             await insertFlaggedQuestion({
               pdf_id:      pdfId,
-              user_id:     userId,
+              user_id:      userId,
               question_id: null,
               reason:      `${hr.criterion}: ${hr.critique}`,
               raw_json:    hr.lastQuestion as unknown as Record<string, unknown>,
             });
           }
 
-          // Cap to plan limit
           const remaining = maxQuestionsPerPdf - totalQuestions;
           const toAdd = passed.slice(0, remaining);
-          allPassedQuestions.push(...(toAdd as typeof allPassedQuestions));
+          allPassedQuestions.push(...toAdd);
           totalQuestions += toAdd.length;
 
           const pct = 60 + Math.round(((g + GEN_BATCH) / conceptSpecs.length) * 35);
@@ -262,18 +255,15 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Bulk insert all passed questions
-        const savedQuestions = await insertQuestions(allPassedQuestions as Parameters<typeof insertQuestions>[0]);
+        const savedQuestions = await insertQuestions(allPassedQuestions);
 
-        // Update PDF row with final stats
         await updatePDF(pdfId, {
           processed_at:        new Date().toISOString(),
           processing_cost_usd: totalCostUSD,
-          concept_count:       savedConcepts.length,
-          question_count:      savedQuestions.length,
+          concept_count:        savedConcepts.length,
+          question_count:       savedQuestions.length,
         });
 
-        // Increment monthly counter
         await incrementMonthlyCount(userId);
 
         emit({
@@ -282,10 +272,20 @@ export async function POST(req: NextRequest) {
           pct: 100,
           data: { pdfId, conceptCount: savedConcepts.length, questionCount: savedQuestions.length, costUSD: totalCostUSD },
         });
+
       } catch (e) {
         fail((e as Error).message);
       } finally {
-        controller.close();
+        // Safety Valve 3: The ONLY place the controller closes. 
+        // We check isClosed to prevent the ERR_INVALID_STATE error.
+        if (!isClosed) {
+          try {
+            controller.close();
+          } catch (e) {
+            // ignore
+          }
+          isClosed = true;
+        }
       }
     },
   });
@@ -294,7 +294,7 @@ export async function POST(req: NextRequest) {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection':   'keep-alive',
+      'Connection':    'keep-alive',
     },
   });
 }

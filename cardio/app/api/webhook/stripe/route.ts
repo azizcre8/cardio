@@ -9,7 +9,8 @@ import { stripe, tierFromPriceId } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import type Stripe from 'stripe';
 
-export const config = { api: { bodyParser: false } };
+// body is read as text below; Next.js App Router does not use bodyParser
+
 
 export async function POST(req: NextRequest) {
   const body      = await req.text();
