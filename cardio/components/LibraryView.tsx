@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { supabaseBrowser } from '@/lib/supabase';
 import type { PDF, Density, ProcessEvent } from '@/types';
 import ProcessingLog from './ProcessingLog';
 
@@ -9,16 +8,9 @@ interface Props {
   pdfs:                  PDF[];
   examDate:              string | null;
   userId:                string;
-  onStartStudy:          (pdfId: string) => void;
+  onOpenConceptMap:      (pdfId: string) => void;
   onPdfsChange:          (pdfs: PDF[]) => void;
   onProcessingComplete?: (pdfId: string) => void;
-}
-
-interface DeckStat {
-  due:       number;
-  mastered:  number;
-  reviewed:  number;
-  retention: number;
 }
 
 /* ── localStorage deck meta ── */
@@ -36,46 +28,17 @@ function setDeckMeta(pdfId: string, updates: DeckMeta) {
   } catch { /* ignore */ }
 }
 
-export default function LibraryView({ pdfs, examDate, userId, onStartStudy, onPdfsChange, onProcessingComplete }: Props) {
+export default function LibraryView({ pdfs, examDate, userId, onOpenConceptMap, onPdfsChange, onProcessingComplete }: Props) {
   const [density,    setDensity]    = useState<Density>('standard');
   const [processing, setProcessing] = useState<string | null>(null);
   const [logs,       setLogs]       = useState<ProcessEvent[]>([]);
   const [search,     setSearch]     = useState('');
-  const [deckStats,  setDeckStats]  = useState<Map<string, DeckStat>>(new Map());
   const [, forceRender]             = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const daysLeft = examDate
     ? Math.ceil((new Date(examDate).getTime() - Date.now()) / 86_400_000)
     : null;
-
-  /* Load SRS stats for all decks */
-  useEffect(() => {
-    if (!userId || !pdfs.some(p => p.processed_at)) return;
-    supabaseBrowser
-      .from('srs_state')
-      .select('pdf_id, next_review, interval, times_reviewed, times_correct')
-      .eq('user_id', userId)
-      .then(({ data }: { data: Array<{ pdf_id: string; next_review: string; interval: number; times_reviewed: number; times_correct: number }> | null }) => {
-        const now   = new Date().toISOString();
-        const stats = new Map<string, DeckStat>();
-        pdfs.forEach(pdf => {
-          const rows     = (data ?? []).filter((r: { pdf_id: string }) => r.pdf_id === pdf.id);
-          const due      = rows.filter((r: { next_review: string }) => r.next_review <= now).length;
-          const mastered = rows.filter((r: { interval: number }) => r.interval >= 21).length;
-          const reviewed = rows.filter((r: { times_reviewed: number }) => r.times_reviewed > 0).length;
-          const studied  = rows.filter((r: { times_reviewed: number }) => r.times_reviewed > 0);
-          const retention = studied.length
-            ? Math.round(
-                studied.reduce((s: number, r: { times_correct: number; times_reviewed: number }) =>
-                  s + (r.times_correct / r.times_reviewed), 0) / studied.length * 100
-              )
-            : 0;
-          stats.set(pdf.id, { due, mastered, reviewed, retention });
-        });
-        setDeckStats(stats);
-      });
-  }, [userId, pdfs]);
 
   function getDeckName(pdf: PDF)   { return getDeckMeta(pdf.id).displayName ?? pdf.name.replace(/\.pdf$/i, ''); }
   function getDeckFolder(pdf: PDF) { return getDeckMeta(pdf.id).folder ?? ''; }
@@ -147,12 +110,6 @@ export default function LibraryView({ pdfs, examDate, userId, onStartStudy, onPd
 
   const ready  = pdfs.filter(p => p.processed_at);
   const totalQ = ready.reduce((s, p) => s + (p.question_count ?? 0), 0);
-  const totalDue      = Array.from(deckStats.values()).reduce((s, d) => s + d.due, 0);
-  const totalMastered = Array.from(deckStats.values()).reduce((s, d) => s + d.mastered, 0);
-  const studied = Array.from(deckStats.values()).filter(d => d.reviewed > 0);
-  const avgRetention  = studied.length
-    ? Math.round(studied.reduce((s, d) => s + d.retention, 0) / studied.length)
-    : 0;
 
   const filtered = search.trim()
     ? pdfs.filter(p => getDeckName(p).toLowerCase().includes(search.toLowerCase()))
@@ -189,15 +146,12 @@ export default function LibraryView({ pdfs, examDate, userId, onStartStudy, onPd
       {ready.length > 0 && (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
+          gridTemplateColumns: 'repeat(2, 1fr)',
           gap: '10px', marginBottom: '24px',
         }}>
           {[
-            { n: ready.length,    label: 'Active Decks',   color: 'var(--accent)'          },
-            { n: totalDue,        label: 'Due Today',       color: totalDue > 0 ? 'var(--red)' : 'var(--green)' },
-            { n: `${avgRetention}%`, label: 'Avg Retention', color: avgRetention >= 80 ? 'var(--green)' : 'var(--text-secondary)' },
-            { n: totalMastered,   label: 'Mastered',        color: 'var(--green)'           },
-            { n: totalQ.toLocaleString(), label: 'Total Cards', color: 'var(--text-secondary)' },
+            { n: ready.length,             label: 'Active Decks', color: 'var(--accent)'          },
+            { n: totalQ.toLocaleString(),  label: 'Total Questions', color: 'var(--text-secondary)' },
           ].map(({ n, label, color }) => (
             <div key={label} style={{
               background: 'var(--bg-raised)', border: '1px solid var(--border)',
@@ -343,8 +297,7 @@ export default function LibraryView({ pdfs, examDate, userId, onStartStudy, onPd
                   pdf={pdf}
                   displayName={getDeckName(pdf)}
                   folder={getDeckFolder(pdf)}
-                  stat={deckStats.get(pdf.id)}
-                  onStudy={onStartStudy}
+                  onStudy={onOpenConceptMap}
                   onDelete={deletePdf}
                   onRename={renameDeck}
                   onFolder={moveDeckToFolder}
@@ -360,12 +313,11 @@ export default function LibraryView({ pdfs, examDate, userId, onStartStudy, onPd
 
 /* ── Deck card ── */
 function DeckCard({
-  pdf, displayName, folder, stat, onStudy, onDelete, onRename, onFolder,
+  pdf, displayName, folder, onStudy, onDelete, onRename, onFolder,
 }: {
   pdf:         PDF;
   displayName: string;
   folder:      string;
-  stat?:       DeckStat;
   onStudy:     (id: string) => void;
   onDelete:    (id: string) => void;
   onRename:    (pdf: PDF) => void;
@@ -373,15 +325,7 @@ function DeckCard({
 }) {
   const [hov, setHov] = useState(false);
   const total    = pdf.question_count ?? 0;
-  const mastered = stat?.mastered ?? 0;
-  const mastPct  = total > 0 ? Math.round((mastered / total) * 100) : 0;
-  const due      = stat?.due ?? 0;
   const category = (pdf.name.split(/[\s_-]/)[0] ?? 'General').toUpperCase();
-
-  /* Circular progress ring */
-  const r   = 22;
-  const circ = 2 * Math.PI * r;
-  const dash = circ * (mastPct / 100);
 
   return (
     <div
@@ -400,27 +344,6 @@ function DeckCard({
     >
       {/* Top row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
-        {/* Circular progress */}
-        <div style={{ flexShrink: 0, position: 'relative', width: '54px', height: '54px' }}>
-          <svg width="54" height="54" viewBox="0 0 54 54" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx="27" cy="27" r={r} fill="none" stroke="var(--bg-sunken)" strokeWidth="4" />
-            <circle
-              cx="27" cy="27" r={r} fill="none"
-              stroke="var(--accent)" strokeWidth="4"
-              strokeDasharray={`${dash} ${circ}`}
-              strokeLinecap="round"
-              style={{ transition: 'stroke-dasharray 0.5s ease' }}
-            />
-          </svg>
-          <span style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)',
-          }}>
-            {mastPct}%
-          </span>
-        </div>
-
         <div style={{ flex: 1, minWidth: 0 }}>
           {/* Category */}
           <p style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-dim)', marginBottom: '3px', textTransform: 'uppercase' }}>
@@ -439,11 +362,11 @@ function DeckCard({
           {/* Sub stats */}
           <div style={{ display: 'flex', gap: '12px', fontSize: '0.72rem' }}>
             <span style={{ color: 'var(--text-dim)' }}>
-              {mastered}/{total} mastered
+              {total} questions
             </span>
-            {stat && stat.retention > 0 && (
-              <span style={{ color: stat.retention >= 80 ? 'var(--green)' : 'var(--amber)', fontWeight: 600 }}>
-                {stat.retention}% retention
+            {pdf.concept_count != null && (
+              <span style={{ color: 'var(--text-dim)' }}>
+                {pdf.concept_count} concepts
               </span>
             )}
           </div>
@@ -456,17 +379,8 @@ function DeckCard({
         </div>
       </div>
 
-      {/* Due / New / Learned counts */}
-      {pdf.processed_at && stat && (
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '14px' }}>
-          <Pill n={due}                          label="Due"     color={due > 0 ? 'var(--red)' : 'var(--text-dim)'} />
-          <Pill n={Math.max(0, total - (stat.reviewed ?? 0) - mastered)} label="New"     color="var(--accent)"         />
-          <Pill n={stat.reviewed ?? 0}           label="Learned" color="var(--green)"            />
-        </div>
-      )}
-
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
         {pdf.processed_at ? (
           <button
             onClick={() => onStudy(pdf.id)}
@@ -479,7 +393,7 @@ function DeckCard({
             onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
             onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
-            Study →
+            View Concepts →
           </button>
         ) : (
           <span style={{ flex: 1, padding: '8px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
@@ -504,16 +418,6 @@ function DeckCard({
   );
 }
 
-function Pill({ n, label, color }: { n: number; label: string; color: string }) {
-  return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: '1rem', fontWeight: 700, color, lineHeight: 1 }}>{n}</div>
-      <div style={{ fontSize: '0.6rem', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)', marginTop: '2px' }}>
-        {label}
-      </div>
-    </div>
-  );
-}
 
 function MetaBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
   const [hov, setHov] = useState(false);

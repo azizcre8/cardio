@@ -1,3 +1,5 @@
+import path from 'path';
+import { pathToFileURL } from 'url';
 import type { PageRecord, TextQuality } from '@/types';
 
 // ─── pdfjs-dist Configuration (Worker-Aware) ───────────────────────────────
@@ -5,21 +7,35 @@ import type { PageRecord, TextQuality } from '@/types';
 async function getPdfjsLib() {
   // 1. Import the main library
   const pdfjs = await import('pdfjs-dist/build/pdf');
-  
+
   // 2. Point to the worker entry point specifically for the server-side
   if (typeof window === 'undefined') {
     const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
     pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
   }
-  
+
   return pdfjs;
 }
+
+// Resolve standard font data URL once at module level (server-side only)
+const standardFontDataUrl =
+  typeof window === 'undefined'
+    ? pathToFileURL(
+        path.join(
+          path.dirname(require.resolve('pdfjs-dist/package.json')),
+          'standard_fonts/'
+        )
+      ).href + '/'
+    : undefined;
 
 // ─── Main Extraction Function ───────────────────────────────────────────────
 
 export const extractTextServer = async (buffer: Buffer): Promise<PageRecord[]> => {
   const pdfjsLib = await getPdfjsLib();
-  const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+  const pdf = await pdfjsLib.getDocument({
+    data: new Uint8Array(buffer),
+    ...(standardFontDataUrl ? { standardFontDataUrl } : {}),
+  }).promise;
   const pages: PageRecord[] = [];
 
   for (let i = 1; i <= pdf.numPages; i++) {

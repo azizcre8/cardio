@@ -11,9 +11,17 @@ export const supabaseBrowser = (() => {
   return createClientComponentClient();
 })();
 
-// ─── Server Component client ────────────────────────────────────────────────
-// Call this inside your API routes or Server Components
+// ─── Route Handler client ────────────────────────────────────────────────────
+// Use inside API Route Handlers (app/api/**/route.ts)
 export function supabaseServer() {
+  const { createRouteHandlerClient } = require('@supabase/auth-helpers-nextjs');
+  const { cookies } = require('next/headers');
+  return createRouteHandlerClient({ cookies });
+}
+
+// ─── Server Component client ─────────────────────────────────────────────────
+// Use inside Server Components (not Route Handlers)
+export function supabaseServerComponent() {
   const { createServerComponentClient } = require('@supabase/auth-helpers-nextjs');
   const { cookies } = require('next/headers');
   const cookieStore = cookies();

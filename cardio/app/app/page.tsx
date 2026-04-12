@@ -3,21 +3,22 @@
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase';
 import LibraryView from '@/components/LibraryView';
-import StudyView from '@/components/StudyView';
 import StatsView from '@/components/StatsView';
 import SettingsView from '@/components/SettingsView';
 import ConceptMapView from '@/components/ConceptMapView';
+import BankSelectView from '@/components/BankSelectView';
+import QuizView from '@/components/QuizView';
 import type { PDF } from '@/types';
 
-export type AppView = 'library' | 'study' | 'stats' | 'settings' | 'conceptmap';
+export type AppView = 'library' | 'conceptmap' | 'bankselect' | 'quiz' | 'stats' | 'settings';
 
 const THEME_KEY = 'cardio-theme';
 
 export default function AppPage() {
   const [view,            setView]            = useState<AppView>('library');
   const [pdfs,            setPdfs]            = useState<PDF[]>([]);
-  const [studyPdfId,      setStudyPdfId]      = useState<string | null>(null);
   const [conceptMapPdfId, setConceptMapPdfId] = useState<string | null>(null);
+  const [quizPdfId,       setQuizPdfId]       = useState<string | null>(null);
   const [examDate,        setExamDate]        = useState<string | null>(null);
   const [userId,          setUserId]          = useState<string | null>(null);
   const [darkMode,        setDarkMode]        = useState(false);
@@ -41,7 +42,7 @@ export default function AppPage() {
       .then(({ data }: { data: { exam_date: string | null } | null }) => setExamDate(data?.exam_date ?? null));
   }, [userId]);
 
-  /* ── Dark mode: persist in localStorage, apply to <html> ── */
+  /* ── Dark mode ── */
   useEffect(() => {
     const saved = localStorage.getItem(THEME_KEY);
     if (saved === 'dark') { setDarkMode(true); document.documentElement.setAttribute('data-theme', 'dark'); }
@@ -60,14 +61,18 @@ export default function AppPage() {
   }
 
   /* ── Navigation helpers ── */
-  function startStudy(pdfId: string) {
-    setStudyPdfId(pdfId);
-    setView('study');
-  }
-
   function openConceptMap(pdfId: string) {
     setConceptMapPdfId(pdfId);
     setView('conceptmap');
+  }
+
+  function openBankSelect() {
+    setView('bankselect');
+  }
+
+  function startQuiz(pdfId: string) {
+    setQuizPdfId(pdfId);
+    setView('quiz');
   }
 
   const conceptMapPdf = pdfs.find(p => p.id === conceptMapPdfId) ?? null;
@@ -150,7 +155,7 @@ export default function AppPage() {
             pdfs={pdfs}
             examDate={examDate}
             userId={userId ?? ''}
-            onStartStudy={startStudy}
+            onOpenConceptMap={openConceptMap}
             onPdfsChange={setPdfs}
             onProcessingComplete={openConceptMap}
           />
@@ -159,16 +164,23 @@ export default function AppPage() {
         {view === 'conceptmap' && conceptMapPdf && (
           <ConceptMapView
             pdf={conceptMapPdf}
-            onStartStudy={startStudy}
+            onChooseBank={openBankSelect}
             onBack={() => setView('library')}
           />
         )}
 
-        {view === 'study' && studyPdfId && (
-          <StudyView
-            pdfId={studyPdfId}
-            examDate={examDate}
-            onDone={() => setView('library')}
+        {view === 'bankselect' && (
+          <BankSelectView
+            pdfs={pdfs}
+            onSelect={startQuiz}
+            onBack={() => setView(conceptMapPdfId ? 'conceptmap' : 'library')}
+          />
+        )}
+
+        {view === 'quiz' && quizPdfId && (
+          <QuizView
+            pdfId={quizPdfId}
+            onDone={openBankSelect}
           />
         )}
 

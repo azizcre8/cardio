@@ -5,7 +5,7 @@ import type { Concept, PDF } from '@/types';
 
 interface Props {
   pdf:          PDF;
-  onStartStudy: (pdfId: string) => void;
+  onChooseBank: () => void;
   onBack:       () => void;
 }
 
@@ -15,7 +15,7 @@ const IMP = {
   low:    { border: 'var(--border)', bg: 'var(--bg-sunken)',         text: 'var(--text-dim)', label: 'Low'     },
 } as const;
 
-export default function ConceptMapView({ pdf, onStartStudy, onBack }: Props) {
+export default function ConceptMapView({ pdf, onChooseBank, onBack }: Props) {
   const [concepts,  setConcepts]  = useState<Concept[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [selected,  setSelected]  = useState<string | null>(null);
@@ -121,11 +121,11 @@ export default function ConceptMapView({ pdf, onStartStudy, onBack }: Props) {
           </span>
 
           <ActionBtn
-            label="⚡ Adaptive Study"
+            label="📝 Choose Question Bank"
             primary
             hovered={hovAction === 'study'}
             onHover={h => setHovAction(h ? 'study' : '')}
-            onClick={() => onStartStudy(pdf.id)}
+            onClick={onChooseBank}
           />
           <ActionBtn
             label="📚 Back to Library"
@@ -208,14 +208,14 @@ export default function ConceptMapView({ pdf, onStartStudy, onBack }: Props) {
             Concepts are still being indexed.
           </p>
           <button
-            onClick={() => onStartStudy(pdf.id)}
+            onClick={onChooseBank}
             style={{
               padding: '10px 28px', borderRadius: 'var(--radius-md)',
               background: 'var(--accent)', color: 'white',
               fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
             }}
           >
-            Start Studying →
+            Choose Question Bank →
           </button>
         </div>
       )}

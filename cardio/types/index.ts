@@ -97,6 +97,7 @@ export interface Question {
   explanation: string;
   option_explanations: string[] | null; // per-distractor explanations, generated lazily
   source_quote: string;
+  concept_name?: string;
   evidence_start: number | null;
   evidence_end: number | null;
   chunk_id: string | null;
