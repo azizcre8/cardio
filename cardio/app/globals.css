@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Design tokens (cream/teal — matches medical-study-app-v2.html light mode) */
+/* ── Design tokens — Light mode ── */
 :root {
   --bg:            #F7F4EF;
   --bg-raised:     #FFFFFF;
@@ -25,6 +25,26 @@
   --shadow-md:     0 4px 16px rgba(0,0,0,0.10);
 }
 
+/* ── Dark mode ── */
+html[data-theme="dark"] {
+  --bg:            #0D1117;
+  --bg-raised:     #161B22;
+  --bg-sunken:     #090D13;
+  --border:        rgba(255,255,255,0.07);
+  --border-med:    rgba(255,255,255,0.13);
+  --text-primary:  #E6EDF3;
+  --text-secondary:#8B949E;
+  --text-dim:      #3D4652;
+  --accent:        #14B8C8;
+  --accent-dim:    rgba(20,184,200,0.12);
+  --accent-glow:   rgba(20,184,200,0.22);
+  --green:         #3FB950;
+  --red:           #F85149;
+  --amber:         #D29922;
+  --shadow-sm:     0 1px 4px rgba(0,0,0,0.4);
+  --shadow-md:     0 4px 20px rgba(0,0,0,0.5);
+}
+
 html, body {
   background: var(--bg);
   color: var(--text-primary);
@@ -38,6 +58,7 @@ html, body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 3px; }
+html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
 
 /* Focus ring */
 *:focus-visible {
@@ -45,7 +66,51 @@ html, body {
   outline-offset: 2px;
 }
 
+/* ── Keyframe animations ── */
+@keyframes pulse-out {
+  0%   { transform: scale(1);   opacity: 0.7; }
+  100% { transform: scale(1.7); opacity: 0;   }
+}
+
+@keyframes gradient-flow {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes tick-in {
+  from { transform: scale(0) rotate(-45deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(150%);  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0);   }
+  50%       { transform: translateY(-6px); }
+}
+
+@keyframes ecg-draw {
+  from { stroke-dashoffset: 300; }
+  to   { stroke-dashoffset: 0;   }
+}
+
 @layer utilities {
-  .text-balance { text-wrap: balance; }
-  .font-serif   { font-family: 'Source Serif 4', Georgia, serif; }
+  .text-balance  { text-wrap: balance; }
+  .font-serif    { font-family: 'Source Serif 4', Georgia, serif; }
+  .animate-fade-up { animation: fade-up 0.3s ease both; }
+  .animate-float   { animation: float 3s ease-in-out infinite; }
 }
