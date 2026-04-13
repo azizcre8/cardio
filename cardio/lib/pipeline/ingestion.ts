@@ -1,14 +1,10 @@
-import path from 'path';
-import { pathToFileURL } from 'url';
 import type { PageRecord, TextQuality } from '@/types';
 
 // ─── pdfjs-dist Configuration (Worker-Aware) ───────────────────────────────
 
 async function getPdfjsLib() {
-  // 1. Import the main library
   const pdfjs = await import('pdfjs-dist/build/pdf');
 
-  // 2. Point to the worker entry point specifically for the server-side
   if (typeof window === 'undefined') {
     const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.entry');
     pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -17,24 +13,16 @@ async function getPdfjsLib() {
   return pdfjs;
 }
 
-// Resolve standard font data URL once at module level (server-side only)
-const standardFontDataUrl =
-  typeof window === 'undefined'
-    ? pathToFileURL(
-        path.join(
-          path.dirname(require.resolve('pdfjs-dist/package.json')),
-          'standard_fonts/'
-        )
-      ).href + '/'
-    : undefined;
-
 // ─── Main Extraction Function ───────────────────────────────────────────────
 
 export const extractTextServer = async (buffer: Buffer): Promise<PageRecord[]> => {
   const pdfjsLib = await getPdfjsLib();
   const pdf = await pdfjsLib.getDocument({
     data: new Uint8Array(buffer),
-    ...(standardFontDataUrl ? { standardFontDataUrl } : {}),
+    // Text-only extraction — skip font loading entirely.
+    // Node.js fetch() doesn't support file:// URLs so standard font data
+    // can't be loaded anyway, and fonts aren't needed for text extraction.
+    useSystemFonts: true,
   }).promise;
   const pages: PageRecord[] = [];
 

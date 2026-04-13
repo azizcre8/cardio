@@ -92,11 +92,12 @@ export async function POST(req: NextRequest) {
       let isClosed = false; // Safety Valve 1: Track closure state
 
       const emit = (ev: ProcessEvent) => {
-        if (isClosed) return; // Don't send data if closed
+        if (isClosed) return;
         try {
           controller.enqueue(new TextEncoder().encode(encodeEvent(ev)));
-        } catch (e) {
-          console.error("Stream enqueue error:", e);
+        } catch {
+          // Controller closed externally (client disconnect) — mark closed and stop emitting
+          isClosed = true;
         }
       };
 
