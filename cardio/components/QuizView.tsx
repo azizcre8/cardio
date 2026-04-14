@@ -20,8 +20,22 @@ interface HighlightRange {
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
-/** Bolds the first sentence of the explanation (the key distinction). */
+/** Extracts "Key distinction: …" sentence, renders it first and bolded. */
 function formatExplanation(text: string) {
+  // Pull out the key-distinction clause wherever it sits in the text
+  const kdMatch = text.match(/Key distinction:\s*(.+?)(?:[.!?](?:\s|$)|$)/i);
+  if (kdMatch) {
+    const keyDistinction = kdMatch[1].trim();
+    // Remove the full "Key distinction: …[punctuation]" span from the rest
+    const rest = text.replace(/Key distinction:\s*.+?(?:[.!?](?:\s|$)|$)/i, '').trim();
+    return (
+      <>
+        <strong>{keyDistinction}.</strong>
+        {rest ? <>{' '}{rest}</> : null}
+      </>
+    );
+  }
+  // Fallback: bold the first sentence
   const match = text.match(/^(.+?[.!?])\s+([\s\S]+)/);
   if (!match) return <strong>{text}</strong>;
   return (
@@ -121,8 +135,8 @@ export default function QuizView({ pdfId, onDone }: Props) {
       const n = parseInt(e.key);
       if (!revealed && n >= 1 && n <= current.options.length) {
         selectOption(n - 1);
-      } else if (revealed && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight')) {
-        goForward();
+      } else if (e.key === 'ArrowRight' || (revealed && (e.key === 'Enter' || e.key === ' '))) {
+        if (idx < questions.length) goForward();
       } else if (e.key === 'ArrowLeft') {
         goBack();
       }
@@ -331,6 +345,28 @@ export default function QuizView({ pdfId, onDone }: Props) {
         <span style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
           {idx + 1} / {questions.length}
         </span>
+
+        {/* Forward arrow — always present, dims at last question */}
+        <button
+          onClick={goForward}
+          disabled={idx >= questions.length - 1}
+          title="Next question (→)"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '26px', height: '26px', flexShrink: 0,
+            borderRadius: 'var(--radius-sm)',
+            background: 'none',
+            border: '1px solid var(--border)',
+            color: idx >= questions.length - 1 ? 'var(--border)' : 'var(--text-dim)',
+            fontSize: '0.8rem', cursor: idx >= questions.length - 1 ? 'default' : 'pointer',
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => { if (idx < questions.length - 1) (e.currentTarget.style.color = 'var(--text-primary)'); }}
+          onMouseLeave={e => { if (idx < questions.length - 1) (e.currentTarget.style.color = 'var(--text-dim)'); }}
+        >
+          →
+        </button>
+
         {total > 0 && (
           <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-dim)' }}>
             {Math.round((correct / total) * 100)}%
