@@ -3,19 +3,18 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
 import { getConcepts } from '@/lib/storage';
+import { requireUser } from '@/lib/auth';
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const concepts = await getConcepts(params.id);
-  const userConcepts = concepts.filter(c => c.user_id === session.user.id);
+  const userConcepts = concepts.filter(c => c.user_id === auth.userId);
 
   return NextResponse.json({ concepts: userConcepts });
 }

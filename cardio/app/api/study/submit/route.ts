@@ -7,11 +7,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
 import { supabaseAdmin } from '@/lib/supabase';
 import { upsertSRSState, insertReview, getUserProfile } from '@/lib/storage';
 import { applySRS } from '@/lib/srs';
 import type { SubmitQualityBody, Question, SRSState } from '@/types';
+import { requireUser } from '@/lib/auth';
 
 async function fetchQuestionWithSRS(questionId: string, userId: string): Promise<Question | null> {
   const { data: q } = await supabaseAdmin.from('questions').select('*').eq('id', questionId).single();
@@ -58,11 +58,10 @@ function buildSRSState(q: Question, userId: string, pdfId: string): Omit<SRSStat
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
-  const userId = session.user.id;
+  const userId = auth.userId;
   let body: SubmitQualityBody;
   try {
     body = await req.json() as SubmitQualityBody;

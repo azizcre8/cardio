@@ -5,8 +5,9 @@
  */
 
 import type { PageRecord, RawChunk } from '@/types';
+import { env } from '@/lib/env';
 
-const ENABLE_STRUCTURAL_CHUNKING = process.env.ENABLE_STRUCTURAL_CHUNKING !== 'false';
+const ENABLE_STRUCTURAL_CHUNKING = env.flags.structuralChunking;
 
 export function chunkText(
   pages: PageRecord[],

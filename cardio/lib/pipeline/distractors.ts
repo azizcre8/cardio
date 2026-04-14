@@ -4,6 +4,8 @@
  * Supplements (not replaces) the LLM-generated confusion map.
  */
 
+import { env } from '@/lib/env';
+
 export interface ConceptLike {
   name: string;
   category: string;
@@ -11,7 +13,7 @@ export interface ConceptLike {
 
 /** Returns up to 6 distractor candidates based on known medical confusion patterns. */
 export function buildConfusionCandidates(concept: ConceptLike): string[] {
-  const enableConfusion = process.env.ENABLE_CONFUSION_DISTRACTORS !== 'false';
+  const enableConfusion = env.flags.confusionDistractors;
   if (!enableConfusion) return [];
 
   const name = (concept.name || '').toLowerCase();

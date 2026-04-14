@@ -4,7 +4,9 @@
  * Offsets are now optional/legacy — sourceQuote is the primary artifact.
  */
 
-const ENABLE_FUZZY_EVIDENCE_MATCH = process.env.ENABLE_FUZZY_EVIDENCE_MATCH !== 'false';
+import { env } from '@/lib/env';
+
+const ENABLE_FUZZY_EVIDENCE_MATCH = env.flags.fuzzyEvidenceMatch;
 
 export interface EvidenceVerifyResult {
   ok: boolean;

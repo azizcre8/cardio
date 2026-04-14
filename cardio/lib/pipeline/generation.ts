@@ -8,6 +8,7 @@
 
 import OpenAI from 'openai';
 import type { Question, Concept, ChunkRecord, DensityConfig, ConfusionMap, BM25Index } from '@/types';
+import { env } from '@/lib/env';
 import { buildConfusionCandidates } from './distractors';
 import { verifyEvidenceSpan } from './validation';
 import { embedTexts } from './embeddings';
@@ -30,7 +31,7 @@ const MODEL_PRICING: Record<string, { in: number; out: number }> = {
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
 function getOpenAI(): OpenAI {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return new OpenAI({ apiKey: env.openAiApiKey });
 }
 
 function sleep(ms: number): Promise<void> {
@@ -255,7 +256,7 @@ export async function generateCoverageQuestions(
       }
 
       // Negative RAG: retrieve chunks for top confusion neighbors to ground distractors
-      if (process.env.ENABLE_NEGATIVE_RAG !== 'false') {
+      if (env.flags.negativeRag) {
         try {
           const neighborQueries = batch.map(c => {
             const confusions = confusionMap[c.name] ?? [];
@@ -301,7 +302,7 @@ export async function generateCoverageQuestions(
 
     // L3 grounding guard: downgrade L3→L2 if chunks lack clinical context
     let guardedLevels = levels;
-    if (process.env.ENABLE_L3_GROUNDING_GUARD !== 'false' && levels.includes(3)) {
+    if (env.flags.l3GroundingGuard && levels.includes(3)) {
       const chunks = conceptChunks[i] ?? [];
       if (!hasClinicalPresentationSupport(chunks)) {
         guardedLevels = Array.from(new Set(levels.map(l => l === 3 ? 2 : l)));
@@ -422,7 +423,7 @@ correctAnswer is the 0-based index. sourceQuote and pageEstimate are required. I
       const levels = dc.levels[c.importance as keyof typeof dc.levels] ?? [1, 2];
       return levels.some(l => l >= 2);
     });
-    const enableDynamic = process.env.ENABLE_DYNAMIC_MODEL_ROUTING !== 'false';
+    const enableDynamic = env.flags.dynamicModelRouting;
     const draftModel = (enableDynamic && hasHigherLevel) ? WRITER_MODEL : OPENAI_MODEL;
     console.log(`[Pipeline] Writer draft model: ${draftModel} (${hasHigherLevel ? 'L2/L3 present' : 'L1-only batch'})`);
     const { text, costUSD } = await callOpenAI(prompt, 8192, draftModel);
@@ -451,7 +452,7 @@ correctAnswer is the 0-based index. sourceQuote and pageEstimate are required. I
         if (!concept) return; // skip — do NOT fall back to batch[0]
 
         // Run evidence gating (P0.2) if enabled
-        const enableGating = process.env.ENABLE_EVIDENCE_GATING !== 'false';
+        const enableGating = env.flags.evidenceGating;
         let evidenceValid: boolean | null = null;
         let evidenceResult: ReturnType<typeof verifyEvidenceSpan> | null = null;
         if (enableGating && q.sourceQuote && q.sourceQuote !== 'UNGROUNDED') {
@@ -627,7 +628,7 @@ Return a single JSON object only — no markdown, no prose (include metadata fie
 // ─── L3 Grounding Guard ───────────────────────────────────────────────────────
 // Returns true if chunks contain sufficient clinical-context language for L3 vignettes.
 export function hasClinicalPresentationSupport(chunks: ChunkRecord[]): boolean {
-  if (process.env.ENABLE_L3_GROUNDING_GUARD === 'false') return true;
+  if (!env.flags.l3GroundingGuard) return true;
   const clinicalSignals = /\b(patient|presents?|year.old|male|female|complain|symptom|sign|vital|lab|imaging|exam|diagnosis|management|treatment|history|physical|workup|finding|fever|pain|dyspnea|fatigue|nausea|vomiting|diarrhea|rash|edema|tachycardia|bradycardia|hypertension|hypotension|biopsy|CBC|BMP|CXR|CT|MRI|EKG|ECG)\b/i;
   const combined = chunks.map(ch => ch.text ?? '').join(' ');
   const matchCount = (combined.match(clinicalSignals) ?? []).length;

@@ -4,20 +4,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
 import { getQuestionsWithSRS, getConcepts, getUserProfile } from '@/lib/storage';
 import { buildQueue, computeAllMastery } from '@/lib/srs';
 import type { QueueResponse } from '@/types';
+import { requireUser } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
   const pdfId = req.nextUrl.searchParams.get('pdfId');
   if (!pdfId) return NextResponse.json({ error: 'pdfId required' }, { status: 400 });
 
-  const userId = session.user.id;
+  const userId = auth.userId;
 
   const [questions, concepts, profile] = await Promise.all([
     getQuestionsWithSRS(pdfId, userId),

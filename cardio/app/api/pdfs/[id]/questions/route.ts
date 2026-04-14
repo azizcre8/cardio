@@ -3,15 +3,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { requireUser } from '@/lib/auth';
 
 export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } },
 ) {
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const { supabase } = auth;
 
   const { data, error } = await supabase
     .from('questions')
@@ -35,7 +36,7 @@ export async function GET(
       concepts(name)
     `)
     .eq('pdf_id', params.id)
-    .eq('user_id', session.user.id)
+    .eq('user_id', auth.userId)
     .eq('flagged', false);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

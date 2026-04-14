@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Source_Serif_4 } from 'next/font/google';
 import './globals.css';
 
 const inter = Inter({
@@ -8,23 +8,31 @@ const inter = Inter({
   display: 'swap',
 });
 
+const sourceSerif = Source_Serif_4({
+  subsets: ['latin'],
+  variable: '--font-serif',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Cardio — Clinical Spaced Repetition',
-  description: 'Anki, but with practice questions. AI-generated question banks from your medical PDFs.',
+  title: 'Cardio',
+  description: 'Shared question banks and private PDF-based study generation for medical exam prep.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;1,8..60,300;1,8..60,400&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="antialiased">
+    <html lang="en" className={`${inter.variable} ${sourceSerif.variable}`}>
+      <body
+        className="antialiased"
+        style={{
+          margin: 0,
+          background: 'var(--bg)',
+          color: 'var(--text-primary)',
+          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+        }}
+      >
         {children}
       </body>
     </html>

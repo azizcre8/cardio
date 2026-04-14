@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { supabaseServer } from '@/lib/supabase';
 import { runLengthAudit, runOptionSetAudit } from '@/lib/pipeline/audit';
 import { verifyEvidenceSpan } from '@/lib/pipeline/validation';
 import type { Question, Chunk } from '@/types';
+import { requireUser } from '@/lib/auth';
+import { env } from '@/lib/env';
 
 type ValidatePayload = {
   pdfId?: string;
@@ -55,7 +56,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 function getOpenAI(): OpenAI {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return new OpenAI({ apiKey: env.openAiApiKey });
 }
 
 function normalizeText(text: string): string {
@@ -285,9 +286,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'pdfId and questionId are required.' }, { status: 400 });
   }
 
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+  const { supabase, userId } = auth;
 
   const { data: questionData, error: questionError } = await supabase
     .from('questions')
@@ -311,7 +312,7 @@ export async function POST(req: NextRequest) {
     `)
     .eq('id', questionId)
     .eq('pdf_id', pdfId)
-    .eq('user_id', session.user.id)
+    .eq('user_id', userId)
     .single();
 
   if (questionError || !questionData) {
@@ -325,7 +326,7 @@ export async function POST(req: NextRequest) {
     .select('id, name, category, chunk_ids')
     .eq('id', question.concept_id)
     .eq('pdf_id', pdfId)
-    .eq('user_id', session.user.id)
+    .eq('user_id', userId)
     .single();
 
   const concept = (conceptData ?? null) as ConceptRow | null;
@@ -334,7 +335,7 @@ export async function POST(req: NextRequest) {
     .from('chunks')
     .select('id, text, start_page, end_page')
     .eq('pdf_id', pdfId)
-    .eq('user_id', session.user.id);
+    .eq('user_id', userId);
 
   if (question.chunk_id) {
     chunkQuery = chunkQuery.eq('id', question.chunk_id);
@@ -360,7 +361,7 @@ export async function POST(req: NextRequest) {
   const programmatic = buildProgrammaticIssues(question, concept?.name ?? null, evidenceCorpus);
   const fallback = buildFallbackResponse(programmatic.issues, programmatic.evidenceOk);
 
-  if (!process.env.OPENAI_API_KEY) {
+  if (!env.openAiApiKey) {
     return NextResponse.json(fallback);
   }
 

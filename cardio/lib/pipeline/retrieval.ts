@@ -9,6 +9,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase';
 import type { ChunkRecord, BM25Index } from '@/types';
+import { env } from '@/lib/env';
 
 const RAG_TOP_K = 4;
 
@@ -160,7 +161,7 @@ export async function retrieveTopChunks(
   allChunks:     ChunkRecord[],
   topK = RAG_TOP_K,
 ): Promise<ChunkRecord[]> {
-  const enableHybrid = process.env.ENABLE_HYBRID_RETRIEVAL !== 'false';
+  const enableHybrid = env.flags.hybridRetrieval;
 
   const denseRanked = await denseSearch(queryEmbedding, pdfId, topK * 2);
 

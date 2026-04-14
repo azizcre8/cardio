@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, tierFromPriceId } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
+import { env } from '@/lib/env';
 import type Stripe from 'stripe';
 
 // body is read as text below; Next.js App Router does not use bodyParser
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET!);
+    event = stripe.webhooks.constructEvent(body, signature, env.stripeWebhookSecret());
   } catch (e) {
     return NextResponse.json({ error: `Webhook signature failed: ${(e as Error).message}` }, { status: 400 });
   }

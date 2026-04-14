@@ -9,13 +9,14 @@
 
 import OpenAI from 'openai';
 import type { RawChunk, ChunkRecord } from '@/types';
+import { env } from '@/lib/env';
 
 const EMBED_MODEL = 'text-embedding-3-small';
 const EMBED_DIMS  = 512;
 const EBATCH      = 20;
 
 function getOpenAI(): OpenAI {
-  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return new OpenAI({ apiKey: env.openAiApiKey });
 }
 
 // ─── embedTexts — verbatim port (uses SDK instead of raw fetch) ───────────────

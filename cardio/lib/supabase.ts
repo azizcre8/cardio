@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+import { env } from '@/lib/env';
 
 // ─── Browser client ─────────────────────────────────────────────────────────
 // This is safe to use in any "use client" file
@@ -31,7 +29,7 @@ export function supabaseServerComponent() {
 // ─── Admin client (Now hidden from the browser) ─────────────────────────────
 // We only initialize this if we are NOT in a browser to prevent crashes
 export const supabaseAdmin = typeof window === 'undefined' 
-  ? createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+  ? createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,

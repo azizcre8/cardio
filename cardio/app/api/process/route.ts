@@ -6,8 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { supabaseServer, supabaseAdmin } from '@/lib/supabase';
-import { PLAN_LIMITS } from '@/lib/stripe';
+import { supabaseAdmin } from '@/lib/supabase';
 import { extractTextServer, assessTextQuality } from '@/lib/pipeline/ingestion';
 import { chunkText } from '@/lib/pipeline/chunking';
 import { embedAllChunks } from '@/lib/pipeline/embeddings';
@@ -19,8 +18,10 @@ import {
   insertPDF, updatePDF, insertChunks, insertConcepts, insertQuestions, insertFlaggedQuestion,
   getAndMaybeResetMonthlyCount, incrementMonthlyCount,
 } from '@/lib/storage';
-import type { ProcessEvent, Density, DensityConfig } from '@/types';
-import { DENSITY_CONFIG } from '@/types';
+import { DENSITY_CONFIG, type ProcessEvent, type Density, type DensityConfig } from '@/types';
+import { requireUser } from '@/lib/auth';
+import { env } from '@/lib/env';
+import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
 
 export const maxDuration = 300; 
 export const runtime    = 'nodejs';
@@ -34,14 +35,12 @@ function encodeEvent(ev: ProcessEvent): string {
 // ─── Main handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session) {
+  const auth = await requireUser();
+  if (!auth.ok) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const userId = session.user.id;
+  const { supabase, userId } = auth;
 
   let formData: FormData;
   try {
@@ -65,12 +64,11 @@ export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV !== 'development') {
     try {
       const monthlyCount = await getAndMaybeResetMonthlyCount(userId);
-      const { data: profile } = await supabaseServer().from('users').select('plan').eq('id', userId).single();
-      const tier = (profile?.plan as keyof typeof PLAN_LIMITS) ?? 'free';
-      const limits = PLAN_LIMITS[tier];
+      const { data: profile } = await supabase.from('users').select('plan').eq('id', userId).single();
+      const limits = getPlanLimits(profile?.plan);
       if (limits.pdfsPerMonth !== null && monthlyCount >= limits.pdfsPerMonth) {
         return new Response(
-          JSON.stringify({ error: 'Plan limit exceeded', tier, limit: limits.pdfsPerMonth }),
+          JSON.stringify({ error: 'Plan limit exceeded', tier: normalizePlanTier(profile?.plan), limit: limits.pdfsPerMonth }),
           { status: 402, headers: { 'Content-Type': 'application/json' } },
         );
       }
@@ -127,8 +125,7 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const enableQualityCheck = process.env.ENABLE_TEXT_QUALITY_CHECK !== 'false';
-        if (enableQualityCheck) {
+        if (env.flags.textQualityCheck) {
           const qr = assessTextQuality(pages);
           if (qr.quality === 'empty') {
             fail('PDF text quality is too poor (scanned/image PDF)');
@@ -210,9 +207,8 @@ export async function POST(req: NextRequest) {
         // ── Phase 6: Question generation + audit
         emit({ phase: 6, message: 'Phase 6: Generating questions…', pct: 60 });
 
-        const { data: profileRow } = await supabaseServer().from('users').select('plan').eq('id', userId).single();
-        const genTier = ((profileRow?.plan) as keyof typeof PLAN_LIMITS) ?? 'free';
-        const maxQuestionsPerPdf = PLAN_LIMITS[genTier].maxQuestionsPerPdf;
+        const { data: profileRow } = await supabase.from('users').select('plan').eq('id', userId).single();
+        const maxQuestionsPerPdf = getPlanLimits(profileRow?.plan).maxQuestionsPerPdf;
 
         let totalQuestions = 0;
         let totalRejected  = 0;

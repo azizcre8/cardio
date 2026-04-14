@@ -3,14 +3,15 @@
  */
 
 import { NextResponse } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
 import { getPDFs } from '@/lib/storage';
+import { requireUser } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const supabase = supabaseServer();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
 
-  const pdfs = await getPDFs(session.user.id);
+  const pdfs = await getPDFs(auth.userId);
   return NextResponse.json(pdfs);
 }

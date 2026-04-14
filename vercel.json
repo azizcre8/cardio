@@ -1,5 +1,1 @@
-{
-  "rewrites": [
-    { "source": "/", "destination": "/medical-study-app-v2.html" }
-  ]
-}
+{}

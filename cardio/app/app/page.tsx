@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import type { CSSProperties } from 'react';
 import { supabaseBrowser } from '@/lib/supabase';
 import LibraryView from '@/components/LibraryView';
 import AddView from '@/components/AddView';
@@ -131,7 +132,6 @@ export default function AppPage() {
     setConceptMapPdfId(pdfId);
     setView('conceptmap');
   }
-  function openBankSelect() { setView('bankselect'); }
   function startQuiz(pdfId: string) { setQuizPdfId(pdfId); setView('quiz'); }
   function quizDone() {
     // Return to concept map for the quiz's PDF
@@ -141,46 +141,83 @@ export default function AppPage() {
 
   const conceptMapPdf = pdfs.find(p => p.id === conceptMapPdfId) ?? null;
 
-  /* ── Nav button styles ── */
-  const navBtn = (v: AppView | AppView[]) => {
+  const isJobRunning = activeJob?.isRunning ?? false;
+  const navButtonStyle = (v: AppView | AppView[]): CSSProperties => {
     const active = Array.isArray(v) ? v.includes(view) : view === v;
-    return `text-xs font-semibold tracking-widest uppercase transition-colors whitespace-nowrap px-1 py-0.5 ${
-      active
-        ? 'text-[var(--accent)]'
-        : 'text-[var(--text-dim)] hover:text-[var(--text-secondary)]'
-    }`;
+    return {
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      whiteSpace: 'nowrap',
+      padding: '2px 4px',
+      background: 'none',
+      border: 'none',
+      cursor: 'pointer',
+      color: active ? 'var(--accent)' : 'var(--text-dim)',
+      transition: 'color 0.15s',
+    };
   };
 
-  const isJobRunning = activeJob?.isRunning ?? false;
-
   return (
-    <div className="flex flex-col min-h-screen">
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+      }}
+    >
       {/* ── Nav ── */}
       <nav
-        className="flex items-center gap-5 px-5 h-[56px] border-b sticky top-0 z-30"
-        style={{ background: 'var(--bg)', borderColor: 'var(--border)' }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          padding: '0 20px',
+          height: '56px',
+          borderBottom: '1px solid var(--border)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 30,
+          background: 'var(--bg)',
+        }}
       >
         {/* Brand */}
         <div
-          className="cursor-pointer flex items-baseline gap-2 mr-2 flex-shrink-0"
+          style={{
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: '8px',
+            marginRight: '8px',
+            flexShrink: 0,
+          }}
           onClick={() => setView('library')}
         >
-          <span className="text-base font-bold tracking-widest uppercase" style={{ color: 'var(--accent)' }}>
+          <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>
             Cardio
           </span>
-          <span className="text-[0.58rem] font-medium tracking-[0.13em] uppercase hidden sm:block" style={{ color: 'var(--text-dim)' }}>
+          <span style={{ fontSize: '0.58rem', fontWeight: 500, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
             Clinical SRS
           </span>
         </div>
 
         {/* Nav links */}
-        <button onClick={() => setView('library')}  className={navBtn('library')}>Library</button>
+        <button
+          onClick={() => setView('library')}
+          style={navButtonStyle('library')}
+          onMouseEnter={e => { if (view !== 'library') e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseLeave={e => { if (view !== 'library') e.currentTarget.style.color = 'var(--text-dim)'; }}
+        >
+          Library
+        </button>
 
         {/* Add tab with processing indicator */}
         <button
           onClick={() => setView(isJobRunning ? 'processing' : 'add')}
-          className={navBtn(['add', 'processing'])}
-          style={{ position: 'relative' }}
+          style={{ ...navButtonStyle(['add', 'processing']), position: 'relative' }}
+          onMouseEnter={e => { if (!['add', 'processing'].includes(view)) e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseLeave={e => { if (!['add', 'processing'].includes(view)) e.currentTarget.style.color = 'var(--text-dim)'; }}
         >
           Add
           {isJobRunning && view !== 'processing' && (
@@ -193,10 +230,24 @@ export default function AppPage() {
           )}
         </button>
 
-        <button onClick={() => setView('stats')}    className={navBtn('stats')}>Stats</button>
-        <button onClick={() => setView('settings')} className={navBtn('settings')}>Settings</button>
+        <button
+          onClick={() => setView('stats')}
+          style={navButtonStyle('stats')}
+          onMouseEnter={e => { if (view !== 'stats') e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseLeave={e => { if (view !== 'stats') e.currentTarget.style.color = 'var(--text-dim)'; }}
+        >
+          Stats
+        </button>
+        <button
+          onClick={() => setView('settings')}
+          style={navButtonStyle('settings')}
+          onMouseEnter={e => { if (view !== 'settings') e.currentTarget.style.color = 'var(--text-secondary)'; }}
+          onMouseLeave={e => { if (view !== 'settings') e.currentTarget.style.color = 'var(--text-dim)'; }}
+        >
+          Settings
+        </button>
 
-        <div className="ml-auto flex items-center gap-4">
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
           {/* Dark mode toggle */}
           <button
             onClick={toggleDark}
@@ -235,7 +286,12 @@ export default function AppPage() {
       </nav>
 
       {/* ── Body ── */}
-      <main className={`flex-1 ${view === 'processing' ? '' : 'px-4 py-6'}`}>
+      <main
+        style={{
+          flex: 1,
+          padding: view === 'processing' ? '0' : '24px 16px',
+        }}
+      >
 
         {view === 'library' && (
           <LibraryView
@@ -249,7 +305,7 @@ export default function AppPage() {
         )}
 
         {view === 'add' && (
-          <div className="px-4 py-6">
+          <div style={{ padding: '24px 16px' }}>
             <AddView
               pdfs={pdfs}
               isJobRunning={isJobRunning}
@@ -269,7 +325,7 @@ export default function AppPage() {
 
         {/* Redirect to add if processing view accessed without a job */}
         {view === 'processing' && !activeJob && (
-          <div className="px-4 py-6">
+          <div style={{ padding: '24px 16px' }}>
             <AddView
               pdfs={pdfs}
               isJobRunning={false}
