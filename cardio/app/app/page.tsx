@@ -133,6 +133,11 @@ export default function AppPage() {
   }
   function openBankSelect() { setView('bankselect'); }
   function startQuiz(pdfId: string) { setQuizPdfId(pdfId); setView('quiz'); }
+  function quizDone() {
+    // Return to concept map for the quiz's PDF
+    if (quizPdfId) setConceptMapPdfId(quizPdfId);
+    setView('conceptmap');
+  }
 
   const conceptMapPdf = pdfs.find(p => p.id === conceptMapPdfId) ?? null;
 
@@ -294,7 +299,7 @@ export default function AppPage() {
         {view === 'quiz' && quizPdfId && (
           <QuizView
             pdfId={quizPdfId}
-            onDone={openBankSelect}
+            onDone={quizDone}
           />
         )}
 

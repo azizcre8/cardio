@@ -15,7 +15,25 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('questions')
-    .select('id, stem, options, answer, explanation, source_quote, level, concept_id, concepts(name)')
+    .select(`
+      id,
+      stem,
+      options,
+      answer,
+      explanation,
+      source_quote,
+      level,
+      concept_id,
+      chunk_id,
+      evidence_start,
+      evidence_end,
+      evidence_match_type,
+      decision_target,
+      deciding_clue,
+      most_tempting_distractor,
+      option_set_flags,
+      concepts(name)
+    `)
     .eq('pdf_id', params.id)
     .eq('user_id', session.user.id)
     .eq('flagged', false);

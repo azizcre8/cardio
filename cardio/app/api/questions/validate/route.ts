@@ -1,0 +1,454 @@
+import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
+import { supabaseServer } from '@/lib/supabase';
+import { runLengthAudit, runOptionSetAudit } from '@/lib/pipeline/audit';
+import { verifyEvidenceSpan } from '@/lib/pipeline/validation';
+import type { Question, Chunk } from '@/types';
+
+type ValidatePayload = {
+  pdfId?: string;
+  questionId?: string;
+  stem?: string;
+  options?: string[];
+  answer?: number;
+  explanation?: string;
+  sourceQuote?: string;
+};
+
+type Confidence = 'high' | 'medium' | 'low';
+
+type ValidatorResponse = {
+  isValid: boolean;
+  issues: string[];
+  suggestedFix: string;
+  confidence: Confidence;
+};
+
+type QuestionRow = Pick<
+  Question,
+  | 'id'
+  | 'pdf_id'
+  | 'concept_id'
+  | 'level'
+  | 'stem'
+  | 'options'
+  | 'answer'
+  | 'explanation'
+  | 'source_quote'
+  | 'evidence_start'
+  | 'evidence_end'
+  | 'chunk_id'
+  | 'decision_target'
+  | 'deciding_clue'
+  | 'most_tempting_distractor'
+  | 'option_set_flags'
+>;
+
+type ConceptRow = {
+  id: string;
+  name: string;
+  category: string;
+  chunk_ids: string[] | null;
+};
+
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
+function getOpenAI(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
+
+function normalizeText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function compactIssue(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function canonicalizeIssue(text: string): string {
+  const normalized = normalizeText(text);
+
+  if (normalized.includes('key distinction') && (normalized.includes('missing') || normalized.includes('lacks'))) {
+    return 'missing_key_distinction';
+  }
+
+  if (
+    (normalized.includes('contrast') || normalized.includes('distractor')) &&
+    (normalized.includes('explanation does not') || normalized.includes('explanation lacks'))
+  ) {
+    return 'missing_distractor_contrast';
+  }
+
+  if (
+    normalized.includes('source quote') &&
+    (normalized.includes('could not be verified') || normalized.includes('does not provide specific evidence'))
+  ) {
+    return 'source_quote_not_verified';
+  }
+
+  if (
+    normalized.includes('correct answer') &&
+    (normalized.includes('not clearly supported') || normalized.includes('does not support'))
+  ) {
+    return 'correct_answer_not_supported';
+  }
+
+  if (normalized.includes('fabricated distractor')) {
+    return 'fabricated_distractor';
+  }
+
+  return normalized;
+}
+
+function takeUnique(items: string[], limit = 8): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of items.map(compactIssue)) {
+    const canonical = canonicalizeIssue(item);
+    if (!item || seen.has(canonical)) continue;
+    seen.add(canonical);
+    out.push(item);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function scoreChunk(text: string, queryTerms: string[]): number {
+  const normalized = normalizeText(text);
+  return queryTerms.reduce((score, term) => {
+    if (!term) return score;
+    return normalized.includes(term) ? score + Math.max(1, term.length / 8) : score;
+  }, 0);
+}
+
+function selectRelevantChunks(
+  chunks: Array<Pick<Chunk, 'id' | 'text' | 'start_page' | 'end_page'>>,
+  query: string,
+  limit = 4,
+): Array<Pick<Chunk, 'id' | 'text' | 'start_page' | 'end_page'>> {
+  const queryTerms = Array.from(
+    new Set(
+      normalizeText(query)
+        .split(' ')
+        .filter(term => term.length >= 4),
+    ),
+  );
+
+  return [...chunks]
+    .map(chunk => ({ chunk, score: scoreChunk(chunk.text, queryTerms) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(entry => entry.chunk);
+}
+
+function buildProgrammaticIssues(
+  question: QuestionRow,
+  conceptName: string | null,
+  evidenceCorpus: string,
+): { issues: string[]; evidenceOk: boolean } {
+  const issues: string[] = [];
+  const auditableQuestion: Omit<Question, 'id' | 'created_at'> = {
+    pdf_id: question.pdf_id,
+    concept_id: question.concept_id,
+    user_id: '',
+    level: question.level,
+    stem: question.stem,
+    options: question.options,
+    answer: question.answer,
+    explanation: question.explanation,
+    option_explanations: null,
+    source_quote: question.source_quote,
+    evidence_start: question.evidence_start,
+    evidence_end: question.evidence_end,
+    chunk_id: question.chunk_id,
+    evidence_match_type: null,
+    decision_target: question.decision_target,
+    deciding_clue: question.deciding_clue,
+    most_tempting_distractor: question.most_tempting_distractor,
+    why_tempting: null,
+    why_fails: null,
+    option_set_flags: question.option_set_flags,
+    flagged: false,
+    flag_reason: null,
+  };
+  const [lengthAudit] = runLengthAudit([auditableQuestion]);
+  const [optionFlags] = runOptionSetAudit([auditableQuestion]);
+
+  if (lengthAudit?.status === 'REVISE' && lengthAudit.critique) {
+    issues.push(lengthAudit.critique);
+  }
+
+  for (const flag of optionFlags ?? []) {
+    switch (flag) {
+      case 'NONE_ALL_OF_ABOVE':
+        issues.push('Option set uses "all of the above" or "none of the above," which violates the answer-choice rules.');
+        break;
+      case 'MIXED_CATEGORY':
+        issues.push('Answer choices mix conceptual categories instead of staying in one comparison class.');
+        break;
+      case 'LENGTH_OUTLIER':
+      case 'CORRECT_LONGER_TELL':
+        issues.push('Option lengths create a test-taking tell rather than requiring medical knowledge.');
+        break;
+      case 'UNIQUE_QUALIFIER':
+        issues.push('The keyed answer stands out with a unique qualifier or parenthetical detail.');
+        break;
+      default:
+        if (flag.startsWith('OPTION_OVERLAP_')) {
+          issues.push('Two answer choices are overly overlapping, which weakens distractor diversity.');
+        }
+        break;
+    }
+  }
+
+  const expectedOptionCount = question.level === 1 ? 5 : 4;
+  if (question.options.length !== expectedOptionCount) {
+    issues.push(`Level ${question.level} questions must have exactly ${expectedOptionCount} answer choices.`);
+  }
+
+  if (question.level === 1 && /\b(not|except|least)\b/i.test(question.stem)) {
+    issues.push('Level 1 questions should avoid negation stems such as NOT/EXCEPT/LEAST.');
+  }
+
+  if (!/key distinction:/i.test(question.explanation)) {
+    issues.push('Explanation is missing the required "Key distinction" teaching sentence.');
+  }
+
+  if (!/\b(whereas|however|unlike|in contrast|but fails|not because)\b/i.test(question.explanation)) {
+    issues.push('Explanation does not clearly contrast the correct answer against distractors.');
+  }
+
+  let evidenceOk = false;
+  const sourceQuote = String(question.source_quote ?? '').trim();
+  if (!sourceQuote || sourceQuote === 'UNGROUNDED') {
+    issues.push('Question is missing a grounded source quote from the PDF.');
+  } else if (!evidenceCorpus.trim()) {
+    issues.push('Could not load source PDF text needed to verify the evidence for this question.');
+  } else {
+    const evidence = verifyEvidenceSpan(
+      sourceQuote,
+      question.evidence_start ?? 0,
+      question.evidence_end ?? 0,
+      evidenceCorpus,
+    );
+    evidenceOk = evidence.ok;
+    if (!evidence.ok) {
+      issues.push('Stored source quote could not be verified against the source PDF text.');
+    }
+  }
+
+  if (question.deciding_clue && sourceQuote && sourceQuote !== 'UNGROUNDED') {
+    const clue = normalizeText(question.deciding_clue);
+    const quote = normalizeText(sourceQuote);
+    if (clue && !quote.includes(clue) && clue.split(' ').filter(Boolean).length >= 3) {
+      issues.push('Deciding clue is not clearly supported by the quoted PDF evidence.');
+    }
+  }
+
+  if (conceptName && !question.stem.toLowerCase().includes(conceptName.toLowerCase()) && question.level === 1) {
+    issues.push('Level 1 stem may be under-specified relative to the intended concept and source material.');
+  }
+
+  return { issues: takeUnique(issues), evidenceOk };
+}
+
+function buildFallbackResponse(programmaticIssues: string[], evidenceOk: boolean): ValidatorResponse {
+  const issues = takeUnique(programmaticIssues);
+  return {
+    isValid: issues.length === 0 && evidenceOk,
+    issues,
+    suggestedFix: issues[0] ?? 'Question aligns with the current PDF-grounding and answer-choice checks.',
+    confidence: evidenceOk ? 'medium' : 'low',
+  };
+}
+
+export async function POST(req: NextRequest) {
+  let body: ValidatePayload;
+
+  try {
+    body = (await req.json()) as ValidatePayload;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+  }
+
+  const pdfId = String(body.pdfId ?? '').trim();
+  const questionId = String(body.questionId ?? '').trim();
+
+  if (!pdfId || !questionId) {
+    return NextResponse.json({ error: 'pdfId and questionId are required.' }, { status: 400 });
+  }
+
+  const supabase = supabaseServer();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data: questionData, error: questionError } = await supabase
+    .from('questions')
+    .select(`
+      id,
+      pdf_id,
+      concept_id,
+      level,
+      stem,
+      options,
+      answer,
+      explanation,
+      source_quote,
+      evidence_start,
+      evidence_end,
+      chunk_id,
+      decision_target,
+      deciding_clue,
+      most_tempting_distractor,
+      option_set_flags
+    `)
+    .eq('id', questionId)
+    .eq('pdf_id', pdfId)
+    .eq('user_id', session.user.id)
+    .single();
+
+  if (questionError || !questionData) {
+    return NextResponse.json({ error: 'Question not found.' }, { status: 404 });
+  }
+
+  const question = questionData as QuestionRow;
+
+  const { data: conceptData } = await supabase
+    .from('concepts')
+    .select('id, name, category, chunk_ids')
+    .eq('id', question.concept_id)
+    .eq('pdf_id', pdfId)
+    .eq('user_id', session.user.id)
+    .single();
+
+  const concept = (conceptData ?? null) as ConceptRow | null;
+
+  let chunkQuery = supabase
+    .from('chunks')
+    .select('id, text, start_page, end_page')
+    .eq('pdf_id', pdfId)
+    .eq('user_id', session.user.id);
+
+  if (question.chunk_id) {
+    chunkQuery = chunkQuery.eq('id', question.chunk_id);
+  } else if (concept?.chunk_ids?.length) {
+    chunkQuery = chunkQuery.in('id', concept.chunk_ids.slice(0, 12));
+  } else {
+    chunkQuery = chunkQuery.limit(12);
+  }
+
+  const { data: chunkData } = await chunkQuery;
+  const candidateChunks = (chunkData ?? []) as Array<Pick<Chunk, 'id' | 'text' | 'start_page' | 'end_page'>>;
+  const relevantChunks = selectRelevantChunks(
+    candidateChunks,
+    [
+      question.stem,
+      question.source_quote,
+      concept?.name ?? '',
+      question.deciding_clue ?? '',
+    ].join(' '),
+  );
+  const evidenceCorpus = relevantChunks.map(chunk => chunk.text).join('\n');
+
+  const programmatic = buildProgrammaticIssues(question, concept?.name ?? null, evidenceCorpus);
+  const fallback = buildFallbackResponse(programmatic.issues, programmatic.evidenceOk);
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(fallback);
+  }
+
+  const prompt = `
+You are a strict medical MCQ validation agent.
+Judge whether this stored question follows the app's PDF-grounding, question-generation, and answer-choice rules.
+
+Return valid JSON only in this exact shape:
+{
+  "isValid": boolean,
+  "issues": string[],
+  "suggestedFix": string,
+  "confidence": "high" | "medium" | "low"
+}
+
+Validation priorities:
+1. The correct answer must be directly supportable from the source PDF evidence.
+2. The source quote must align with the deciding clue and explanation.
+3. Answer choices must obey board-style rules: same comparison class, plausible near-misses, no length tell, no odd-one-out structure, no fabricated distractors.
+4. Stem must fit the level:
+   - L1 = recall/discrimination, avoid NOT/EXCEPT stems, exactly 5 choices.
+   - L2/L3 = exactly 4 choices.
+5. Explanation must teach the distinction and contrast distractors, not just restate the answer.
+
+Known programmatic findings:
+${programmatic.issues.length ? programmatic.issues.map(issue => `- ${issue}`).join('\n') : '- none'}
+
+Question:
+- Concept: ${JSON.stringify(concept?.name ?? null)}
+- Category: ${JSON.stringify(concept?.category ?? null)}
+- Level: ${question.level}
+- Stem: ${JSON.stringify(question.stem)}
+- Options: ${JSON.stringify(question.options)}
+- Correct answer index (0-based): ${question.answer}
+- Explanation: ${JSON.stringify(question.explanation)}
+- Source quote: ${JSON.stringify(question.source_quote)}
+- Decision target: ${JSON.stringify(question.decision_target)}
+- Deciding clue: ${JSON.stringify(question.deciding_clue)}
+- Most tempting distractor: ${JSON.stringify(question.most_tempting_distractor)}
+
+Relevant PDF excerpts:
+${relevantChunks.length
+  ? relevantChunks.map((chunk, i) => `Excerpt ${i + 1} (pages ${chunk.start_page}-${chunk.end_page}): ${JSON.stringify(chunk.text.slice(0, 1800))}`).join('\n')
+  : 'No excerpt available.'}
+
+Rules for output:
+- Be strict.
+- If PDF evidence does not actually support the keyed answer, mark invalid.
+- Keep issues concise, concrete, and specific to this question. Max 6.
+- suggestedFix must be one short sentence that names the highest-priority repair.
+`.trim();
+
+  try {
+    const openai = getOpenAI();
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.1,
+      max_tokens: 320,
+      response_format: { type: 'json_object' },
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) return NextResponse.json(fallback);
+
+    const parsed = JSON.parse(content) as Partial<ValidatorResponse>;
+    const mergedIssues = takeUnique([
+      ...programmatic.issues,
+      ...(Array.isArray(parsed.issues) ? parsed.issues.map(item => String(item)) : []),
+    ]);
+
+    const isValid =
+      Boolean(parsed.isValid) &&
+      mergedIssues.length === 0 &&
+      programmatic.evidenceOk;
+
+    const confidence = (parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low')
+      ? parsed.confidence
+      : fallback.confidence;
+
+    return NextResponse.json({
+      isValid,
+      issues: mergedIssues,
+      suggestedFix: String(parsed.suggestedFix ?? fallback.suggestedFix),
+      confidence,
+    } satisfies ValidatorResponse);
+  } catch (error) {
+    console.error('[questions/validate] validation failed:', error);
+    return NextResponse.json(fallback);
+  }
+}

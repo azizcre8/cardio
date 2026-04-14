@@ -18,14 +18,21 @@ interface HighlightRange {
   end: number;
 }
 
-const LETTERS = ['A', 'B', 'C', 'D', 'E'];
+interface ValidationResult {
+  loading: boolean;
+  error: string | null;
+  isValid: boolean | null;
+  issues: string[];
+  suggestedFix: string;
+  confidence: 'high' | 'medium' | 'low' | null;
+}
 
 /** Extracts "Key distinction: …" sentence, renders it first and bolded. */
 function formatExplanation(text: string) {
   // Pull out the key-distinction clause wherever it sits in the text
   const kdMatch = text.match(/Key distinction:\s*(.+?)(?:[.!?](?:\s|$)|$)/i);
   if (kdMatch) {
-    const keyDistinction = kdMatch[1].trim();
+    const keyDistinction = kdMatch[1]!.trim();
     // Remove the full "Key distinction: …[punctuation]" span from the rest
     const rest = text.replace(/Key distinction:\s*.+?(?:[.!?](?:\s|$)|$)/i, '').trim();
     return (
@@ -100,6 +107,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const [loading,    setLoading]    = useState(true);
   const [highlights, setHighlights] = useState<Map<number, HighlightRange[]>>(new Map());
   const [strikeouts, setStrikeouts] = useState<Map<number, Set<number>>>(new Map());
+  const [validationByIdx, setValidationByIdx] = useState<Map<number, ValidationResult>>(new Map());
   const stemRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -167,6 +175,21 @@ export default function QuizView({ pdfId, onDone }: Props) {
     setAnswers(questions.map(() => ({ selected: null, revealed: false })));
     setHighlights(new Map());
     setStrikeouts(new Map());
+    setValidationByIdx(new Map());
+  }
+
+  function reviewMissed() {
+    const wrongQs = questions.filter((_, i) => {
+      const a = answers[i];
+      const q = questions[i];
+      return a != null && q != null && a.revealed && a.selected !== q.answer;
+    });
+    if (!wrongQs.length) return;
+    setQuestions(wrongQs);
+    setIdx(0);
+    setAnswers(wrongQs.map(() => ({ selected: null, revealed: false })));
+    setHighlights(new Map());
+    setStrikeouts(new Map());
   }
 
   /** Capture text selection within the stem and persist it as a highlight. */
@@ -221,6 +244,70 @@ export default function QuizView({ pdfId, onDone }: Props) {
     });
   }
 
+  async function validateCurrentQuestion() {
+    if (!current) return;
+
+    setValidationByIdx(prev => {
+      const next = new Map(prev);
+      next.set(idx, {
+        loading: true,
+        error: null,
+        isValid: null,
+        issues: [],
+        suggestedFix: '',
+        confidence: null,
+      });
+      return next;
+    });
+
+    try {
+      const res = await fetch('/api/questions/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfId,
+          questionId: current.id,
+          stem: current.stem,
+          options: current.options,
+          answer: current.answer,
+          explanation: current.explanation,
+          sourceQuote: current.source_quote,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? 'Validation failed.');
+
+      setValidationByIdx(prev => {
+        const next = new Map(prev);
+        next.set(idx, {
+          loading: false,
+          error: null,
+          isValid: Boolean(data?.isValid),
+          issues: Array.isArray(data?.issues) ? data.issues.map((x: unknown) => String(x)) : [],
+          suggestedFix: String(data?.suggestedFix ?? ''),
+          confidence: (data?.confidence === 'high' || data?.confidence === 'medium' || data?.confidence === 'low')
+            ? data.confidence
+            : null,
+        });
+        return next;
+      });
+    } catch (err) {
+      setValidationByIdx(prev => {
+        const next = new Map(prev);
+        next.set(idx, {
+          loading: false,
+          error: err instanceof Error ? err.message : 'Validation failed.',
+          isValid: null,
+          issues: [],
+          suggestedFix: '',
+          confidence: null,
+        });
+        return next;
+      });
+    }
+  }
+
   /* ── Loading ── */
   if (loading) {
     return (
@@ -253,7 +340,8 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   /* ── Session complete ── */
   if (idx >= questions.length) {
-    const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const pct      = total > 0 ? Math.round((correct / total) * 100) : 0;
+    const wrongCount = answers.filter((a, i) => a != null && a.revealed && a.selected !== questions[i]?.answer).length;
     return (
       <div style={{ maxWidth: '480px', margin: '0 auto', textAlign: 'center', padding: '80px 20px' }}>
         <div style={{
@@ -271,27 +359,62 @@ export default function QuizView({ pdfId, onDone }: Props) {
         <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '32px' }}>
           {correct} / {total} correct
         </p>
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-          <button
-            onClick={restart}
-            style={{
-              padding: '10px 24px', borderRadius: 'var(--radius-md)',
-              background: 'var(--bg-raised)', border: '1px solid var(--border)',
-              color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
-            }}
-          >
-            Restart
-          </button>
-          <button
-            onClick={onDone}
-            style={{
-              padding: '10px 24px', borderRadius: 'var(--radius-md)',
-              background: 'var(--accent)', color: 'white',
-              fontSize: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-            }}
-          >
-            Choose Another Bank
-          </button>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
+          {/* Primary: review missed — only shown when there are wrong answers */}
+          {wrongCount > 0 && (
+            <button
+              onClick={reviewMissed}
+              style={{
+                width: '100%', padding: '12px 24px', borderRadius: 'var(--radius-md)',
+                background: 'var(--accent)', color: 'white',
+                fontSize: '0.875rem', fontWeight: 600, border: 'none', cursor: 'pointer',
+                transition: 'opacity 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
+              Review Missed ({wrongCount})
+            </button>
+          )}
+
+          {/* Secondary row */}
+          <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+            <button
+              onClick={restart}
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-primary)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-secondary)')}
+            >
+              Restart
+            </button>
+            <button
+              onClick={onDone}
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 'var(--radius-md)',
+                background: wrongCount > 0 ? 'var(--bg-raised)' : 'var(--accent)',
+                border: wrongCount > 0 ? '1px solid var(--border)' : 'none',
+                color: wrongCount > 0 ? 'var(--text-secondary)' : 'white',
+                fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                transition: 'color 0.15s, opacity 0.15s',
+              }}
+              onMouseEnter={e => {
+                if (wrongCount > 0) e.currentTarget.style.color = 'var(--text-primary)';
+                else e.currentTarget.style.opacity = '0.88';
+              }}
+              onMouseLeave={e => {
+                if (wrongCount > 0) e.currentTarget.style.color = 'var(--text-secondary)';
+                else e.currentTarget.style.opacity = '1';
+              }}
+            >
+              ← Back to Concepts
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -299,6 +422,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   if (!current) return null;
   const isCorrect = selected === current.answer;
+  const validation = validationByIdx.get(idx);
 
   return (
     <div style={{
@@ -450,6 +574,67 @@ export default function QuizView({ pdfId, onDone }: Props) {
                 </button>
               )}
             </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+              <button
+                onClick={validateCurrentQuestion}
+                disabled={validation?.loading}
+                style={{
+                  fontSize: '0.67rem',
+                  padding: '4px 10px',
+                  borderRadius: '999px',
+                  border: '1px solid var(--border)',
+                  background: 'none',
+                  color: 'var(--text-dim)',
+                  cursor: validation?.loading ? 'default' : 'pointer',
+                  opacity: validation?.loading ? 0.6 : 1,
+                }}
+              >
+                {validation?.loading ? 'Validating…' : 'Validate question'}
+              </button>
+            </div>
+
+            {validation && !validation.loading && (
+              <div style={{
+                marginBottom: '12px',
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: `1px solid ${validation.error
+                  ? 'rgba(220,38,38,0.35)'
+                  : validation.isValid
+                    ? 'rgba(22,163,74,0.32)'
+                    : 'rgba(245,158,11,0.35)'}`,
+                background: 'var(--bg-sunken)',
+              }}>
+                {validation.error ? (
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--red)' }}>{validation.error}</p>
+                ) : (
+                  <>
+                    <p style={{
+                      margin: '0 0 6px',
+                      fontSize: '0.73rem',
+                      fontWeight: 700,
+                      color: validation.isValid ? 'var(--green)' : 'var(--amber)',
+                    }}>
+                      {validation.isValid ? 'Looks good' : 'Needs revision'}
+                      {validation.confidence ? ` · ${validation.confidence} confidence` : ''}
+                    </p>
+                    {validation.issues.length > 0 && (
+                      <ul style={{ margin: '0 0 6px', paddingLeft: '18px', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+                        {validation.issues.map((issue, i) => (
+                          <li key={i}>{issue}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {validation.suggestedFix && (
+                      <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-dim)' }}>
+                        Suggested fix: {validation.suggestedFix}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Options */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
