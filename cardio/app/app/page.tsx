@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import type { CSSProperties } from 'react';
-import { supabaseBrowser } from '@/lib/supabase';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import LibraryView from '@/components/LibraryView';
 import AddView from '@/components/AddView';
 import ProcessingView, { type ActiveJob } from '@/components/ProcessingView';

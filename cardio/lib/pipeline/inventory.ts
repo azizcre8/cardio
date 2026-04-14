@@ -6,6 +6,7 @@
 
 import { callOpenAI, parseJSON } from './generation';
 import type { ChunkRecord, RawConcept, ConfusionMap, Concept, DensityConfig } from '@/types';
+import type { OpenAICostTracker } from '@/lib/openai-cost';
 
 const OPENAI_MODEL = 'gpt-4o-mini';
 
@@ -59,6 +60,7 @@ export async function extractInventory(
   dc:           DensityConfig,
   batchIdx:     number,
   totalBatches: number,
+  onCost?: OpenAICostTracker,
 ): Promise<InventoryBatch> {
   // P0.1 — skip chunks shorter than 80 chars (garbage from scanned or blank pages)
   const records = chunkBatch.filter(r => {
@@ -104,7 +106,7 @@ FIELD DEFINITIONS:
 
 Extract ${minMax} concepts per section. Every named structure, disease, drug, test, mechanism, complication, contraindication, classic association, or board-tested detail in the text must be captured.`;
 
-  const { text } = await callOpenAI(prompt, Math.min(4000 * records.length, 16384), OPENAI_MODEL);
+  const { text } = await callOpenAI(prompt, Math.min(4000 * records.length, 16384), OPENAI_MODEL, onCost);
   const data = parseJSON(text);
   const arr = Array.isArray(data) ? data : (data.concepts || []);
   const headings: string[] = !Array.isArray(data) && Array.isArray(data.headings) ? data.headings : [];
@@ -298,6 +300,7 @@ export function canonicalizeConcepts(concepts: MergedRawConcept[]): MergedRawCon
 
 export async function generateConfusionMap(
   concepts: Array<{ name: string; category: string }>,
+  onCost?: OpenAICostTracker,
 ): Promise<ConfusionMap> {
   const conceptList = concepts.map(c => `- ${c.name} [${c.category}]`).join('\n');
 
@@ -318,7 +321,7 @@ Return ONLY valid JSON — no markdown, no prose:
 [{"conceptA":"exact name from list","conceptB":"exact name from list","reason":"one sentence why confused"}]`;
 
   try {
-    const { text } = await callOpenAI(prompt, 2048, OPENAI_MODEL);
+    const { text } = await callOpenAI(prompt, 2048, OPENAI_MODEL, onCost);
     const pairs = parseJSON(text);
     if (!Array.isArray(pairs)) return {};
 

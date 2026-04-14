@@ -12,13 +12,17 @@ export async function middleware(req: NextRequest) {
 
   // Protect /app routes — redirect unauthenticated users to login
   if (pathname.startsWith('/app') && !session) {
-    const loginUrl = new URL('/login', req.url);
+    const loginUrl = req.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.search = '';
     return NextResponse.redirect(loginUrl);
   }
 
   // Redirect logged-in users away from login page
   if (pathname === '/login' && session) {
-    const appUrl = new URL('/app', req.url);
+    const appUrl = req.nextUrl.clone();
+    appUrl.pathname = '/app';
+    appUrl.search = '';
     return NextResponse.redirect(appUrl);
   }
 

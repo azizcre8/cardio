@@ -13,6 +13,7 @@ import { buildConfusionCandidates } from './distractors';
 import { verifyEvidenceSpan } from './validation';
 import { embedTexts } from './embeddings';
 import { retrieveTopChunks } from './retrieval';
+import { calculateOpenAIUsageCostUSD, type OpenAICostTracker } from '@/lib/openai-cost';
 
 // ─── Constants (verbatim from HTML) ──────────────────────────────────────────
 
@@ -22,11 +23,6 @@ export const AUDITOR_MODEL = 'gpt-4o';
 
 const RAG_TOP_K = 4;
 const MAX_REVISE_ITERATIONS = 2;
-
-const MODEL_PRICING: Record<string, { in: number; out: number }> = {
-  'gpt-4o-mini': { in: 0.15,  out: 0.60  },
-  'gpt-4o':      { in: 2.50,  out: 10.0  },
-};
 
 // ─── OpenAI client ────────────────────────────────────────────────────────────
 
@@ -44,6 +40,7 @@ export async function callOpenAI(
   prompt:    string,
   maxTokens = 8192,
   model     = OPENAI_MODEL,
+  onCost?: OpenAICostTracker,
 ): Promise<{ text: string; costUSD: number }> {
   const openai = getOpenAI();
   let totalCost = 0;
@@ -61,10 +58,11 @@ export async function callOpenAI(
       if (!content) throw new Error('Empty API response');
 
       if (response.usage) {
-        const pricing = MODEL_PRICING[model] ?? MODEL_PRICING['gpt-4o']!;
-        totalCost =
-          (response.usage.prompt_tokens / 1e6) * pricing.in +
-          (response.usage.completion_tokens / 1e6) * pricing.out;
+        const usageCost = calculateOpenAIUsageCostUSD(model, response.usage);
+        totalCost = usageCost.costUSD;
+        if (usageCost.costUSD > 0) {
+          await onCost?.(usageCost);
+        }
       }
 
       return { text: content, costUSD: totalCost };
@@ -218,6 +216,7 @@ export async function generateCoverageQuestions(
   allChunkRecords: ChunkRecord[],
   confusionMap:   ConfusionMap,
   bm25Index:      BM25Index | null,
+  onCost?: OpenAICostTracker,
 ): Promise<{ questions: Array<Omit<Question, 'id' | 'created_at'>>; costUSD: number }> {
   const all: Array<Omit<Question, 'id' | 'created_at'>> = [];
   let totalCost = 0;
@@ -231,7 +230,7 @@ export async function generateCoverageQuestions(
       const queries = batch.map(c =>
         `${c.name}: ${(c.keyFacts ?? []).slice(0, 3).join('. ')}`,
       );
-      const queryVecs = await embedTexts(queries);
+      const queryVecs = await embedTexts(queries, onCost);
 
       for (let i = 0; i < queryVecs.length; i++) {
         const qVec = queryVecs[i]!;
@@ -264,7 +263,7 @@ export async function generateCoverageQuestions(
           });
           const hasNeighbors = neighborQueries.some(q => q.length > 0);
           if (hasNeighbors) {
-            const neighborVecs = await embedTexts(neighborQueries.map((q, i) => q || batch[i]!.name));
+            const neighborVecs = await embedTexts(neighborQueries.map((q, i) => q || batch[i]!.name), onCost);
             neighborVecs.forEach((nVec, i) => {
               if (!neighborQueries[i]) return;
               retrieveTopChunks(pdfId, nVec, neighborQueries[i]!, bm25Index, allChunkRecords, 2)
@@ -426,7 +425,7 @@ correctAnswer is the 0-based index. sourceQuote and pageEstimate are required. I
     const enableDynamic = env.flags.dynamicModelRouting;
     const draftModel = (enableDynamic && hasHigherLevel) ? WRITER_MODEL : OPENAI_MODEL;
     console.log(`[Pipeline] Writer draft model: ${draftModel} (${hasHigherLevel ? 'L2/L3 present' : 'L1-only batch'})`);
-    const { text, costUSD } = await callOpenAI(prompt, 8192, draftModel);
+    const { text, costUSD } = await callOpenAI(prompt, 8192, draftModel, onCost);
     totalCost += costUSD;
     const qs = parseJSON(text);
     if (!Array.isArray(qs)) return { questions: all, costUSD: totalCost };
@@ -493,6 +492,7 @@ export async function writerAgentGenerate(
   level:          number,
   ragPassages:    string,
   confusionPairs: string,
+  onCost?: OpenAICostTracker,
 ): Promise<{ raw: Record<string, unknown>; costUSD: number }> {
   const levelLabel =
     level === 1 ? 'L1 — Recall / Definition' :
@@ -567,7 +567,7 @@ Return a single JSON object only — no markdown, no prose:
 L1: {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}
 L2/L3: {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}`;
 
-  const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL);
+  const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL, onCost);
   const rawParsed = parseJSON(text);
   const raw = Array.isArray(rawParsed) ? rawParsed[0] : rawParsed;
   return { raw: raw as Record<string, unknown>, costUSD };
@@ -581,6 +581,7 @@ export async function writerAgentRevise(
   criterion:   string,
   critique:    string,
   ragPassages: string,
+  onCost?: OpenAICostTracker,
 ): Promise<{ raw: Record<string, unknown>; costUSD: number }> {
   const level = prevQuestion.level;
   const levelLabel =
@@ -619,7 +620,7 @@ Address ONLY the named criterion. Keep everything else correct (same concept, sa
 Return a single JSON object only — no markdown, no prose (include metadata fields if you improved them):
 {"conceptName":"${concept.name}","level":${level},"question":"...","options":["...","...","...","..."],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}`;
 
-  const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL);
+  const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL, onCost);
   const rawParsed = parseJSON(text);
   const raw = Array.isArray(rawParsed) ? rawParsed[0] : rawParsed;
   return { raw: raw as Record<string, unknown>, costUSD };

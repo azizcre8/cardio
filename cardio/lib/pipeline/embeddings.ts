@@ -10,6 +10,7 @@
 import OpenAI from 'openai';
 import type { RawChunk, ChunkRecord } from '@/types';
 import { env } from '@/lib/env';
+import { calculateOpenAIUsageCostUSD, type OpenAICostTracker } from '@/lib/openai-cost';
 
 const EMBED_MODEL = 'text-embedding-3-small';
 const EMBED_DIMS  = 512;
@@ -21,7 +22,10 @@ function getOpenAI(): OpenAI {
 
 // ─── embedTexts — verbatim port (uses SDK instead of raw fetch) ───────────────
 
-export async function embedTexts(texts: string[]): Promise<number[][]> {
+export async function embedTexts(
+  texts: string[],
+  onCost?: OpenAICostTracker,
+): Promise<number[][]> {
   if (!texts.length) return [];
 
   const openai = getOpenAI();
@@ -30,6 +34,11 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
     input: texts.map(t => t.slice(0, 2000)),
     dimensions: EMBED_DIMS,
   });
+
+  const usageCost = calculateOpenAIUsageCostUSD(EMBED_MODEL, response.usage);
+  if (usageCost.costUSD > 0) {
+    await onCost?.(usageCost);
+  }
 
   // Sort by index (API may reorder) and return float arrays
   return response.data
@@ -42,6 +51,7 @@ export async function embedTexts(texts: string[]): Promise<number[][]> {
 export async function embedAllChunks(
   rawChunks: RawChunk[],
   onProgress?: (done: number, total: number) => void,
+  onCost?: OpenAICostTracker,
 ): Promise<ChunkRecord[]> {
   const records: ChunkRecord[] = rawChunks.map(c => ({
     ...c,
@@ -51,7 +61,7 @@ export async function embedAllChunks(
   for (let i = 0; i < records.length; i += EBATCH) {
     const batch = records.slice(i, i + EBATCH);
     try {
-      const vecs = await embedTexts(batch.map(c => c.text));
+      const vecs = await embedTexts(batch.map(c => c.text), onCost);
       batch.forEach((c, j) => {
         // Full float32 precision — NO truncation (see module docstring)
         c.embedding = vecs[j]!;

@@ -22,6 +22,8 @@ import { DENSITY_CONFIG, type ProcessEvent, type Density, type DensityConfig } f
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
+import { createPdfJob, finishPdfJobError, finishPdfJobSuccess, updatePdfJob } from '@/lib/pdf-jobs';
+import { roundUsdAmount, type OpenAICostEvent } from '@/lib/openai-cost';
 
 export const maxDuration = 300; 
 export const runtime    = 'nodejs';
@@ -60,15 +62,18 @@ export async function POST(req: NextRequest) {
   }
 
   const dc: DensityConfig = DENSITY_CONFIG[density];
+  const { data: profileRow } = await supabase.from('users').select('plan').eq('id', userId).single();
+  const planName = typeof profileRow?.plan === 'string' && profileRow.plan.trim()
+    ? profileRow.plan
+    : 'free';
 
   if (process.env.NODE_ENV !== 'development') {
     try {
       const monthlyCount = await getAndMaybeResetMonthlyCount(userId);
-      const { data: profile } = await supabase.from('users').select('plan').eq('id', userId).single();
-      const limits = getPlanLimits(profile?.plan);
+      const limits = getPlanLimits(profileRow?.plan);
       if (limits.pdfsPerMonth !== null && monthlyCount >= limits.pdfsPerMonth) {
         return new Response(
-          JSON.stringify({ error: 'Plan limit exceeded', tier: normalizePlanTier(profile?.plan), limit: limits.pdfsPerMonth }),
+          JSON.stringify({ error: 'Plan limit exceeded', tier: normalizePlanTier(profileRow?.plan), limit: limits.pdfsPerMonth }),
           { status: 402, headers: { 'Content-Type': 'application/json' } },
         );
       }
@@ -93,9 +98,27 @@ export async function POST(req: NextRequest) {
     return new Response('Failed to create PDF record (missing id)', { status: 500 });
   }
 
+  const pdfJob = await createPdfJob({
+    user_id: userId,
+    pdf_id: pdfId,
+    pdf_name: pdfFile.name,
+    density,
+    plan_name: planName,
+  });
+
   const stream = new ReadableStream({
     async start(controller) {
       let isClosed = false; // Safety Valve 1: Track closure state
+      let runningOpenAICostUSD = 0;
+      let latestPageCount = 0;
+      let latestConceptCount = 0;
+      let latestQuestionCount = 0;
+
+      const recordCost = async (event: OpenAICostEvent) => {
+        if (!(event.costUSD > 0)) return;
+        runningOpenAICostUSD = roundUsdAmount(runningOpenAICostUSD + event.costUSD);
+        await updatePdfJob(pdfJob.id, { openai_cost_usd: runningOpenAICostUSD });
+      };
 
       const emit = (ev: ProcessEvent) => {
         if (isClosed) return;
@@ -113,6 +136,17 @@ export async function POST(req: NextRequest) {
         // We let the 'finally' block handle it exclusively.
       };
 
+      const failJobAndStop = async (msg: string) => {
+        await finishPdfJobError(pdfJob.id, {
+          page_count: latestPageCount,
+          concept_count: latestConceptCount,
+          question_count: latestQuestionCount,
+          openai_cost_usd: runningOpenAICostUSD,
+          error_message: msg,
+        });
+        fail(msg);
+      };
+
       try {
         // ── Phase 1: Extract text
         emit({ phase: 1, message: 'Phase 1: Extracting text from PDF…', pct: 2 });
@@ -121,14 +155,14 @@ export async function POST(req: NextRequest) {
         const pages  = await extractTextServer(buffer);
 
         if (!pages.length) {
-          fail('PDF appears empty — no text could be extracted');
+          await failJobAndStop('PDF appears empty — no text could be extracted');
           return;
         }
 
         if (env.flags.textQualityCheck) {
           const qr = assessTextQuality(pages);
           if (qr.quality === 'empty') {
-            fail('PDF text quality is too poor (scanned/image PDF)');
+            await failJobAndStop('PDF text quality is too poor (scanned/image PDF)');
             return;
           }
           if (qr.quality === 'poor') {
@@ -137,6 +171,8 @@ export async function POST(req: NextRequest) {
         }
 
         await updatePDF(pdfId, { page_count: pages.length });
+        latestPageCount = pages.length;
+        await updatePdfJob(pdfJob.id, { page_count: pages.length });
         emit({ phase: 1, message: `Phase 1: Extracted ${pages.length} pages`, pct: 8 });
 
         // ── Phase 2: Chunk
@@ -150,7 +186,7 @@ export async function POST(req: NextRequest) {
         const chunkRecords = await embedAllChunks(rawChunks, (done, total) => {
           const pct = 15 + Math.round((done / total) * 13);
           emit({ phase: 3, message: `Phase 3: Embedding ${done}/${total}…`, pct });
-        });
+        }, recordCost);
 
         await insertChunks(
           chunkRecords.map(c => ({
@@ -178,7 +214,7 @@ export async function POST(req: NextRequest) {
 
         for (let b = 0; b < chunkRecords.length; b += BATCH_SIZE) {
           const batch = chunkRecords.slice(b, b + BATCH_SIZE);
-          const inv = await extractInventory(batch, dc, Math.floor(b / BATCH_SIZE), totalBatches);
+          const inv = await extractInventory(batch, dc, Math.floor(b / BATCH_SIZE), totalBatches, recordCost);
           inventories.push(inv);
           const conceptsSoFar = inventories.reduce((s, inv) => s + (inv?.concepts?.length ?? 0), 0);
           const pct = 30 + Math.round(((b + BATCH_SIZE) / chunkRecords.length) * 20);
@@ -191,7 +227,10 @@ export async function POST(req: NextRequest) {
 
         // ── Phase 5: Confusion map
         emit({ phase: 5, message: 'Phase 5: Building confusion map…', pct: 54 });
-        const confusionMap = await generateConfusionMap(canonical.map(c => ({ name: c.name, category: c.category })));
+        const confusionMap = await generateConfusionMap(
+          canonical.map(c => ({ name: c.name, category: c.category })),
+          recordCost,
+        );
 
         // Verify the PDF row is still visible to supabaseAdmin before inserting concepts
         const { data: pdfCheck } = await supabaseAdmin
@@ -202,17 +241,16 @@ export async function POST(req: NextRequest) {
 
         const conceptRows = canonical.map(c => toConceptRow(c, pdfId, userId));
         const savedConcepts = await insertConcepts(conceptRows);
+        latestConceptCount = savedConcepts.length;
         emit({ phase: 5, message: `Phase 5: ${savedConcepts.length} concepts saved`, pct: 58 });
 
         // ── Phase 6: Question generation + audit
         emit({ phase: 6, message: 'Phase 6: Generating questions…', pct: 60 });
 
-        const { data: profileRow } = await supabase.from('users').select('plan').eq('id', userId).single();
         const maxQuestionsPerPdf = getPlanLimits(profileRow?.plan).maxQuestionsPerPdf;
 
         let totalQuestions = 0;
         let totalRejected  = 0;
-        let totalCostUSD   = 0;
         const allPassedQuestions: any[] = [];
         /* map concept_id → importance for quality sorting */
         const conceptImportance: Record<string, string> = {};
@@ -259,17 +297,15 @@ export async function POST(req: NextRequest) {
           const batch = cappedConceptSpecs.slice(g, g + GEN_BATCH);
           const totalBatchCount = Math.ceil(cappedConceptSpecs.length / GEN_BATCH);
 
-          let genQs: any[] = [], genCost = 0;
+          let genQs: any[] = [];
           try {
             const result = await generateCoverageQuestions(
-              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index,
+              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index, recordCost,
             );
             genQs = result.questions;
-            genCost = result.costUSD;
           } catch (genErr) {
             console.error(`[process] Generation batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, genErr);
           }
-          totalCostUSD += genCost;
 
           const ragPassages: Record<string, string> = {};
           batch.forEach(c => {
@@ -277,16 +313,14 @@ export async function POST(req: NextRequest) {
             ragPassages[c.id] = chunks.map(ch => ch.text.slice(0, 350)).join('\n\n');
           });
 
-          let passed: any[] = [], hardRejected: any[] = [], auditCost = 0;
+          let passed: any[] = [], hardRejected: any[] = [];
           try {
-            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages);
+            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages, recordCost);
             passed = auditResult.passed;
             hardRejected = auditResult.hardRejected;
-            auditCost = auditResult.costUSD;
           } catch (auditErr) {
             console.error(`[process] Audit batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, auditErr);
           }
-          totalCostUSD += auditCost;
 
           for (const hr of hardRejected) {
             await insertFlaggedQuestion({
@@ -301,6 +335,7 @@ export async function POST(req: NextRequest) {
           allPassedQuestions.push(...passed);
           totalQuestions += passed.length;
           totalRejected  += hardRejected.length;
+          latestQuestionCount = totalQuestions;
 
           const pct = 60 + Math.round(((g + GEN_BATCH) / cappedConceptSpecs.length) * 35);
           emit({
@@ -330,22 +365,40 @@ export async function POST(req: NextRequest) {
 
         await updatePDF(pdfId, {
           processed_at:        new Date().toISOString(),
-          processing_cost_usd: totalCostUSD,
+          processing_cost_usd: runningOpenAICostUSD,
           concept_count:        savedConcepts.length,
           question_count:       savedQuestions.length,
         });
+        latestQuestionCount = savedQuestions.length;
 
         await incrementMonthlyCount(userId);
+        await finishPdfJobSuccess(pdfJob.id, {
+          page_count: latestPageCount,
+          concept_count: savedConcepts.length,
+          question_count: savedQuestions.length,
+          openai_cost_usd: runningOpenAICostUSD,
+        });
 
         emit({
           phase: 7,
-          message: `Done! ${savedConcepts.length} concepts, ${savedQuestions.length} questions. Cost: $${totalCostUSD.toFixed(3)}`,
+          message: `Done! ${savedConcepts.length} concepts, ${savedQuestions.length} questions. Cost: $${runningOpenAICostUSD.toFixed(3)}`,
           pct: 100,
-          data: { pdfId, conceptCount: savedConcepts.length, questionCount: savedQuestions.length, costUSD: totalCostUSD },
+          data: { pdfId, conceptCount: savedConcepts.length, questionCount: savedQuestions.length, costUSD: runningOpenAICostUSD },
         });
 
       } catch (e) {
         console.error('[process] Pipeline crashed:', e);
+        try {
+          await finishPdfJobError(pdfJob.id, {
+            page_count: latestPageCount,
+            concept_count: latestConceptCount,
+            question_count: latestQuestionCount,
+            openai_cost_usd: runningOpenAICostUSD,
+            error_message: (e as Error).message ?? String(e),
+          });
+        } catch (jobError) {
+          console.error('[process] Failed to persist pdf job error state:', jobError);
+        }
         fail((e as Error).message ?? String(e));
       } finally {
         // Safety Valve 3: The ONLY place the controller closes. 

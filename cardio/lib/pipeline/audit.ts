@@ -12,6 +12,7 @@
 
 import { callOpenAI, parseJSON, normaliseQuestion, writerAgentRevise, AUDITOR_MODEL } from './generation';
 import type { Question } from '@/types';
+import type { OpenAICostTracker } from '@/lib/openai-cost';
 
 const MAX_REVISE_ITERATIONS = 2;
 
@@ -108,6 +109,7 @@ export function runOptionSetAudit(
 
 export async function runAuditAgent(
   questions: Array<Omit<Question, 'id' | 'created_at'>>,
+  onCost?: OpenAICostTracker,
 ): Promise<AuditVerdict[]> {
   if (!questions.length) return [];
 
@@ -180,7 +182,7 @@ Return compact JSON array:
 Be strict but fair. REVISE for one fixable flaw. REJECT only when fundamentally broken.`;
 
   try {
-    const { text } = await callOpenAI(prompt, 1500, AUDITOR_MODEL);
+    const { text } = await callOpenAI(prompt, 1500, AUDITOR_MODEL, onCost);
     const results = parseJSON(text);
     if (!Array.isArray(results)) return questions.map((_, i) => ({ idx: i, status: 'PASS' as const }));
 
@@ -215,6 +217,7 @@ export async function auditQuestions(
   pdfId:        string,
   userId:       string,
   ragPassages:  Record<string, string>,
+  onCost?: OpenAICostTracker,
 ): Promise<{
   passed:       Array<Omit<Question, 'id' | 'created_at'>>;
   hardRejected: HardRejected[];
@@ -233,7 +236,7 @@ export async function auditQuestions(
     if (!inFlight.length) break;
 
     // Run Auditor Agent on current batch
-    let verdicts = await runAuditAgent(inFlight.map(e => e.q));
+    let verdicts = await runAuditAgent(inFlight.map(e => e.q), onCost);
 
     // Merge programmatic length audit — catches length tells the LLM auditor misses
     const lengthResults = runLengthAudit(inFlight.map(e => e.q));
@@ -294,6 +297,7 @@ export async function auditQuestions(
           v.criterion ?? '',
           v.critique ?? '',
           passages,
+          onCost,
         );
         totalCost += costUSD;
 

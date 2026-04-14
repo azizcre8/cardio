@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/lib/supabase';
+import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { PDF, Concept, Question, MasteryData } from '@/types';
 
 interface Props {

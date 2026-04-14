@@ -53,6 +53,27 @@ export interface PDF {
   question_count: number | null;
 }
 
+export type PDFJobStatus = 'processing' | 'completed' | 'failed';
+
+export interface PDFJob {
+  id: string;
+  user_id: string;
+  pdf_id: string;
+  pdf_name: string;
+  page_count: number | null;
+  question_count: number | null;
+  concept_count: number | null;
+  density: Density;
+  plan_name: string;
+  status: PDFJobStatus;
+  started_at: string;
+  finished_at: string | null;
+  openai_cost_usd: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Concept {
   id: string;                   // uuid
   pdf_id: string;               // uuid → pdfs
