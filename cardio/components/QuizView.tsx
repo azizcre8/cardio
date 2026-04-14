@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Question } from '@/types';
 
 interface Props {
@@ -8,35 +8,123 @@ interface Props {
   onDone: () => void;
 }
 
+interface AnswerState {
+  selected: number | null;
+  revealed: boolean;
+}
+
+interface HighlightRange {
+  start: number;
+  end: number;
+}
+
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
 
+/** Bolds the first sentence of the explanation (the key distinction). */
+function formatExplanation(text: string) {
+  const match = text.match(/^(.+?[.!?])\s+([\s\S]+)/);
+  if (!match) return <strong>{text}</strong>;
+  return (
+    <>
+      <strong>{match[1]}</strong>{' '}{match[2]}
+    </>
+  );
+}
+
+/** Renders plain text with yellow highlight marks over given character ranges. */
+function HighlightedText({ text, ranges }: { text: string; ranges: HighlightRange[] }) {
+  if (!ranges.length) return <>{text}</>;
+
+  // Sort and merge overlapping ranges
+  const sorted = [...ranges].sort((a, b) => a.start - b.start);
+  const merged: HighlightRange[] = [];
+  for (const r of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && r.start <= last.end) {
+      last.end = Math.max(last.end, r.end);
+    } else {
+      merged.push({ ...r });
+    }
+  }
+
+  // Build interleaved plain / highlighted segments
+  const segments: Array<{ text: string; highlighted: boolean }> = [];
+  let pos = 0;
+  for (const r of merged) {
+    if (r.start > pos) segments.push({ text: text.slice(pos, r.start), highlighted: false });
+    if (r.end > r.start) segments.push({ text: text.slice(r.start, r.end), highlighted: true });
+    pos = r.end;
+  }
+  if (pos < text.length) segments.push({ text: text.slice(pos), highlighted: false });
+
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.highlighted ? (
+          <mark key={i} style={{
+            background: 'rgba(234,179,8,0.28)',
+            borderRadius: '2px',
+            padding: '0 1px',
+            color: 'inherit',
+            boxDecorationBreak: 'clone',
+            WebkitBoxDecorationBreak: 'clone',
+          }}>
+            {seg.text}
+          </mark>
+        ) : (
+          <span key={i}>{seg.text}</span>
+        )
+      )}
+    </>
+  );
+}
+
 export default function QuizView({ pdfId, onDone }: Props) {
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [idx,       setIdx]       = useState(0);
-  const [revealed,  setRevealed]  = useState(false);
-  const [selected,  setSelected]  = useState<number | null>(null);
-  const [correct,   setCorrect]   = useState(0);
-  const [total,     setTotal]     = useState(0);
-  const [loading,   setLoading]   = useState(true);
-  const [showQuote, setShowQuote] = useState(false);
+  const [questions,  setQuestions]  = useState<Question[]>([]);
+  const [idx,        setIdx]        = useState(0);
+  const [answers,    setAnswers]    = useState<AnswerState[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [highlights, setHighlights] = useState<Map<number, HighlightRange[]>>(new Map());
+  const [strikeouts, setStrikeouts] = useState<Map<number, Set<number>>>(new Map());
+  const stemRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     fetch(`/api/pdfs/${pdfId}/questions`)
       .then(r => r.json())
-      .then(d => { setQuestions(d.questions ?? []); setLoading(false); })
+      .then(d => {
+        const qs: Question[] = d.questions ?? [];
+        setQuestions(qs);
+        setAnswers(qs.map(() => ({ selected: null, revealed: false })));
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, [pdfId]);
+
+  // Derived per-question state
+  const ans      = answers[idx] ?? { selected: null, revealed: false };
+  const selected = ans.selected;
+  const revealed = ans.revealed;
+
+  // Dynamically computed score (no double-counting on revisit)
+  const total   = answers.filter(a => a.revealed).length;
+  const correct = answers.filter((a, i) => a.revealed && a.selected === questions[i]?.answer).length;
+
+  const currentHighlights = highlights.get(idx) ?? [];
+  const currentStrikeouts = strikeouts.get(idx) ?? new Set<number>();
 
   /* keyboard shortcuts */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const current = questions[idx];
       if (!current) return;
+
       const n = parseInt(e.key);
       if (!revealed && n >= 1 && n <= current.options.length) {
         selectOption(n - 1);
-      } else if (revealed && e.key === 'Enter' || e.key === ' ') {
-        advance();
+      } else if (revealed && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight')) {
+        goForward();
+      } else if (e.key === 'ArrowLeft') {
+        goBack();
       }
     }
     window.addEventListener('keydown', onKey);
@@ -47,18 +135,76 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   function selectOption(optIdx: number) {
     if (revealed) return;
-    setSelected(optIdx);
-    setRevealed(true);
-    setShowQuote(false);
-    setTotal(t => t + 1);
-    if (current && optIdx === current.answer) setCorrect(c => c + 1);
+    setAnswers(prev => prev.map((a, i) =>
+      i === idx ? { selected: optIdx, revealed: true } : a
+    ));
   }
 
-  function advance() {
+  function goForward() {
     setIdx(i => i + 1);
-    setRevealed(false);
-    setSelected(null);
-    setShowQuote(false);
+  }
+
+  function goBack() {
+    if (idx > 0) setIdx(i => i - 1);
+  }
+
+  function restart() {
+    setIdx(0);
+    setAnswers(questions.map(() => ({ selected: null, revealed: false })));
+    setHighlights(new Map());
+    setStrikeouts(new Map());
+  }
+
+  /** Capture text selection within the stem and persist it as a highlight. */
+  function handleStemMouseUp() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !stemRef.current) return;
+
+    const range = sel.getRangeAt(0);
+    const selectedText = range.toString();
+    if (!selectedText.length) return;
+    if (!stemRef.current.contains(range.commonAncestorContainer)) return;
+
+    // Compute start offset from beginning of stem text
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(stemRef.current);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    const start = preRange.toString().length;
+    const end   = start + selectedText.length;
+
+    setHighlights(prev => {
+      const next = new Map(prev);
+      const existing = next.get(idx) ?? [];
+      next.set(idx, [...existing, { start, end }]);
+      return next;
+    });
+
+    sel.removeAllRanges();
+  }
+
+  function clearHighlights() {
+    setHighlights(prev => {
+      const next = new Map(prev);
+      next.delete(idx);
+      return next;
+    });
+  }
+
+  /** Two-finger click (right-click) on an option toggles its strikeout. */
+  function toggleStrikeout(optIdx: number, e: React.MouseEvent) {
+    e.preventDefault();
+    if (revealed) return;
+    setStrikeouts(prev => {
+      const next = new Map(prev);
+      const set  = new Set(next.get(idx) ?? []);
+      if (set.has(optIdx)) {
+        set.delete(optIdx);
+      } else {
+        set.add(optIdx);
+      }
+      next.set(idx, set);
+      return next;
+    });
   }
 
   /* ── Loading ── */
@@ -113,7 +259,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
         </p>
         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
           <button
-            onClick={() => { setIdx(0); setCorrect(0); setTotal(0); setRevealed(false); setSelected(null); }}
+            onClick={restart}
             style={{
               padding: '10px 24px', borderRadius: 'var(--radius-md)',
               background: 'var(--bg-raised)', border: '1px solid var(--border)',
@@ -142,20 +288,43 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   return (
     <div style={{
-      maxWidth:      '640px',
+      maxWidth:      revealed ? '1100px' : '640px',
       margin:        '0 auto',
       minHeight:     'calc(100vh - 80px)',
       display:       'flex',
       flexDirection: 'column',
-      paddingBottom: revealed ? '20px' : '0',
+      paddingBottom: '20px',
+      transition:    'max-width 0.25s ease',
     }}>
 
-      {/* Progress + close */}
+      {/* Progress + nav */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+
+        {/* Back arrow — always present, dims when unavailable */}
+        <button
+          onClick={goBack}
+          disabled={idx === 0}
+          title="Previous question (←)"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: '26px', height: '26px', flexShrink: 0,
+            borderRadius: 'var(--radius-sm)',
+            background: 'none',
+            border: '1px solid var(--border)',
+            color: idx === 0 ? 'var(--border)' : 'var(--text-dim)',
+            fontSize: '0.8rem', cursor: idx === 0 ? 'default' : 'pointer',
+            transition: 'color 0.15s, border-color 0.15s',
+          }}
+          onMouseEnter={e => { if (idx > 0) (e.currentTarget.style.color = 'var(--text-primary)'); }}
+          onMouseLeave={e => { if (idx > 0) (e.currentTarget.style.color = 'var(--text-dim)'); }}
+        >
+          ←
+        </button>
+
         <div style={{ flex: 1, height: '3px', borderRadius: '2px', overflow: 'hidden', background: 'var(--bg-sunken)' }}>
           <div style={{
             height: '100%', borderRadius: '2px',
-            width: `${(idx / questions.length) * 100}%`,
+            width: `${((idx + 1) / questions.length) * 100}%`,
             background: 'var(--accent)', transition: 'width 0.3s ease',
           }} />
         </div>
@@ -193,167 +362,266 @@ export default function QuizView({ pdfId, onDone }: Props) {
         </span>
       </div>
 
-      {/* Card */}
+      {/* Two-column layout when revealed, single column otherwise */}
       <div style={{
-        background: 'var(--bg-raised)', border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)', overflow: 'hidden', flex: 1,
+        display:             'grid',
+        gridTemplateColumns: revealed ? '1fr 1fr' : '1fr',
+        gap:                 '16px',
+        flex:                1,
+        alignItems:          'start',
+        transition:          'grid-template-columns 0.25s ease',
       }}>
-        <div style={{ padding: '20px 20px 0' }}>
-          {/* Stem */}
-          <p style={{
-            fontSize: '1rem', fontWeight: 500, lineHeight: 1.65,
-            color: 'var(--text-primary)', letterSpacing: '-0.005em',
-            margin: '0 0 18px',
-          }}>
-            {current.stem}
-          </p>
 
-          {/* Options */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            {current.options.map((opt, i) => {
-              const isSelected = selected === i;
-              const isAnswer   = revealed && i === current.answer;
-              const isWrong    = revealed && isSelected && !isAnswer;
-              const isDimmed   = revealed && !isSelected && !isAnswer;
+        {/* ── Left: Question card ── */}
+        <div style={{
+          background:   'var(--bg-raised)',
+          border:       '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          overflow:     'hidden',
+        }}>
+          <div style={{ padding: '20px' }}>
 
-              let borderColor = 'var(--border)';
-              let bg          = 'var(--bg)';
-              let letterBg    = 'rgba(0,0,0,0.04)';
-              let letterBdr   = 'var(--border-med)';
-              let letterClr   = 'var(--text-dim)';
-              let textColor   = 'var(--text-primary)';
-
-              if (isAnswer) {
-                borderColor = 'rgba(22,163,74,0.5)'; bg = 'rgba(22,163,74,0.06)';
-                letterBg = 'rgba(22,163,74,0.14)'; letterBdr = 'rgba(22,163,74,0.45)'; letterClr = 'var(--green)';
-              } else if (isWrong) {
-                borderColor = 'rgba(220,38,38,0.45)'; bg = 'rgba(220,38,38,0.05)';
-                letterBg = 'rgba(220,38,38,0.12)'; letterBdr = 'rgba(220,38,38,0.4)'; letterClr = 'var(--red)';
-              } else if (isDimmed) {
-                textColor = 'var(--text-dim)';
-              }
-
-              return (
-                <button
-                  key={i}
-                  onClick={() => selectOption(i)}
-                  disabled={revealed}
-                  style={{
-                    display: 'flex', alignItems: 'flex-start', gap: '10px',
-                    padding: '11px 12px',
-                    background: bg, border: `1.5px solid ${borderColor}`,
-                    borderRadius: 'var(--radius-md)',
-                    textAlign: 'left', cursor: revealed ? 'default' : 'pointer',
-                    transition: 'all 0.15s ease', minHeight: '70px', color: textColor,
-                  }}
-                  onMouseEnter={e => {
-                    if (!revealed) {
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow   = '0 0 0 2px var(--accent-glow)';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    if (!revealed) {
-                      (e.currentTarget as HTMLButtonElement).style.borderColor = borderColor;
-                      (e.currentTarget as HTMLButtonElement).style.boxShadow   = 'none';
-                    }
-                  }}
-                >
-                  <span style={{
-                    width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '0.7rem', fontWeight: 700,
-                    background: letterBg, border: `1.5px solid ${letterBdr}`, color: letterClr,
-                  }}>
-                    {LETTERS[i]}
-                  </span>
-                  <span style={{ fontSize: '0.82rem', lineHeight: 1.5 }}>{opt}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Pre-answer hint */}
-          {!revealed && (
-            <p style={{ fontSize: '0.72rem', textAlign: 'center', color: 'var(--text-dim)', padding: '14px 0 16px' }}>
-              Select an answer · keys{' '}
-              <kbd style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', background: 'var(--bg-sunken)', border: '1px solid var(--border)' }}>1</kbd>
-              –
-              <kbd style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', background: 'var(--bg-sunken)', border: '1px solid var(--border)' }}>4</kbd>
+            {/* Stem — select text to highlight */}
+            <p
+              ref={stemRef}
+              onMouseUp={handleStemMouseUp}
+              style={{
+                fontSize: '1rem', fontWeight: 500, lineHeight: 1.65,
+                color: 'var(--text-primary)', letterSpacing: '-0.005em',
+                margin: '0 0 6px',
+                userSelect: 'text',
+                cursor: 'text',
+              }}
+            >
+              <HighlightedText text={current.stem} ranges={currentHighlights} />
             </p>
-          )}
+
+            {/* Highlight controls — shown only when highlights exist */}
+            <div style={{ minHeight: '22px', marginBottom: '12px' }}>
+              {currentHighlights.length > 0 && (
+                <button
+                  onClick={clearHighlights}
+                  style={{
+                    fontSize: '0.65rem', color: 'var(--amber)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: 0, letterSpacing: '0.02em',
+                    opacity: 0.75, transition: 'opacity 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
+                >
+                  × clear highlights
+                </button>
+              )}
+            </div>
+
+            {/* Options */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              {current.options.map((opt, i) => {
+                const isSelected  = selected === i;
+                const isAnswer    = revealed && i === current.answer;
+                const isWrong     = revealed && isSelected && !isAnswer;
+                const isDimmed    = revealed && !isSelected && !isAnswer;
+                const isStruck    = !revealed && currentStrikeouts.has(i);
+
+                let borderColor = 'var(--border)';
+                let bg          = 'var(--bg)';
+                let letterBg    = 'rgba(0,0,0,0.04)';
+                let letterBdr   = 'var(--border-med)';
+                let letterClr   = 'var(--text-dim)';
+                let textColor   = 'var(--text-primary)';
+
+                if (isAnswer) {
+                  borderColor = 'rgba(22,163,74,0.5)';  bg = 'rgba(22,163,74,0.06)';
+                  letterBg = 'rgba(22,163,74,0.14)'; letterBdr = 'rgba(22,163,74,0.45)'; letterClr = 'var(--green)';
+                } else if (isWrong) {
+                  borderColor = 'rgba(220,38,38,0.45)'; bg = 'rgba(220,38,38,0.05)';
+                  letterBg = 'rgba(220,38,38,0.12)'; letterBdr = 'rgba(220,38,38,0.4)';  letterClr = 'var(--red)';
+                } else if (isDimmed) {
+                  textColor = 'var(--text-dim)';
+                }
+
+                return (
+                  <button
+                    key={i}
+                    onClick={() => selectOption(i)}
+                    onContextMenu={e => toggleStrikeout(i, e)}
+                    disabled={revealed}
+                    title={!revealed ? 'Two-finger click to eliminate' : undefined}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                      padding: '11px 12px',
+                      background: bg, border: `1.5px solid ${borderColor}`,
+                      borderRadius: 'var(--radius-md)',
+                      textAlign: 'left', cursor: revealed ? 'default' : 'pointer',
+                      transition: 'all 0.15s ease', minHeight: '70px', color: textColor,
+                      opacity: isStruck ? 0.45 : 1,
+                    }}
+                    onMouseEnter={e => {
+                      if (!revealed) {
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow   = '0 0 0 2px var(--accent-glow)';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!revealed) {
+                        (e.currentTarget as HTMLButtonElement).style.borderColor = borderColor;
+                        (e.currentTarget as HTMLButtonElement).style.boxShadow   = 'none';
+                      }
+                    }}
+                  >
+                    <span style={{
+                      width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '0.7rem', fontWeight: 700,
+                      background: letterBg, border: `1.5px solid ${letterBdr}`, color: letterClr,
+                      position: 'relative',
+                    }}>
+                      {i + 1}
+                      {/* Diagonal strikeout line over the badge */}
+                      {isStruck && (
+                        <span style={{
+                          position: 'absolute', inset: 0, borderRadius: '50%', overflow: 'hidden',
+                          pointerEvents: 'none',
+                        }}>
+                          <svg width="24" height="24" viewBox="0 0 24 24" style={{ position: 'absolute', top: 0, left: 0 }}>
+                            <line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                      )}
+                    </span>
+                    <span style={{
+                      fontSize: '0.82rem', lineHeight: 1.5,
+                      textDecoration: isStruck ? 'line-through' : 'none',
+                    }}>
+                      {opt}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Pre-answer hint */}
+            {!revealed && (
+              <p style={{ fontSize: '0.72rem', textAlign: 'center', color: 'var(--text-dim)', padding: '14px 0 16px' }}>
+                Select answer · keys{' '}
+                <kbd style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', background: 'var(--bg-sunken)', border: '1px solid var(--border)' }}>1</kbd>
+                –
+                <kbd style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', background: 'var(--bg-sunken)', border: '1px solid var(--border)' }}>{current.options.length}</kbd>
+                {' · '}drag to highlight{' · '}two-finger click to eliminate
+                {idx > 0 && (
+                  <>
+                    {' · '}
+                    <kbd style={{ padding: '1px 5px', borderRadius: '4px', fontSize: '0.65rem', background: 'var(--bg-sunken)', border: '1px solid var(--border)' }}>←</kbd>
+                    {' '}prev
+                  </>
+                )}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Revealed: explanation + next button */}
+        {/* ── Right: Explanation panel (auto-shown on answer) ── */}
         {revealed && (
-          <div style={{ padding: '16px 20px 20px', borderTop: '1px solid var(--border)', marginTop: '4px' }}>
+          <div style={{
+            background:    'var(--bg-raised)',
+            border:        '1px solid var(--border)',
+            borderRadius:  'var(--radius-lg)',
+            padding:       '20px',
+            display:       'flex',
+            flexDirection: 'column',
+            gap:           '14px',
+            animation:     'fade-up 0.22s ease',
+          }}>
+            {/* Correct / incorrect label */}
             <p style={{
               fontSize: '0.7rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: isCorrect ? 'var(--green)' : 'var(--red)', marginBottom: '8px',
+              color: isCorrect ? 'var(--green)' : 'var(--red)', margin: 0,
             }}>
               {isCorrect ? '✓ Correct' : '✗ Incorrect'}
             </p>
 
-            <p style={{ fontSize: '0.84rem', lineHeight: 1.7, color: 'var(--text-primary)', marginBottom: '16px' }}>
-              {current.explanation}
+            {/* Explanation — first sentence bolded as key distinction */}
+            <p style={{ fontSize: '0.84rem', lineHeight: 1.7, color: 'var(--text-primary)', margin: 0 }}>
+              {formatExplanation(current.explanation)}
             </p>
 
+            {/* Source evidence — auto-shown */}
             {current.source_quote && current.source_quote !== 'UNGROUNDED' && (
-              <div style={{ marginBottom: '16px' }}>
-                <button
-                  onClick={() => setShowQuote(q => !q)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.06em',
-                    color: 'var(--accent)', background: 'none', border: 'none',
-                    cursor: 'pointer', padding: '0', textTransform: 'uppercase',
-                  }}
-                >
-                  <span>{showQuote ? '▾' : '▸'}</span>
+              <div>
+                <p style={{
+                  fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'var(--accent)', margin: '0 0 6px',
+                }}>
                   Source Evidence
-                </button>
-                {showQuote && (
-                  <div style={{
-                    marginTop: '8px', padding: '10px 14px',
-                    background: 'var(--bg-sunken)', borderLeft: '3px solid var(--accent)',
-                    borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
-                    animation: 'fade-up 0.2s ease',
+                </p>
+                <div style={{
+                  padding: '10px 14px',
+                  background: 'var(--bg-sunken)', borderLeft: '3px solid var(--accent)',
+                  borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+                }}>
+                  <p style={{
+                    fontFamily: "'Source Serif 4', Georgia, serif",
+                    fontSize: '0.8rem', fontStyle: 'italic',
+                    color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0,
                   }}>
+                    &ldquo;{current.source_quote}&rdquo;
+                  </p>
+                  {current.concept_name && (
                     <p style={{
-                      fontFamily: "'Source Serif 4', Georgia, serif",
-                      fontSize: '0.8rem', fontStyle: 'italic',
-                      color: 'var(--text-secondary)', lineHeight: 1.65, margin: 0,
+                      fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.03em',
+                      color: 'var(--accent)', margin: '6px 0 0',
                     }}>
-                      &ldquo;{current.source_quote}&rdquo;
+                      — {current.concept_name}
                     </p>
-                    {current.concept_name && (
-                      <p style={{
-                        fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.03em',
-                        color: 'var(--accent)', margin: '6px 0 0',
-                        textTransform: 'none',
-                      }}>
-                        — {current.concept_name}
-                      </p>
-                    )}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             )}
 
-            <button
-              onClick={advance}
-              style={{
-                width: '100%', padding: '10px',
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--accent)', color: 'white',
-                fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-                transition: 'opacity 0.15s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-            >
-              {idx + 1 < questions.length ? 'Next →' : 'See Results'}
-            </button>
+            {/* Navigation: prev + next */}
+            <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
+              {idx > 0 && (
+                <button
+                  onClick={goBack}
+                  style={{
+                    flex: '0 0 auto',
+                    padding: '10px 16px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-sunken)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text-secondary)',
+                    fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer',
+                    transition: 'background 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = 'var(--bg-raised)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'var(--bg-sunken)';
+                    e.currentTarget.style.color = 'var(--text-secondary)';
+                  }}
+                >
+                  ← Prev
+                </button>
+              )}
+              <button
+                onClick={goForward}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--accent)', color: 'white',
+                  fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
+                  transition: 'opacity 0.15s',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+              >
+                {idx + 1 < questions.length ? 'Next →' : 'See Results'}
+              </button>
+            </div>
           </div>
         )}
       </div>

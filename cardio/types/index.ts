@@ -208,7 +208,15 @@ export interface ProcessEvent {
   phase: number;                // 0 = init, 1–6 = pipeline phases, 7 = done
   message: string;
   pct: number;                  // 0–100
-  data?: Record<string, unknown>;
+  data?: {
+    pdfId?: string;
+    wordsParsed?: number;
+    conceptsGenerated?: number;
+    questionsGenerated?: number;
+    questionsRejected?: number;
+    estimatedTotalSec?: number;
+    [key: string]: unknown;
+  };
 }
 
 // ─── Mastery / Stats ──────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { supabaseServer } from '@/lib/supabase';
+import { supabaseServer, supabaseAdmin } from '@/lib/supabase';
 import { PLAN_LIMITS } from '@/lib/stripe';
 import { extractTextServer, assessTextQuality } from '@/lib/pipeline/ingestion';
 import { chunkText } from '@/lib/pipeline/chunking';
@@ -50,8 +50,10 @@ export async function POST(req: NextRequest) {
     return new Response('Invalid form data', { status: 400 });
   }
 
-  const pdfFile  = formData.get('pdf') as File | null;
-  const density  = (formData.get('density') as Density | null) ?? 'standard';
+  const pdfFile       = formData.get('pdf') as File | null;
+  const density       = (formData.get('density') as Density | null) ?? 'standard';
+  const maxQStr       = formData.get('maxQuestions') as string | null;
+  const userMaxQ      = maxQStr ? Math.max(0, parseInt(maxQStr, 10) || 0) : 0;
 
   if (!pdfFile) return new Response('No PDF file', { status: 400 });
   if (!['standard', 'comprehensive', 'boards'].includes(density)) {
@@ -60,19 +62,21 @@ export async function POST(req: NextRequest) {
 
   const dc: DensityConfig = DENSITY_CONFIG[density];
 
-  try {
-    const monthlyCount = await getAndMaybeResetMonthlyCount(userId);
-    const { data: profile } = await supabaseServer().from('users').select('plan').eq('id', userId).single();
-    const tier = (profile?.plan as keyof typeof PLAN_LIMITS) ?? 'free';
-    const limits = PLAN_LIMITS[tier];
-    if (limits.pdfsPerMonth !== null && monthlyCount >= limits.pdfsPerMonth) {
-      return new Response(
-        JSON.stringify({ error: 'Plan limit exceeded', tier, limit: limits.pdfsPerMonth }),
-        { status: 402, headers: { 'Content-Type': 'application/json' } },
-      );
+  if (process.env.NODE_ENV !== 'development') {
+    try {
+      const monthlyCount = await getAndMaybeResetMonthlyCount(userId);
+      const { data: profile } = await supabaseServer().from('users').select('plan').eq('id', userId).single();
+      const tier = (profile?.plan as keyof typeof PLAN_LIMITS) ?? 'free';
+      const limits = PLAN_LIMITS[tier];
+      if (limits.pdfsPerMonth !== null && monthlyCount >= limits.pdfsPerMonth) {
+        return new Response(
+          JSON.stringify({ error: 'Plan limit exceeded', tier, limit: limits.pdfsPerMonth }),
+          { status: 402, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+    } catch (e) {
+      return new Response(`Plan check failed: ${(e as Error).message}`, { status: 500 });
     }
-  } catch (e) {
-    return new Response(`Plan check failed: ${(e as Error).message}`, { status: 500 });
   }
 
   const pdfRow = await insertPDF({
@@ -85,7 +89,11 @@ export async function POST(req: NextRequest) {
     concept_count: null,
     question_count: null,
   });
-  const pdfId = pdfRow.id;
+  const pdfId = pdfRow?.id;
+  if (!pdfId) {
+    console.error('[process] insertPDF returned row without id:', pdfRow);
+    return new Response('Failed to create PDF record (missing id)', { status: 500 });
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -137,7 +145,8 @@ export async function POST(req: NextRequest) {
         // ── Phase 2: Chunk
         emit({ phase: 2, message: 'Phase 2: Chunking text…', pct: 10 });
         const rawChunks = chunkText(pages, dc.words, dc.overlap, pdfId);
-        emit({ phase: 2, message: `Phase 2: ${rawChunks.length} chunks`, pct: 14 });
+        const totalWords = rawChunks.reduce((s, c) => s + c.word_count, 0);
+        emit({ phase: 2, message: `Phase 2: ${rawChunks.length} chunks`, pct: 14, data: { wordsParsed: totalWords } });
 
         // ── Phase 3: Embed
         emit({ phase: 3, message: 'Phase 3: Embedding chunks…', pct: 15 });
@@ -174,8 +183,9 @@ export async function POST(req: NextRequest) {
           const batch = chunkRecords.slice(b, b + BATCH_SIZE);
           const inv = await extractInventory(batch, dc, Math.floor(b / BATCH_SIZE), totalBatches);
           inventories.push(inv);
+          const conceptsSoFar = inventories.reduce((s, inv) => s + (inv?.concepts?.length ?? 0), 0);
           const pct = 30 + Math.round(((b + BATCH_SIZE) / chunkRecords.length) * 20);
-          emit({ phase: 4, message: `Phase 4: Inventory batch ${Math.floor(b / BATCH_SIZE) + 1}/${totalBatches}`, pct: Math.min(pct, 50) });
+          emit({ phase: 4, message: `Phase 4: Inventory batch ${Math.floor(b / BATCH_SIZE) + 1}/${totalBatches}`, pct: Math.min(pct, 50), data: { conceptsGenerated: conceptsSoFar } });
         }
 
         const merged = mergeInventory(inventories, pdfId);
@@ -185,6 +195,13 @@ export async function POST(req: NextRequest) {
         // ── Phase 5: Confusion map
         emit({ phase: 5, message: 'Phase 5: Building confusion map…', pct: 54 });
         const confusionMap = await generateConfusionMap(canonical.map(c => ({ name: c.name, category: c.category })));
+
+        // Verify the PDF row is still visible to supabaseAdmin before inserting concepts
+        const { data: pdfCheck } = await supabaseAdmin
+          .from('pdfs').select('id').eq('id', pdfId).single();
+        if (!pdfCheck) {
+          throw new Error(`PDF record ${pdfId} not found in database before inserting concepts — userId: ${userId}`);
+        }
 
         const conceptRows = canonical.map(c => toConceptRow(c, pdfId, userId));
         const savedConcepts = await insertConcepts(conceptRows);
@@ -198,8 +215,11 @@ export async function POST(req: NextRequest) {
         const maxQuestionsPerPdf = PLAN_LIMITS[genTier].maxQuestionsPerPdf;
 
         let totalQuestions = 0;
+        let totalRejected  = 0;
         let totalCostUSD   = 0;
         const allPassedQuestions: any[] = [];
+        /* map concept_id → importance for quality sorting */
+        const conceptImportance: Record<string, string> = {};
 
         const conceptSpecs = savedConcepts.map((c, i) => ({
           id:               c.id,
@@ -214,13 +234,46 @@ export async function POST(req: NextRequest) {
           chunk_ids:         (canonical.find(cc => cc.name === c.name))?.sourceChunkIds ?? [],
         }));
 
+        /* ── Cap concepts before generation to prevent runaway pipelines ──
+         * Sort high → medium → low importance so the most critical concepts
+         * are always included when the PDF has hundreds of concepts.
+         * In development mode we skip the cap to allow full testing.            */
+        const importanceOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+        const sortedConceptSpecs = [...conceptSpecs]
+          .sort((a, b) => (importanceOrder[a.importance] ?? 2) - (importanceOrder[b.importance] ?? 2));
+
+        let cappedConceptSpecs = sortedConceptSpecs;
+        if (process.env.NODE_ENV !== 'development') {
+          // Aim for ~2× question budget in raw generation (audit rejects ~30-50%)
+          const avgQPerConcept = (dc.min + dc.max) / 2;
+          const byBudget = Math.ceil((maxQuestionsPerPdf * 2) / avgQPerConcept);
+          const maxConcepts = Math.min(Math.max(byBudget, 20), 80); // floor=20, ceil=80
+          cappedConceptSpecs = sortedConceptSpecs.slice(0, maxConcepts);
+        }
+
+        if (cappedConceptSpecs.length < conceptSpecs.length) {
+          emit({ phase: 6, message: `Phase 6: Processing top ${cappedConceptSpecs.length}/${conceptSpecs.length} concepts by importance`, pct: 60 });
+        }
+
+        /* register concept importance for quality sorting later */
+        cappedConceptSpecs.forEach(c => { conceptImportance[c.id] = c.importance; });
+
         const GEN_BATCH = 3;
-        for (let g = 0; g < conceptSpecs.length && totalQuestions < maxQuestionsPerPdf; g += GEN_BATCH) {
-          const batch = conceptSpecs.slice(g, g + GEN_BATCH);
-          const { questions: genQs, costUSD } = await generateCoverageQuestions(
-            batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index,
-          );
-          totalCostUSD += costUSD;
+        for (let g = 0; g < cappedConceptSpecs.length; g += GEN_BATCH) {
+          const batch = cappedConceptSpecs.slice(g, g + GEN_BATCH);
+          const totalBatchCount = Math.ceil(cappedConceptSpecs.length / GEN_BATCH);
+
+          let genQs: any[] = [], genCost = 0;
+          try {
+            const result = await generateCoverageQuestions(
+              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index,
+            );
+            genQs = result.questions;
+            genCost = result.costUSD;
+          } catch (genErr) {
+            console.error(`[process] Generation batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, genErr);
+          }
+          totalCostUSD += genCost;
 
           const ragPassages: Record<string, string> = {};
           batch.forEach(c => {
@@ -228,9 +281,15 @@ export async function POST(req: NextRequest) {
             ragPassages[c.id] = chunks.map(ch => ch.text.slice(0, 350)).join('\n\n');
           });
 
-          const { passed, hardRejected, costUSD: auditCost } = await auditQuestions(
-            genQs, batch, pdfId, userId, ragPassages,
-          );
+          let passed: any[] = [], hardRejected: any[] = [], auditCost = 0;
+          try {
+            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages);
+            passed = auditResult.passed;
+            hardRejected = auditResult.hardRejected;
+            auditCost = auditResult.costUSD;
+          } catch (auditErr) {
+            console.error(`[process] Audit batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, auditErr);
+          }
           totalCostUSD += auditCost;
 
           for (const hr of hardRejected) {
@@ -243,20 +302,35 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          const remaining = maxQuestionsPerPdf - totalQuestions;
-          const toAdd = passed.slice(0, remaining);
-          allPassedQuestions.push(...toAdd);
-          totalQuestions += toAdd.length;
+          allPassedQuestions.push(...passed);
+          totalQuestions += passed.length;
+          totalRejected  += hardRejected.length;
 
-          const pct = 60 + Math.round(((g + GEN_BATCH) / conceptSpecs.length) * 35);
+          const pct = 60 + Math.round(((g + GEN_BATCH) / cappedConceptSpecs.length) * 35);
           emit({
             phase: 6,
-            message: `Phase 6: ${totalQuestions} questions (batch ${Math.floor(g / GEN_BATCH) + 1}/${Math.ceil(conceptSpecs.length / GEN_BATCH)})`,
+            message: `Phase 6: ${totalQuestions} questions (batch ${Math.floor(g / GEN_BATCH) + 1}/${totalBatchCount})`,
             pct: Math.min(pct, 94),
+            data: { questionsGenerated: totalQuestions, questionsRejected: totalRejected },
           });
         }
 
-        const savedQuestions = await insertQuestions(allPassedQuestions);
+        /* Quality-sort then apply plan cap and user cap */
+        const importanceWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
+        allPassedQuestions.sort((a: any, b: any) => {
+          const levelDiff = (b.level ?? 1) - (a.level ?? 1);
+          if (levelDiff !== 0) return levelDiff;
+          const aImp = importanceWeight[conceptImportance[a.concept_id] ?? 'low'] ?? 1;
+          const bImp = importanceWeight[conceptImportance[b.concept_id] ?? 'low'] ?? 1;
+          return bImp - aImp;
+        });
+
+        const effectiveMax = userMaxQ > 0
+          ? Math.min(userMaxQ, maxQuestionsPerPdf)
+          : maxQuestionsPerPdf;
+        const finalQuestions = allPassedQuestions.slice(0, effectiveMax);
+
+        const savedQuestions = await insertQuestions(finalQuestions);
 
         await updatePDF(pdfId, {
           processed_at:        new Date().toISOString(),
@@ -275,7 +349,8 @@ export async function POST(req: NextRequest) {
         });
 
       } catch (e) {
-        fail((e as Error).message);
+        console.error('[process] Pipeline crashed:', e);
+        fail((e as Error).message ?? String(e));
       } finally {
         // Safety Valve 3: The ONLY place the controller closes. 
         // We check isClosed to prevent the ERR_INVALID_STATE error.

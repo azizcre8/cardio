@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import type { Concept, PDF } from '@/types';
 
 interface Props {
-  pdf:          PDF;
-  onChooseBank: () => void;
-  onBack:       () => void;
+  pdf:        PDF;
+  onStudyNow: () => void;
+  onBack:     () => void;
 }
 
 const IMP = {
@@ -15,7 +15,7 @@ const IMP = {
   low:    { border: 'var(--border)', bg: 'var(--bg-sunken)',         text: 'var(--text-dim)', label: 'Low'     },
 } as const;
 
-export default function ConceptMapView({ pdf, onChooseBank, onBack }: Props) {
+export default function ConceptMapView({ pdf, onStudyNow, onBack }: Props) {
   const [concepts,  setConcepts]  = useState<Concept[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [selected,  setSelected]  = useState<string | null>(null);
@@ -114,18 +114,12 @@ export default function ConceptMapView({ pdf, onChooseBank, onBack }: Props) {
           marginBottom: '28px',
           animation: 'fade-up 0.35s ease 0.05s both',
         }}>
-          <span style={{
-            fontSize: '0.72rem', color: 'var(--text-dim)', fontWeight: 500, flexShrink: 0,
-          }}>
-            What would you like to do?
-          </span>
-
           <ActionBtn
-            label="📝 Choose Question Bank"
+            label="▶ Study Now"
             primary
             hovered={hovAction === 'study'}
             onHover={h => setHovAction(h ? 'study' : '')}
-            onClick={onChooseBank}
+            onClick={onStudyNow}
           />
           <ActionBtn
             label="📚 Back to Library"
@@ -208,14 +202,14 @@ export default function ConceptMapView({ pdf, onChooseBank, onBack }: Props) {
             Concepts are still being indexed.
           </p>
           <button
-            onClick={onChooseBank}
+            onClick={onStudyNow}
             style={{
               padding: '10px 28px', borderRadius: 'var(--radius-md)',
               background: 'var(--accent)', color: 'white',
               fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
             }}
           >
-            Choose Question Bank →
+            Study Now →
           </button>
         </div>
       )}
