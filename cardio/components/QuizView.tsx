@@ -27,6 +27,13 @@ interface ValidationResult {
   confidence: 'high' | 'medium' | 'low' | null;
 }
 
+const QUALITY: Record<number, { label: string; color: string }> = {
+  1: { label: '✗ Wrong', color: '#F85149' },
+  2: { label: '😅 Hard', color: '#D29922' },
+  3: { label: '✓ Good', color: '#3FB950' },
+  4: { label: '⚡ Easy', color: '#14B8C8' },
+};
+
 /** Extracts "Key distinction: …" sentence, renders it first and bolded. */
 function formatExplanation(text: string) {
   // Pull out the key-distinction clause wherever it sits in the text
@@ -105,6 +112,9 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const [idx,        setIdx]        = useState(0);
   const [answers,    setAnswers]    = useState<AnswerState[]>([]);
   const [loading,    setLoading]    = useState(true);
+  const [rated,      setRated]      = useState<Record<number, boolean>>({});
+  const [submittingQuality, setSubmittingQuality] = useState<number | null>(null);
+  const [qualityError, setQualityError] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Map<number, HighlightRange[]>>(new Map());
   const [strikeouts, setStrikeouts] = useState<Map<number, Set<number>>>(new Map());
   const [validationByIdx, setValidationByIdx] = useState<Map<number, ValidationResult>>(new Map());
@@ -140,14 +150,17 @@ export default function QuizView({ pdfId, onDone }: Props) {
       const current = questions[idx];
       if (!current) return;
 
-      const n = parseInt(e.key);
-      if (!revealed && n >= 1 && n <= current.options.length) {
-        selectOption(n - 1);
-      } else if (e.key === 'ArrowRight' || (revealed && (e.key === 'Enter' || e.key === ' '))) {
+        const n = parseInt(e.key);
+        if (!revealed && n >= 1 && n <= current.options.length) {
+          selectOption(n - 1);
+        } else if (revealed && n >= 1 && n <= 4 && !rated[idx] && !submittingQuality) {
+          void submitQuality(n);
+        } else if (e.key === 'ArrowRight' || (revealed && (e.key === 'Enter' || e.key === ' '))) {
+        if (revealed && !rated[idx]) return;
         if (idx < questions.length) goForward();
-      } else if (e.key === 'ArrowLeft') {
-        goBack();
-      }
+        } else if (e.key === 'ArrowLeft') {
+          goBack();
+        }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -157,6 +170,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   function selectOption(optIdx: number) {
     if (revealed) return;
+    setQualityError(null);
     setAnswers(prev => prev.map((a, i) =>
       i === idx ? { selected: optIdx, revealed: true } : a
     ));
@@ -173,6 +187,9 @@ export default function QuizView({ pdfId, onDone }: Props) {
   function restart() {
     setIdx(0);
     setAnswers(questions.map(() => ({ selected: null, revealed: false })));
+    setRated({});
+    setSubmittingQuality(null);
+    setQualityError(null);
     setHighlights(new Map());
     setStrikeouts(new Map());
     setValidationByIdx(new Map());
@@ -188,8 +205,44 @@ export default function QuizView({ pdfId, onDone }: Props) {
     setQuestions(wrongQs);
     setIdx(0);
     setAnswers(wrongQs.map(() => ({ selected: null, revealed: false })));
+    setRated({});
+    setSubmittingQuality(null);
+    setQualityError(null);
     setHighlights(new Map());
     setStrikeouts(new Map());
+  }
+
+  async function submitQuality(quality: number) {
+    if (!current || rated[idx] || submittingQuality !== null) return;
+
+    setSubmittingQuality(quality);
+    setQualityError(null);
+
+    try {
+      const res = await fetch('/api/study/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          questionId: current.id,
+          quality,
+          pdfId,
+          proxiedFromId: null,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === 'string' ? data.error : 'Failed to save SRS review.'
+        );
+      }
+
+      setRated(prev => ({ ...prev, [idx]: true }));
+    } catch (err) {
+      setQualityError(err instanceof Error ? err.message : 'Failed to save SRS review.');
+    } finally {
+      setSubmittingQuality(null);
+    }
   }
 
   /** Capture text selection within the stem and persist it as a highlight. */
@@ -801,7 +854,40 @@ export default function QuizView({ pdfId, onDone }: Props) {
             )}
 
             {/* Navigation: prev + next */}
-            <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
+            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {!rated[idx] && (
+                <>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '0.68rem',
+                    textAlign: 'center',
+                    color: 'var(--text-dim)',
+                    fontWeight: 500,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}>
+                    Rate this for SRS
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                    {[1, 2, 3, 4].map(quality => (
+                      <QualityBtn
+                        key={quality}
+                        quality={quality}
+                        disabled={submittingQuality !== null}
+                        active={submittingQuality === quality}
+                        onClick={() => void submitQuality(quality)}
+                      />
+                    ))}
+                  </div>
+                  {qualityError && (
+                    <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--red)', textAlign: 'center' }}>
+                      {qualityError}
+                    </p>
+                  )}
+                </>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px' }}>
               {idx > 0 && (
                 <button
                   onClick={goBack}
@@ -829,23 +915,72 @@ export default function QuizView({ pdfId, onDone }: Props) {
               )}
               <button
                 onClick={goForward}
+                disabled={!rated[idx]}
                 style={{
                   flex: 1,
                   padding: '10px',
                   borderRadius: 'var(--radius-md)',
-                  background: 'var(--accent)', color: 'white',
-                  fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
+                  background: !rated[idx] ? 'var(--bg-sunken)' : 'var(--accent)',
+                  color: !rated[idx] ? 'var(--text-dim)' : 'white',
+                  fontSize: '0.85rem', fontWeight: 600,
+                  border: !rated[idx] ? '1px solid var(--border)' : 'none',
+                  cursor: !rated[idx] ? 'default' : 'pointer',
                   transition: 'opacity 0.15s',
                 }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                onMouseEnter={e => {
+                  if (rated[idx]) e.currentTarget.style.opacity = '0.88';
+                }}
+                onMouseLeave={e => {
+                  if (rated[idx]) e.currentTarget.style.opacity = '1';
+                }}
               >
-                {idx + 1 < questions.length ? 'Next →' : 'See Results'}
+                {!rated[idx]
+                  ? 'Choose SRS rating'
+                  : idx + 1 < questions.length ? 'Next →' : 'See Results'}
               </button>
+              </div>
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function QualityBtn({
+  quality,
+  disabled,
+  active,
+  onClick,
+}: {
+  quality: number;
+  disabled: boolean;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const { label, color } = QUALITY[quality]!;
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: '9px 8px',
+        borderRadius: 'var(--radius-md)',
+        fontSize: '0.78rem',
+        fontWeight: 600,
+        border: `1px solid ${hovered || active ? color : 'var(--border)'}`,
+        background: hovered || active ? color : 'var(--bg-raised)',
+        color: hovered || active ? '#fff' : 'var(--text-secondary)',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled && !active ? 0.6 : 1,
+        transition: 'all 0.15s ease',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {label}
+    </button>
   );
 }
