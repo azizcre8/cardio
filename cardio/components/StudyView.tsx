@@ -17,9 +17,23 @@ const QUALITY: Record<number, { label: string; color: string }> = {
 };
 
 const LETTERS = ['A', 'B', 'C', 'D', 'E'];
+const MAX_REPLAYS_PER_QUESTION = 2;
 
-export default function StudyView({ pdfId, examDate, onDone }: Props) {
-  const [queue,    setQueue]    = useState<StudyQueueItem[]>([]);
+type SessionQueueItem = StudyQueueItem & {
+  _sessionId: string;
+  _replayAttempt: number;
+};
+
+function buildSessionItem(item: StudyQueueItem, replayAttempt = 0): SessionQueueItem {
+  return {
+    ...item,
+    _sessionId: `${item.id}:${replayAttempt}:${crypto.randomUUID()}`,
+    _replayAttempt: replayAttempt,
+  };
+}
+
+export default function StudyView({ pdfId, onDone }: Props) {
+  const [queue,    setQueue]    = useState<SessionQueueItem[]>([]);
   const [idx,      setIdx]      = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
@@ -29,13 +43,25 @@ export default function StudyView({ pdfId, examDate, onDone }: Props) {
   const [total,    setTotal]    = useState(0);
   const [showQuote, setShowQuote] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const replayCountsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     fetch(`/api/study/queue?pdfId=${pdfId}`, { signal: ctrl.signal })
       .then(r => r.json() as Promise<QueueResponse>)
-      .then(data => { setQueue(data.queue); setLoading(false); })
+      .then(data => {
+        setQueue(data.queue.map(item => buildSessionItem(item)));
+        replayCountsRef.current = {};
+        setRated({});
+        setIdx(0);
+        setSelected(null);
+        setRevealed(false);
+        setShowQuote(false);
+        setCorrect(0);
+        setTotal(0);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
     return () => ctrl.abort();
   }, [pdfId]);
@@ -48,7 +74,7 @@ export default function StudyView({ pdfId, examDate, onDone }: Props) {
         if (n >= 1 && n <= 4) selectOption(n - 1);
       } else {
         const current = queue[idx];
-        if (n >= 1 && n <= 4 && current && !rated[current.id]) rateQuality(n);
+        if (n >= 1 && n <= 4 && current && !rated[current._sessionId]) rateQuality(n);
       }
     }
     window.addEventListener('keydown', onKey);
@@ -67,24 +93,50 @@ export default function StudyView({ pdfId, examDate, onDone }: Props) {
   }
 
   async function rateQuality(quality: number) {
-    if (!current || rated[current.id]) return;
-    setRated(prev => ({ ...prev, [current.id]: true }));
-    await fetch('/api/study/submit', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        questionId:    current.id,
-        quality,
-        pdfId,
-        proxiedFromId: current._proxiedFromId ?? null,
-      }),
-    });
-    setTimeout(() => {
-      setIdx(i => i + 1);
-      setRevealed(false);
-      setSelected(null);
-      setShowQuote(false);
-    }, 280);
+    if (!current || rated[current._sessionId]) return;
+
+    const sessionId = current._sessionId;
+    setRated(prev => ({ ...prev, [sessionId]: true }));
+
+    try {
+      const res = await fetch('/api/study/submit', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          questionId:    current.id,
+          quality,
+          pdfId,
+          proxiedFromId: current._proxiedFromId ?? null,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Failed to submit study review');
+
+      if (quality === 1) {
+        const replayCount = replayCountsRef.current[current.id] ?? 0;
+        if (replayCount < MAX_REPLAYS_PER_QUESTION) {
+          const nextReplayAttempt = replayCount + 1;
+          replayCountsRef.current[current.id] = nextReplayAttempt;
+          setQueue(prevQueue => [
+            ...prevQueue,
+            buildSessionItem(current, nextReplayAttempt),
+          ]);
+        }
+      }
+
+      setTimeout(() => {
+        setIdx(i => i + 1);
+        setRevealed(false);
+        setSelected(null);
+        setShowQuote(false);
+      }, 280);
+    } catch {
+      setRated(prev => {
+        const next = { ...prev };
+        delete next[sessionId];
+        return next;
+      });
+    }
   }
 
   /* ── Loading ── */
@@ -376,7 +428,7 @@ export default function StudyView({ pdfId, examDate, onDone }: Props) {
       </div>
 
       {/* ── Sticky quality bar ── */}
-      {revealed && !rated[current.id] && (
+      {revealed && !rated[current._sessionId] && (
         <div style={{
           position:   'sticky',
           bottom:     0,

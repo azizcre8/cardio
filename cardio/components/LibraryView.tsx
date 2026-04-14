@@ -331,8 +331,10 @@ function DeckCard({
     <div
       style={{
         background:  'var(--bg-raised)',
-        border:      `1px solid ${hov ? 'var(--border-med)' : 'var(--border)'}`,
-        borderTop:   pdf.processed_at ? `3px solid var(--accent)` : '3px solid var(--border)',
+        borderTop:    pdf.processed_at ? `3px solid var(--accent)` : '3px solid var(--border)',
+        borderRight:  `1px solid ${hov ? 'var(--border-med)' : 'var(--border)'}`,
+        borderBottom: `1px solid ${hov ? 'var(--border-med)' : 'var(--border)'}`,
+        borderLeft:   `1px solid ${hov ? 'var(--border-med)' : 'var(--border)'}`,
         borderRadius: 'var(--radius-lg)',
         padding:     '18px',
         transition:  'box-shadow 0.15s, border-color 0.15s',
