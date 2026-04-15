@@ -2,9 +2,9 @@
  * GET /api/pdfs — list all PDFs for the authenticated user
  */
 
-import { NextResponse } from 'next/server';
 import { getPDFs } from '@/lib/storage';
 import { requireUser } from '@/lib/auth';
+import { jsonOk } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,5 +13,5 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const pdfs = await getPDFs(auth.userId);
-  return NextResponse.json(pdfs);
+  return jsonOk(pdfs);
 }

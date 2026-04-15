@@ -12,6 +12,7 @@ import { upsertSRSState, insertReview, getUserProfile } from '@/lib/storage';
 import { applySRS } from '@/lib/srs';
 import type { SubmitQualityBody, Question, SRSState } from '@/types';
 import { requireUser } from '@/lib/auth';
+import { jsonBadRequest, jsonNotFound, jsonOk, parseJsonBody } from '@/lib/api';
 
 async function fetchQuestionWithSRS(questionId: string, userId: string): Promise<Question | null> {
   const { data: q } = await supabaseAdmin.from('questions').select('*').eq('id', questionId).single();
@@ -62,17 +63,14 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const userId = auth.userId;
-  let body: SubmitQualityBody;
-  try {
-    body = await req.json() as SubmitQualityBody;
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-  }
+  const parsed = await parseJsonBody<SubmitQualityBody>(req);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
   const { questionId, quality, pdfId, proxiedFromId } = body;
 
   if (!questionId || !pdfId || typeof quality !== 'number' || quality < 1 || quality > 4) {
-    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    return jsonBadRequest('Invalid request body');
   }
 
   const profile = await getUserProfile(userId);
@@ -80,7 +78,7 @@ export async function POST(req: NextRequest) {
 
   // ── Apply SRS to the answered question
   const answeredQ = await fetchQuestionWithSRS(questionId, userId);
-  if (!answeredQ) return NextResponse.json({ error: 'Question not found' }, { status: 404 });
+  if (!answeredQ) return jsonNotFound('Question not found');
 
   const updatedQ = applySRS(answeredQ, quality, examDate);
 
@@ -142,7 +140,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({
+  return jsonOk({
     interval:    updatedQ.interval,
     ease_factor: updatedQ.ease_factor,
     repetitions: updatedQ.repetitions,

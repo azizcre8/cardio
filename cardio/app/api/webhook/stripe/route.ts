@@ -9,6 +9,7 @@ import { stripe, tierFromPriceId } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { env } from '@/lib/env';
 import type Stripe from 'stripe';
+import { jsonError, jsonOk } from '@/lib/api';
 
 // body is read as text below; Next.js App Router does not use bodyParser
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   try {
     event = stripe.webhooks.constructEvent(body, signature, env.stripeWebhookSecret());
   } catch (e) {
-    return NextResponse.json({ error: `Webhook signature failed: ${(e as Error).message}` }, { status: 400 });
+    return jsonError(`Webhook signature failed: ${(e as Error).message}`, 400);
   }
 
   switch (event.type) {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
       if (error) {
         console.error('Webhook: failed to update plan:', error.message);
-        return NextResponse.json({ error: 'DB update failed' }, { status: 500 });
+        return jsonError('DB update failed');
       }
       break;
     }
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
 
       if (error) {
         console.error('Webhook: failed to reset plan:', error.message);
-        return NextResponse.json({ error: 'DB update failed' }, { status: 500 });
+        return jsonError('DB update failed');
       }
       break;
     }
@@ -65,5 +66,5 @@ export async function POST(req: NextRequest) {
       break;
   }
 
-  return NextResponse.json({ received: true });
+  return jsonOk({ received: true });
 }

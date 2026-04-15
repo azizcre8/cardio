@@ -5,6 +5,7 @@
 
 import { NextRequest } from 'next/server';
 import { DENSITY_CONFIG } from '@/types';
+import { jsonBadRequest, jsonError, jsonOk, parseFormBody } from '@/lib/api';
 
 export const maxDuration = 30;
 export const runtime    = 'nodejs';
@@ -29,12 +30,12 @@ export interface AnalyzeResult {
 }
 
 export async function POST(req: NextRequest) {
-  let formData: FormData;
-  try { formData = await req.formData(); }
-  catch { return new Response('Invalid form data', { status: 400 }); }
+  const parsed = await parseFormBody(req);
+  if (!parsed.ok) return parsed.response;
+  const formData = parsed.data;
 
   const pdfFile = formData.get('pdf') as File | null;
-  if (!pdfFile) return new Response('No PDF file', { status: 400 });
+  if (!pdfFile) return jsonBadRequest('No PDF file');
 
   try {
     const buffer   = Buffer.from(await pdfFile.arrayBuffer());
@@ -81,10 +82,8 @@ export async function POST(req: NextRequest) {
     }
 
     const result: AnalyzeResult = { pageCount, estimatedTotalWords, estimates };
-    return new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return jsonOk(result);
   } catch (e) {
-    return new Response(`Analysis failed: ${(e as Error).message}`, { status: 500 });
+    return jsonError(`Analysis failed: ${(e as Error).message}`);
   }
 }

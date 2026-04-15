@@ -5,6 +5,7 @@ import { verifyEvidenceSpan } from '@/lib/pipeline/validation';
 import type { Question, Chunk } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
+import { jsonBadRequest, jsonNotFound, jsonOk, parseJsonBody } from '@/lib/api';
 
 type ValidatePayload = {
   pdfId?: string;
@@ -271,19 +272,15 @@ function buildFallbackResponse(programmaticIssues: string[], evidenceOk: boolean
 }
 
 export async function POST(req: NextRequest) {
-  let body: ValidatePayload;
-
-  try {
-    body = (await req.json()) as ValidatePayload;
-  } catch {
-    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
-  }
+  const parsedBody = await parseJsonBody<ValidatePayload>(req);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.data;
 
   const pdfId = String(body.pdfId ?? '').trim();
   const questionId = String(body.questionId ?? '').trim();
 
   if (!pdfId || !questionId) {
-    return NextResponse.json({ error: 'pdfId and questionId are required.' }, { status: 400 });
+    return jsonBadRequest('pdfId and questionId are required.');
   }
 
   const auth = await requireUser();
@@ -315,9 +312,7 @@ export async function POST(req: NextRequest) {
     .eq('user_id', userId)
     .single();
 
-  if (questionError || !questionData) {
-    return NextResponse.json({ error: 'Question not found.' }, { status: 404 });
-  }
+  if (questionError || !questionData) return jsonNotFound('Question not found.');
 
   const question = questionData as QuestionRow;
 
@@ -362,7 +357,7 @@ export async function POST(req: NextRequest) {
   const fallback = buildFallbackResponse(programmatic.issues, programmatic.evidenceOk);
 
   if (!env.openAiApiKey) {
-    return NextResponse.json(fallback);
+    return jsonOk(fallback);
   }
 
   const prompt = `
@@ -425,7 +420,7 @@ Rules for output:
     });
 
     const content = response.choices[0]?.message?.content;
-    if (!content) return NextResponse.json(fallback);
+    if (!content) return jsonOk(fallback);
 
     const parsed = JSON.parse(content) as Partial<ValidatorResponse>;
     const mergedIssues = takeUnique([
@@ -442,7 +437,7 @@ Rules for output:
       ? parsed.confidence
       : fallback.confidence;
 
-    return NextResponse.json({
+    return jsonOk({
       isValid,
       issues: mergedIssues,
       suggestedFix: String(parsed.suggestedFix ?? fallback.suggestedFix),
@@ -450,6 +445,6 @@ Rules for output:
     } satisfies ValidatorResponse);
   } catch (error) {
     console.error('[questions/validate] validation failed:', error);
-    return NextResponse.json(fallback);
+    return jsonOk(fallback);
   }
 }

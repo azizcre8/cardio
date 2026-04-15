@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase';
+import { jsonUnauthorized } from '@/lib/api';
 
 export async function requireUser() {
   const supabase = supabaseServer();
@@ -8,7 +8,7 @@ export async function requireUser() {
   if (!session) {
     return {
       ok: false as const,
-      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      response: jsonUnauthorized(),
     };
   }
 

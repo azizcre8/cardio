@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
+import { jsonError, jsonOk } from '@/lib/api';
 
 export async function GET(
   req: NextRequest,
@@ -39,7 +40,7 @@ export async function GET(
     .eq('user_id', auth.userId)
     .eq('flagged', false);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return jsonError(error.message);
 
   // Flatten concept name and shuffle (Fisher-Yates)
   const questions = (data ?? []).map((q: Record<string, unknown>) => {
@@ -54,5 +55,5 @@ export async function GET(
     [questions[i], questions[j]] = [questions[j], questions[i]];
   }
 
-  return NextResponse.json({ questions });
+  return jsonOk({ questions });
 }

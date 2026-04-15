@@ -8,6 +8,7 @@ import { getQuestionsWithSRS, getConcepts, getUserProfile } from '@/lib/storage'
 import { buildQueue, computeAllMastery } from '@/lib/srs';
 import type { QueueResponse } from '@/types';
 import { requireUser } from '@/lib/auth';
+import { jsonBadRequest, jsonOk } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const pdfId = req.nextUrl.searchParams.get('pdfId');
-  if (!pdfId) return NextResponse.json({ error: 'pdfId required' }, { status: 400 });
+  if (!pdfId) return jsonBadRequest('pdfId required');
 
   const userId = auth.userId;
 
@@ -30,5 +31,5 @@ export async function GET(req: NextRequest) {
   const masteryData = computeAllMastery(concepts, questions);
   const queue = buildQueue(questions, masteryData, concepts, examDate);
 
-  return NextResponse.json({ queue, examDate: profile?.exam_date ?? null } satisfies QueueResponse);
+  return jsonOk({ queue, examDate: profile?.exam_date ?? null } satisfies QueueResponse);
 }
