@@ -115,6 +115,7 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
       const reader = resp.body!.getReader();
       const dec = new TextDecoder();
       let buf = '';
+      let sawTerminalEvent = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -132,15 +133,27 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
             setActiveJob(prev => prev ? { ...prev, logs: [...prev.logs, ev] } : null);
 
             if (ev.phase === 7 && ev.data?.pdfId) {
+              sawTerminalEvent = true;
               const pdfId = ev.data.pdfId as string;
               const res = await fetch('/api/pdfs');
               if (res.ok) setPdfs(await res.json() as PDF[]);
               setActiveJob(prev => prev ? { ...prev, isRunning: false, completedPdfId: pdfId } : null);
+            } else if (ev.phase === 0) {
+              sawTerminalEvent = true;
+              setActiveJob(prev => prev ? { ...prev, isRunning: false } : null);
             }
           } catch {
             /* ignore parse errors */
           }
         }
+      }
+
+      if (!sawTerminalEvent) {
+        setActiveJob(prev => prev ? {
+          ...prev,
+          isRunning: false,
+          logs: [...prev.logs, { phase: 0, message: 'Error: Processing stream ended before completion.', pct: 0 }],
+        } : null);
       }
     } catch (e) {
       setActiveJob(prev => prev ? {

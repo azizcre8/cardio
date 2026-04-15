@@ -117,11 +117,11 @@ export default function ProcessingView({ job, onBack }: Props) {
   const wordsParsed        = (job.logs.map(e => e.data?.wordsParsed).filter(Boolean).pop() as number | undefined) ?? 0;
   const conceptsGenerated  = (job.logs.map(e => e.data?.conceptsGenerated).filter(Boolean).pop() as number | undefined) ?? 0;
   const questionsGenerated = (job.logs.map(e => e.data?.questionsGenerated).filter(Boolean).pop() as number | undefined) ?? 0;
+  const questionsAccepted  = (job.logs.map(e => e.data?.questionsAccepted).filter(Boolean).pop() as number | undefined) ?? 0;
   const questionsRejected  = (job.logs.map(e => e.data?.questionsRejected).filter(Boolean).pop() as number | undefined) ?? 0;
 
   /* quality rate */
-  const qualityTotal = questionsGenerated + questionsRejected;
-  const qualityRate  = qualityTotal > 0 ? Math.round((questionsGenerated / qualityTotal) * 100) : null;
+  const qualityRate  = questionsGenerated > 0 ? Math.round((questionsAccepted / questionsGenerated) * 100) : null;
 
   /* time remaining estimate */
   const estimatedTotal   = pct > 5 ? Math.round(elapsed / (pct / 100)) : null;
@@ -293,6 +293,7 @@ export default function ProcessingView({ job, onBack }: Props) {
           <StatCard label="Words Parsed"      value={wordsParsed ? fmtNum(wordsParsed) : '—'}    dim={!wordsParsed} />
           <StatCard label="Concepts Found"    value={conceptsGenerated ? String(conceptsGenerated) : '—'} dim={!conceptsGenerated} />
           <StatCard label="Questions Generated" value={questionsGenerated ? String(questionsGenerated) : '—'} dim={!questionsGenerated} />
+          <StatCard label="Questions Accepted" value={questionsAccepted ? String(questionsAccepted) : '—'} dim={!questionsAccepted} />
           <StatCard label="Questions Rejected"  value={questionsRejected ? String(questionsRejected)  : '—'} dim={!questionsRejected} />
         </div>
 
@@ -414,7 +415,7 @@ export default function ProcessingView({ job, onBack }: Props) {
               Question bank complete!
             </p>
             <p style={{ fontSize: '0.82rem', color: '#4A5E7A' }}>
-              {questionsGenerated} questions generated · {qualityRate !== null ? `${qualityRate}% quality rate` : ''}
+              {questionsAccepted} accepted out of {questionsGenerated} generated · {qualityRate !== null ? `${qualityRate}% quality rate` : ''}
             </p>
             <button
               onClick={onBack}

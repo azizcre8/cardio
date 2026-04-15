@@ -179,6 +179,7 @@ export default function LibraryView({
     const dec    = new TextDecoder();
     let buf      = '';
     let completedPdfId: string | null = null;
+    let sawTerminalEvent = false;
 
     while (true) {
       const { value, done } = await reader.read();
@@ -193,6 +194,7 @@ export default function LibraryView({
           const ev: ProcessEvent = JSON.parse(trimmed);
           setLogs(prev => [...prev, ev]);
           if (ev.phase === 7 && ev.data?.pdfId) {
+            sawTerminalEvent = true;
             completedPdfId = ev.data.pdfId as string;
             // If a deck is selected, move the new PDF into it
             if (selectedDeckId && selectedDeckId !== '__uncategorized__') {
@@ -205,9 +207,15 @@ export default function LibraryView({
             const res = await fetch('/api/pdfs');
             if (res.ok) onPdfsChange(await res.json() as PDF[]);
             setProcessing(null);
+          } else if (ev.phase === 0) {
+            sawTerminalEvent = true;
+            setProcessing(null);
           }
         } catch { /* ignore */ }
       }
+    }
+    if (!sawTerminalEvent) {
+      setLogs(prev => [...prev, { phase: 0, message: 'Upload failed: Processing stream ended before completion.', pct: 0 }]);
     }
     setProcessing(null);
     if (completedPdfId && onProcessingComplete) {

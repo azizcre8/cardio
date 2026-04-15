@@ -25,7 +25,7 @@ import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
 import { createPdfJob, finishPdfJobError, finishPdfJobSuccess, updatePdfJob } from '@/lib/pdf-jobs';
 import { roundUsdAmount, type OpenAICostEvent } from '@/lib/openai-cost';
 
-export const maxDuration = 300; 
+export const maxDuration = 900;
 export const runtime    = 'nodejs';
 
 // ─── SSE helpers ─────────────────────────────────────────────────────────────
@@ -390,13 +390,18 @@ export async function POST(req: NextRequest) {
           totalQuestions += passed.length;
           totalRejected  += hardRejected.length + rejectedSlots.length;
           latestQuestionCount = totalQuestions;
+          const totalAttempted = totalQuestions + totalRejected;
 
           const pct = 60 + Math.round(((g + GEN_BATCH) / cappedConceptSpecs.length) * 35);
           emit({
             phase: 6,
-            message: `Phase 6: ${totalQuestions} questions (batch ${Math.floor(g / GEN_BATCH) + 1}/${totalBatchCount})`,
+            message: `Phase 6: ${totalQuestions} accepted / ${totalAttempted} generated (batch ${Math.floor(g / GEN_BATCH) + 1}/${totalBatchCount})`,
             pct: Math.min(pct, 94),
-            data: { questionsGenerated: totalQuestions, questionsRejected: totalRejected },
+            data: {
+              questionsGenerated: totalAttempted,
+              questionsAccepted: totalQuestions,
+              questionsRejected: totalRejected,
+            },
           });
         }
 
@@ -438,7 +443,15 @@ export async function POST(req: NextRequest) {
           phase: 7,
           message: `Done! ${savedConcepts.length} concepts, ${savedQuestions.length} questions. Cost: $${runningOpenAICostUSD.toFixed(3)}`,
           pct: 100,
-          data: { pdfId, conceptCount: savedConcepts.length, questionCount: savedQuestions.length, costUSD: runningOpenAICostUSD },
+          data: {
+            pdfId,
+            conceptCount: savedConcepts.length,
+            questionCount: savedQuestions.length,
+            questionsGenerated: totalQuestions + totalRejected,
+            questionsAccepted: savedQuestions.length,
+            questionsRejected: totalRejected,
+            costUSD: runningOpenAICostUSD,
+          },
         });
 
       } catch (e) {

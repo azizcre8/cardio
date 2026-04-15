@@ -293,6 +293,7 @@ export interface ProcessEvent {
     wordsParsed?: number;
     conceptsGenerated?: number;
     questionsGenerated?: number;
+    questionsAccepted?: number;
     questionsRejected?: number;
     estimatedTotalSec?: number;
     [key: string]: unknown;
