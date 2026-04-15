@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { runLengthAudit, runOptionSetAudit } from '@/lib/pipeline/audit';
 import { verifyEvidenceSpan } from '@/lib/pipeline/validation';

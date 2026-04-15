@@ -2,7 +2,7 @@
  * GET /api/pdfs/[id]/questions — fetch all questions for a PDF (shuffled)
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonOk } from '@/lib/api';
 

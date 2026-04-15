@@ -4,7 +4,7 @@
  * bodyParser MUST be disabled — Stripe signature verification requires raw bytes.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { stripe, tierFromPriceId } from '@/lib/stripe';
 import { supabaseAdmin } from '@/lib/supabase';
 import { env } from '@/lib/env';

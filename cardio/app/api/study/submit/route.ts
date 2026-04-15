@@ -6,7 +6,7 @@
  * Body: { questionId, quality, pdfId, proxiedFromId? }
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { upsertSRSState, insertReview, getUserProfile } from '@/lib/storage';
 import { applySRS } from '@/lib/srs';
@@ -39,23 +39,6 @@ async function fetchQuestionWithSRS(questionId: string, userId: string): Promise
     times_incorrect: s.times_incorrect,
     quality_history: s.quality_history,
   } as Question;
-}
-
-function buildSRSState(q: Question, userId: string, pdfId: string): Omit<SRSState, 'id' | 'updated_at'> {
-  return {
-    user_id:         userId,
-    question_id:     q.id,
-    pdf_id:          pdfId,
-    interval:        q.interval ?? 0.17,
-    ease_factor:     q.ease_factor ?? 2.5,
-    repetitions:     q.repetitions ?? 0,
-    next_review:     q.next_review ?? new Date().toISOString(),
-    last_reviewed:   new Date().toISOString(),
-    times_reviewed:  (q.times_reviewed ?? 0),
-    times_correct:   (q.times_correct ?? 0),
-    times_incorrect: (q.times_incorrect ?? 0),
-    quality_history: [...(q.quality_history ?? []), 0], // placeholder; set below
-  };
 }
 
 export async function POST(req: NextRequest) {
