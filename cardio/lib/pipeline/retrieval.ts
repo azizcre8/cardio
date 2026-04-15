@@ -162,13 +162,28 @@ export async function retrieveTopChunks(
   topK = RAG_TOP_K,
 ): Promise<ChunkRecord[]> {
   const enableHybrid = env.flags.hybridRetrieval;
-
-  const denseRanked = await denseSearch(queryEmbedding, pdfId, topK * 2);
+  let denseRanked: ChunkRecord[] = [];
+  try {
+    denseRanked = await denseSearch(queryEmbedding, pdfId, topK * 2);
+  } catch (error) {
+    console.warn(`[retrieveTopChunks] dense retrieval unavailable, falling back: ${(error as Error).message}`);
+  }
 
   if (enableHybrid && bm25Index && queryText) {
     const sparseRanked = bm25Search(queryText, bm25Index, allChunks, topK * 2);
-    return reciprocalRankFusion(denseRanked, sparseRanked, topK);
+    if (denseRanked.length) {
+      return reciprocalRankFusion(denseRanked, sparseRanked, topK);
+    }
+    return sparseRanked.slice(0, topK);
   }
 
-  return denseRanked.slice(0, topK);
+  if (denseRanked.length) {
+    return denseRanked.slice(0, topK);
+  }
+
+  if (bm25Index && queryText) {
+    return bm25Search(queryText, bm25Index, allChunks, topK);
+  }
+
+  return allChunks.slice(0, topK);
 }
