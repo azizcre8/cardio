@@ -32,5 +32,9 @@ export const env = {
     negativeRag: isEnabled('ENABLE_NEGATIVE_RAG'),
     l3GroundingGuard: isEnabled('ENABLE_L3_GROUNDING_GUARD'),
     dynamicModelRouting: isEnabled('ENABLE_DYNAMIC_MODEL_ROUTING'),
+    strictQuestionValidation: isEnabled('ENABLE_STRICT_QUESTION_VALIDATION'),
+    structuredConfusionMap: isEnabled('ENABLE_STRUCTURED_CONFUSION_MAP'),
+    distractorCandidatePool: isEnabled('ENABLE_DISTRACTOR_CANDIDATE_POOL'),
+    slotBasedGeneration: isEnabled('ENABLE_SLOT_BASED_GENERATION'),
   },
 } as const;

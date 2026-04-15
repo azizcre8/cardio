@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
-import { runLengthAudit, runOptionSetAudit } from '@/lib/pipeline/audit';
-import { verifyEvidenceSpan } from '@/lib/pipeline/validation';
+import { buildDeterministicQuestionValidation } from '@/lib/pipeline/question-validation';
 import type { Question, Chunk } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
@@ -155,110 +154,20 @@ function buildProgrammaticIssues(
   conceptName: string | null,
   evidenceCorpus: string,
 ): { issues: string[]; evidenceOk: boolean } {
-  const issues: string[] = [];
-  const auditableQuestion: Omit<Question, 'id' | 'created_at'> = {
-    pdf_id: question.pdf_id,
-    concept_id: question.concept_id,
-    user_id: '',
-    level: question.level,
-    stem: question.stem,
-    options: question.options,
-    answer: question.answer,
-    explanation: question.explanation,
-    option_explanations: null,
-    source_quote: question.source_quote,
-    evidence_start: question.evidence_start,
-    evidence_end: question.evidence_end,
-    chunk_id: question.chunk_id,
-    evidence_match_type: null,
-    decision_target: question.decision_target,
-    deciding_clue: question.deciding_clue,
-    most_tempting_distractor: question.most_tempting_distractor,
-    why_tempting: null,
-    why_fails: null,
-    option_set_flags: question.option_set_flags,
-    flagged: false,
-    flag_reason: null,
-  };
-  const [lengthAudit] = runLengthAudit([auditableQuestion]);
-  const [optionFlags] = runOptionSetAudit([auditableQuestion]);
-
-  if (lengthAudit?.status === 'REVISE' && lengthAudit.critique) {
-    issues.push(lengthAudit.critique);
-  }
-
-  for (const flag of optionFlags ?? []) {
-    switch (flag) {
-      case 'NONE_ALL_OF_ABOVE':
-        issues.push('Option set uses "all of the above" or "none of the above," which violates the answer-choice rules.');
-        break;
-      case 'MIXED_CATEGORY':
-        issues.push('Answer choices mix conceptual categories instead of staying in one comparison class.');
-        break;
-      case 'LENGTH_OUTLIER':
-      case 'CORRECT_LONGER_TELL':
-        issues.push('Option lengths create a test-taking tell rather than requiring medical knowledge.');
-        break;
-      case 'UNIQUE_QUALIFIER':
-        issues.push('The keyed answer stands out with a unique qualifier or parenthetical detail.');
-        break;
-      default:
-        if (flag.startsWith('OPTION_OVERLAP_')) {
-          issues.push('Two answer choices are overly overlapping, which weakens distractor diversity.');
-        }
-        break;
-    }
-  }
-
-  const expectedOptionCount = question.level === 1 ? 5 : 4;
-  if (question.options.length !== expectedOptionCount) {
-    issues.push(`Level ${question.level} questions must have exactly ${expectedOptionCount} answer choices.`);
-  }
-
-  if (question.level === 1 && /\b(not|except|least)\b/i.test(question.stem)) {
-    issues.push('Level 1 questions should avoid negation stems such as NOT/EXCEPT/LEAST.');
-  }
-
-  if (!/key distinction:/i.test(question.explanation)) {
-    issues.push('Explanation is missing the required "Key distinction" teaching sentence.');
-  }
-
-  if (!/\b(whereas|however|unlike|in contrast|but fails|not because)\b/i.test(question.explanation)) {
-    issues.push('Explanation does not clearly contrast the correct answer against distractors.');
-  }
-
-  let evidenceOk = false;
-  const sourceQuote = String(question.source_quote ?? '').trim();
-  if (!sourceQuote || sourceQuote === 'UNGROUNDED') {
-    issues.push('Question is missing a grounded source quote from the PDF.');
-  } else if (!evidenceCorpus.trim()) {
-    issues.push('Could not load source PDF text needed to verify the evidence for this question.');
-  } else {
-    const evidence = verifyEvidenceSpan(
-      sourceQuote,
-      question.evidence_start ?? 0,
-      question.evidence_end ?? 0,
-      evidenceCorpus,
-    );
-    evidenceOk = evidence.ok;
-    if (!evidence.ok) {
-      issues.push('Stored source quote could not be verified against the source PDF text.');
-    }
-  }
-
-  if (question.deciding_clue && sourceQuote && sourceQuote !== 'UNGROUNDED') {
-    const clue = normalizeText(question.deciding_clue);
-    const quote = normalizeText(sourceQuote);
-    if (clue && !quote.includes(clue) && clue.split(' ').filter(Boolean).length >= 3) {
-      issues.push('Deciding clue is not clearly supported by the quoted PDF evidence.');
-    }
-  }
-
-  if (conceptName && !question.stem.toLowerCase().includes(conceptName.toLowerCase()) && question.level === 1) {
-    issues.push('Level 1 stem may be under-specified relative to the intended concept and source material.');
-  }
-
-  return { issues: takeUnique(issues), evidenceOk };
+  const result = buildDeterministicQuestionValidation(
+    {
+      ...question,
+      user_id: '',
+      evidence_match_type: null,
+      why_tempting: null,
+      why_fails: null,
+      flagged: false,
+      flag_reason: null,
+    },
+    conceptName,
+    evidenceCorpus,
+  );
+  return { issues: takeUnique(result.issues), evidenceOk: result.evidenceOk };
 }
 
 function buildFallbackResponse(programmaticIssues: string[], evidenceOk: boolean): ValidatorResponse {

@@ -251,6 +251,9 @@ export async function POST(req: NextRequest) {
         emit({ phase: 6, message: 'Phase 6: Generating questions…', pct: 60 });
 
         const maxQuestionsPerPdf = getPlanLimits(profileRow?.plan).maxQuestionsPerPdf;
+        const effectiveMax = userMaxQ > 0
+          ? Math.min(userMaxQ, maxQuestionsPerPdf)
+          : maxQuestionsPerPdf;
 
         let totalQuestions = 0;
         let totalRejected  = 0;
@@ -281,11 +284,27 @@ export async function POST(req: NextRequest) {
 
         let cappedConceptSpecs = sortedConceptSpecs;
         if (process.env.NODE_ENV !== 'development') {
-          // Aim for ~2× question budget in raw generation (audit rejects ~30-50%)
-          const avgQPerConcept = (dc.min + dc.max) / 2;
-          const byBudget = Math.ceil((maxQuestionsPerPdf * 2) / avgQPerConcept);
-          const maxConcepts = Math.min(Math.max(byBudget, 20), 80); // floor=20, ceil=80
-          cappedConceptSpecs = sortedConceptSpecs.slice(0, maxConcepts);
+          if (env.flags.slotBasedGeneration) {
+            let slotBudget = 0;
+            cappedConceptSpecs = [];
+            for (const concept of sortedConceptSpecs) {
+              const requiredLevels = dc.levels[concept.importance as keyof typeof dc.levels] ?? [1, 2];
+              if (slotBudget > 0 && slotBudget + requiredLevels.length > effectiveMax) break;
+              if (!slotBudget && requiredLevels.length > effectiveMax) {
+                cappedConceptSpecs.push(concept);
+                slotBudget += requiredLevels.length;
+                break;
+              }
+              cappedConceptSpecs.push(concept);
+              slotBudget += requiredLevels.length;
+            }
+          } else {
+            // Aim for ~2× question budget in raw generation (audit rejects ~30-50%)
+            const avgQPerConcept = (dc.min + dc.max) / 2;
+            const byBudget = Math.ceil((maxQuestionsPerPdf * 2) / avgQPerConcept);
+            const maxConcepts = Math.min(Math.max(byBudget, 20), 80); // floor=20, ceil=80
+            cappedConceptSpecs = sortedConceptSpecs.slice(0, maxConcepts);
+          }
         }
 
         if (cappedConceptSpecs.length < conceptSpecs.length) {
@@ -301,28 +320,49 @@ export async function POST(req: NextRequest) {
           const totalBatchCount = Math.ceil(cappedConceptSpecs.length / GEN_BATCH);
 
           let genQs: any[] = [];
+          let rejectedSlots: Array<{ conceptId: string; conceptName: string; level: number; reason: string; raw: Record<string, unknown> | null }> = [];
           try {
             const result = await generateCoverageQuestions(
-              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index, recordCost,
+              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index, cappedConceptSpecs, recordCost,
             );
             genQs = result.questions;
+            rejectedSlots = result.rejectedSlots;
           } catch (genErr) {
             console.error(`[process] Generation batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, genErr);
           }
 
           const ragPassages: Record<string, string> = {};
+          const distractorGuides: Record<string, string> = {};
           batch.forEach(c => {
             const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
             ragPassages[c.id] = chunks.map(ch => ch.text.slice(0, 350)).join('\n\n');
+            const confusions = confusionMap[c.name] ?? [];
+            distractorGuides[c.id] = confusions.length
+              ? confusions.map(confusion => `${confusion.concept}: ${confusion.reason}`).join('\n')
+              : '';
           });
 
           let passed: any[] = [], hardRejected: any[] = [];
           try {
-            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages, recordCost);
+            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages, distractorGuides, recordCost);
             passed = auditResult.passed;
             hardRejected = auditResult.hardRejected;
           } catch (auditErr) {
             console.error(`[process] Audit batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, auditErr);
+          }
+
+          for (const slotFailure of rejectedSlots) {
+            await insertFlaggedQuestion({
+              pdf_id: pdfId,
+              user_id: userId,
+              question_id: null,
+              reason: `SLOT_GENERATION: ${slotFailure.conceptName} L${slotFailure.level} — ${slotFailure.reason}`,
+              raw_json: (slotFailure.raw ?? {
+                conceptId: slotFailure.conceptId,
+                conceptName: slotFailure.conceptName,
+                level: slotFailure.level,
+              }) as Record<string, unknown>,
+            });
           }
 
           for (const hr of hardRejected) {
@@ -337,7 +377,7 @@ export async function POST(req: NextRequest) {
 
           allPassedQuestions.push(...passed);
           totalQuestions += passed.length;
-          totalRejected  += hardRejected.length;
+          totalRejected  += hardRejected.length + rejectedSlots.length;
           latestQuestionCount = totalQuestions;
 
           const pct = 60 + Math.round(((g + GEN_BATCH) / cappedConceptSpecs.length) * 35);
@@ -359,10 +399,9 @@ export async function POST(req: NextRequest) {
           return bImp - aImp;
         });
 
-        const effectiveMax = userMaxQ > 0
-          ? Math.min(userMaxQ, maxQuestionsPerPdf)
-          : maxQuestionsPerPdf;
-        const finalQuestions = allPassedQuestions.slice(0, effectiveMax);
+        const finalQuestions = env.flags.slotBasedGeneration
+          ? allPassedQuestions
+          : allPassedQuestions.slice(0, effectiveMax);
 
         const savedQuestions = await insertQuestions(finalQuestions);
 

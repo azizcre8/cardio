@@ -310,6 +310,7 @@ CONCEPTS:
 ${conceptList}
 
 For each confusion pair, explain in one sentence WHY students confuse them (similar presentation, overlapping mechanism, similar name, opposing effects, or commonly tested together).
+Also provide a short differentiator phrase naming the single clue that separates them.
 
 Rules:
 - Only include pairs with genuine, high-yield confusability — concepts a student could realistically mix up
@@ -318,7 +319,7 @@ Rules:
 - Both concepts in each pair must appear in the list above
 
 Return ONLY valid JSON — no markdown, no prose:
-[{"conceptA":"exact name from list","conceptB":"exact name from list","reason":"one sentence why confused"}]`;
+[{"conceptA":"exact name from list","conceptB":"exact name from list","reason":"one sentence why confused","differentiator":"short clue separating them"}]`;
 
   try {
     const { text } = await callOpenAI(prompt, 2048, OPENAI_MODEL, onCost);
@@ -331,8 +332,16 @@ Return ONLY valid JSON — no markdown, no prose:
       .forEach((p: Record<string, string>) => {
         if (!map[p.conceptA]) map[p.conceptA] = [];
         if (!map[p.conceptB]) map[p.conceptB] = [];
-        map[p.conceptA]!.push(p.conceptB);
-        map[p.conceptB]!.push(p.conceptA);
+        map[p.conceptA]!.push({
+          concept: p.conceptB,
+          reason: p.reason,
+          differentiator: p.differentiator,
+        });
+        map[p.conceptB]!.push({
+          concept: p.conceptA,
+          reason: p.reason,
+          differentiator: p.differentiator,
+        });
       });
     return map;
   } catch (e) {

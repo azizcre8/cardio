@@ -13,6 +13,7 @@
 import { callOpenAI, parseJSON, normaliseQuestion, writerAgentRevise, AUDITOR_MODEL } from './generation';
 import type { Question } from '@/types';
 import type { OpenAICostTracker } from '@/lib/openai-cost';
+import { buildDeterministicQuestionValidation } from './question-validation';
 
 const MAX_REVISE_ITERATIONS = 2;
 
@@ -37,84 +38,27 @@ interface HardRejected {
   lastQuestion: Omit<Question, 'id' | 'created_at'>;
 }
 
-// ─── Programmatic length-tell audit (no API call) — verbatim from HTML ────────
-
-export function runLengthAudit(
-  questions: Array<Omit<Question, 'id' | 'created_at'>>,
-): AuditVerdict[] {
-  return questions.map((q, idx) => {
-    const correct    = q.options[q.answer] ?? '';
-    const distractors = q.options.filter((_, i) => i !== q.answer);
-    const correctWords = correct.trim().split(/\s+/).length;
-    const avgDistractorWords =
-      distractors.reduce((s, d) => s + d.trim().split(/\s+/).length, 0) / distractors.length;
-    const ratio = avgDistractorWords > 0 ? correctWords / avgDistractorWords : 1;
-
-    if (ratio > 1.25) {
-      return {
-        idx,
-        status: 'REVISE',
-        criterion: 'TELL-SIGNS',
-        critique: `Correct answer (${correctWords} words) is ${ratio.toFixed(1)}x longer than average distractor (${avgDistractorWords.toFixed(1)} words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.`,
-      };
-    }
-    return { idx, status: 'PASS' };
-  });
-}
-
-// ─── Programmatic option-set audit ───────────────────────────────────────────
-
-export function runOptionSetAudit(
-  questions: Array<Omit<Question, 'id' | 'created_at'>>,
-): string[][] {
-  return questions.map(q => {
-    const flags: string[] = [];
-    const opts = q.options ?? [];
-    const correct = opts[q.answer] ?? '';
-
-    if (opts.some(o => /all of the above|none of the above/i.test(o)))
-      flags.push('NONE_ALL_OF_ABOVE');
-
-    const hasAction = opts.filter(o => /\b(administer|give|start|stop|order|perform|refer|consult|monitor|treat)\b/i.test(o)).length;
-    const hasDiagnosis = opts.filter(o => /\b(syndrome|disease|disorder|itis|osis|emia|uria|pathy)\b/i.test(o)).length;
-    if (hasAction >= 2 && hasDiagnosis >= 2) flags.push('MIXED_CATEGORY');
-
-    const lens = opts.map(o => o.trim().split(/\s+/).length);
-    const maxLen = Math.max(...lens), minLen = Math.min(...lens);
-    if (maxLen > minLen * 2.5 && opts.length >= 3) flags.push('LENGTH_OUTLIER');
-
-    const parenCount = opts.filter(o => /\([^)]+\)/.test(o)).length;
-    if (parenCount === 1 && /\([^)]+\)/.test(correct)) flags.push('UNIQUE_QUALIFIER');
-
-    for (let i = 0; i < opts.length; i++) {
-      for (let j = i + 1; j < opts.length; j++) {
-        const wordsI = new Set(opts[i]!.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-        const wordsJ = new Set(opts[j]!.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-        const shared = Array.from(wordsI).filter(w => wordsJ.has(w)).length;
-        if (shared > 0 && shared / Math.min(wordsI.size, wordsJ.size) > 0.65)
-          flags.push(`OPTION_OVERLAP_${i}_${j}`);
-      }
-    }
-
-    const correctLen = correct.trim().split(/\s+/).length;
-    const distractorLens = opts.filter((_, i) => i !== q.answer).map(o => o.trim().split(/\s+/).length);
-    const avgDist = distractorLens.reduce((s, l) => s + l, 0) / (distractorLens.length || 1);
-    if (correctLen > avgDist * 1.3 && correctLen - avgDist > 4) flags.push('CORRECT_LONGER_TELL');
-
-    return flags;
-  });
+function deterministicVerdict(
+  idx: number,
+  issues: string[],
+): AuditVerdict {
+  if (!issues.length) return { idx, status: 'PASS' };
+  return {
+    idx,
+    status: issues.length === 1 ? 'REVISE' : 'REJECT',
+    criterion: 'DETERMINISTIC_VALIDATION',
+    critique: issues[0],
+  };
 }
 
 // ─── runAuditAgent — upgraded prompt ─────────────────────────────────────────
 
 export async function runAuditAgent(
   questions: Array<Omit<Question, 'id' | 'created_at'>>,
+  validations: Array<{ evidenceOk: boolean; optionFlags: string[] }>,
   onCost?: OpenAICostTracker,
 ): Promise<AuditVerdict[]> {
   if (!questions.length) return [];
-
-  // Run programmatic option-set audit before LLM auditor
-  const optionFlags = runOptionSetAudit(questions);
 
   const letters = ['A', 'B', 'C', 'D', 'E'];
   const qList = questions.map((q, i) =>
@@ -122,11 +66,11 @@ export async function runAuditAgent(
 Stem: ${q.stem}
 Options: ${q.options.map((o, j) => `${j === q.answer ? '★' : ''}${letters[j]}) ${o}`).join(' | ')}
 SourceQuote: ${q.source_quote || '(none)'}
-EvidenceValid: ${q.flagged === false ? 'true' : 'false'}
+EvidenceValid: ${validations[i]?.evidenceOk ? 'true' : 'false'}
 DecisionTarget: ${q.decision_target || '(not specified)'}
 DecidingClue: ${q.deciding_clue || '(not specified)'}
 MostTemptingDistractor: ${q.most_tempting_distractor || '(not specified)'}
-ProgrammaticFlags: ${optionFlags[i]?.length ? optionFlags[i]!.join(', ') : 'none'}`,
+ProgrammaticFlags: ${validations[i]?.optionFlags?.length ? validations[i]!.optionFlags.join(', ') : 'none'}`,
   ).join('\n\n');
 
   const prompt = `You are a Senior USMLE/COMLEX Clinical Audit Agent. Judge each question strictly. Respond ONLY with valid JSON.
@@ -191,7 +135,6 @@ Be strict but fair. REVISE for one fixable flaw. REJECT only when fundamentally 
     );
     return questions.map((_, i) => byIdx[i] ?? { idx: i, status: 'PASS' as const });
   } catch {
-    // Audit failure → pass all through (never block pipeline on audit errors)
     return questions.map((_, i) => ({ idx: i, status: 'PASS' as const }));
   }
 }
@@ -217,6 +160,7 @@ export async function auditQuestions(
   pdfId:        string,
   userId:       string,
   ragPassages:  Record<string, string>,
+  distractorGuides: Record<string, string>,
   onCost?: OpenAICostTracker,
 ): Promise<{
   passed:       Array<Omit<Question, 'id' | 'created_at'>>;
@@ -235,15 +179,45 @@ export async function auditQuestions(
   for (let iter = 0; iter <= MAX_REVISE_ITERATIONS; iter++) {
     if (!inFlight.length) break;
 
-    // Run Auditor Agent on current batch
-    let verdicts = await runAuditAgent(inFlight.map(e => e.q), onCost);
-
-    // Merge programmatic length audit — catches length tells the LLM auditor misses
-    const lengthResults = runLengthAudit(inFlight.map(e => e.q));
-    verdicts = verdicts.map((r, i) => {
-      if (r.status === 'PASS' && lengthResults[i]?.status === 'REVISE') return lengthResults[i]!;
-      return r;
+    const programmatic = inFlight.map(entry => {
+      const concept = conceptBatch.find(item => item.id === entry.q.concept_id);
+      return buildDeterministicQuestionValidation(
+        entry.q,
+        concept?.name ?? null,
+        ragPassages[concept?.id ?? entry.q.concept_id] ?? '',
+      );
     });
+
+    const verdicts: AuditVerdict[] = inFlight.map((entry, idx) => {
+      const validation = programmatic[idx]!;
+      if (!validation.issues.length && validation.evidenceOk) {
+        return { idx, status: 'PASS' };
+      }
+      return deterministicVerdict(idx, validation.issues);
+    });
+
+    const auditableIndices = verdicts
+      .map((verdict, idx) => ({ verdict, idx }))
+      .filter(entry => entry.verdict.status === 'PASS')
+      .map(entry => entry.idx);
+
+    if (auditableIndices.length) {
+      const auditVerdicts = await runAuditAgent(
+        auditableIndices.map(idx => inFlight[idx]!.q),
+        auditableIndices.map(idx => ({
+          evidenceOk: programmatic[idx]!.evidenceOk,
+          optionFlags: programmatic[idx]!.optionFlags,
+        })),
+        onCost,
+      );
+
+      auditVerdicts.forEach((verdict, localIdx) => {
+        verdicts[auditableIndices[localIdx]!] = {
+          ...verdict,
+          idx: auditableIndices[localIdx]!,
+        };
+      });
+    }
 
     const nextRound: typeof inFlight = [];
 
@@ -285,6 +259,7 @@ export async function auditQuestions(
         }
 
         const passages = ragPassages[concept.id] ?? '';
+        const distractorGuide = distractorGuides[concept.id] ?? '';
         const { raw: revised, costUSD } = await writerAgentRevise(
           concept,
           {
@@ -293,10 +268,12 @@ export async function auditQuestions(
             decidingClue: q.deciding_clue ?? undefined,
             decisionTarget: q.decision_target ?? undefined,
             mostTemptingDistractor: q.most_tempting_distractor ?? undefined,
+            conceptId: q.concept_id,
           },
           v.criterion ?? '',
           v.critique ?? '',
           passages,
+          distractorGuide,
           onCost,
         );
         totalCost += costUSD;

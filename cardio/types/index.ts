@@ -313,8 +313,44 @@ export interface RawConcept {
   aliases?: string[];
 }
 
+export interface ConfusionTarget {
+  concept: string;
+  reason: string;
+  differentiator?: string;
+}
+
 export interface ConfusionMap {
-  [conceptName: string]: string[]; // concept name → list of confusable names
+  [conceptName: string]: ConfusionTarget[];
+}
+
+export interface GenerationSlot {
+  conceptId: string;
+  conceptName: string;
+  category: string;
+  importance: ImportanceLevel;
+  level: QuestionLevel;
+  coverageDomain: string;
+  chunkIds: string[];
+  pageEstimate: string;
+  keyFacts: string[];
+  clinicalRelevance: string;
+  associations: string[];
+}
+
+export interface DistractorCandidate {
+  text: string;
+  sourceConcept: string;
+  category: string;
+  reasonType:
+    | 'same_category_peer'
+    | 'confusion_pair'
+    | 'negative_rag'
+    | 'association'
+    | 'hardcoded_fallback'
+    | 'synthetic_backfill';
+  sharedFeature: string;
+  differentiator: string;
+  evidenceSnippet?: string;
 }
 
 // ─── Density Config (mirrors HTML DENSITY presets) ───────────────────────────
