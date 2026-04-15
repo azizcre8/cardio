@@ -10,6 +10,10 @@ export type QuestionLevel = 1 | 2 | 3;
 
 export type MasteryStatus = 'new' | 'learning' | 'reviewing' | 'mastered';
 
+export type SharedBankVisibility = 'private' | 'invite_only' | 'public';
+
+export type SharedBankMemberRole = 'owner' | 'member';
+
 export type CoverageDomain =
   | 'pathophysiology'
   | 'pharmacology'
@@ -40,6 +44,27 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 
 // ─── Database Row Types ───────────────────────────────────────────────────────
 
+export interface Deck {
+  id: string;                   // uuid
+  user_id: string;              // uuid → auth.users
+  parent_id: string | null;     // uuid → decks.id (null = root)
+  name: string;
+  is_exam_block: boolean;
+  due_date: string | null;      // ISO timestamp — required when is_exam_block = true
+  position: number;
+  created_at: string;
+  updated_at: string;
+  // Populated by get_deck_tree RPC (not stored)
+  depth?: number;
+}
+
+/** Client-side tree node — built from the flat Deck list */
+export interface DeckNode extends Deck {
+  children: DeckNode[];
+  ownPdfCount: number;    // PDFs directly in this deck
+  totalPdfCount: number;  // PDFs in this deck + all descendant decks
+}
+
 export interface PDF {
   id: string;                   // uuid
   user_id: string;              // uuid → auth.users
@@ -51,6 +76,32 @@ export interface PDF {
   processing_cost_usd: number | null;
   concept_count: number | null;
   question_count: number | null;
+  // Deck membership (added in migration 004)
+  deck_id: string | null;
+  display_name: string | null;
+  position: number;
+}
+
+export interface SharedBank {
+  id: string;
+  owner_user_id: string;
+  source_pdf_id: string;
+  title: string;
+  description: string | null;
+  slug: string;
+  visibility: SharedBankVisibility;
+  is_active: boolean;
+  published_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SharedBankMember {
+  id: string;
+  shared_bank_id: string;
+  user_id: string;
+  role: SharedBankMemberRole;
+  joined_at: string;
 }
 
 export type PDFJobStatus = 'processing' | 'completed' | 'failed';

@@ -4,7 +4,81 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabase';
-import type { PDF, Concept, Chunk, Question, SRSState, Review, ChunkRecord, UserProfile } from '@/types';
+import type {
+  PDF,
+  Deck,
+  Concept,
+  Chunk,
+  Question,
+  SRSState,
+  Review,
+  ChunkRecord,
+  UserProfile,
+  SharedBank,
+  SharedBankMember,
+} from '@/types';
+
+// ─── Decks ───────────────────────────────────────────────────────────────────
+
+/** Fetch all decks for a user via the recursive CTE (ordered depth-first). */
+export async function getDecks(userId: string): Promise<Deck[]> {
+  const { data, error } = await supabaseAdmin.rpc('get_deck_tree', { p_user_id: userId });
+  if (error) throw new Error(`getDecks: ${error.message}`);
+  return (data ?? []) as Deck[];
+}
+
+export async function insertDeck(
+  deck: Pick<Deck, 'user_id' | 'parent_id' | 'name' | 'is_exam_block' | 'due_date' | 'position'>,
+): Promise<Deck> {
+  const { data, error } = await supabaseAdmin
+    .from('decks')
+    .insert({ ...deck, updated_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) throw new Error(`insertDeck: ${error.message}`);
+  return data as Deck;
+}
+
+export async function updateDeck(id: string, patch: Partial<Omit<Deck, 'id' | 'user_id' | 'created_at'>>): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('decks')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`updateDeck: ${error.message}`);
+}
+
+export async function deleteDeck(id: string): Promise<void> {
+  // Children have parent_id SET NULL via FK cascade — they become root decks.
+  // PDFs have deck_id SET NULL — they become uncategorized.
+  const { error } = await supabaseAdmin.from('decks').delete().eq('id', id);
+  if (error) throw new Error(`deleteDeck: ${error.message}`);
+}
+
+/**
+ * Walk up the deck ancestry of a PDF and return the nearest exam-block due_date.
+ * Returns null if the PDF has no deck or no exam-block ancestor.
+ */
+export async function getExamDeadlineForPdf(pdfId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin.rpc('get_exam_deadline_for_pdf', { p_pdf_id: pdfId });
+  if (error) return null; // gracefully degrade if RPC not yet deployed
+  return (data as string | null) ?? null;
+}
+
+/** Return the next available position among siblings of parentId (or root). */
+export async function nextDeckPosition(userId: string, parentId: string | null): Promise<number> {
+  const query = supabaseAdmin
+    .from('decks')
+    .select('position')
+    .eq('user_id', userId)
+    .order('position', { ascending: false })
+    .limit(1);
+
+  const { data } = parentId
+    ? await query.eq('parent_id', parentId)
+    : await query.is('parent_id', null);
+
+  return data && data.length > 0 ? (data[0].position as number) + 1 : 0;
+}
 
 // ─── PDFs ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +110,115 @@ export async function updatePDF(id: string, patch: Partial<PDF>): Promise<void> 
 export async function deletePDF(id: string): Promise<void> {
   const { error } = await supabaseAdmin.from('pdfs').delete().eq('id', id);
   if (error) throw new Error(`deletePDF: ${error.message}`);
+}
+
+// ─── Shared Banks ────────────────────────────────────────────────────────────
+
+export async function getOwnedSharedBanks(ownerUserId: string): Promise<SharedBank[]> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_banks')
+    .select('*')
+    .eq('owner_user_id', ownerUserId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(`getOwnedSharedBanks: ${error.message}`);
+  return (data ?? []) as SharedBank[];
+}
+
+export async function getJoinedSharedBanks(userId: string): Promise<SharedBank[]> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_bank_members')
+    .select('shared_banks(*)')
+    .eq('user_id', userId)
+    .order('joined_at', { ascending: false });
+  if (error) throw new Error(`getJoinedSharedBanks: ${error.message}`);
+  return (data ?? [])
+    .map((row: Record<string, unknown>) => row.shared_banks as SharedBank | null)
+    .filter((bank): bank is SharedBank => bank !== null);
+}
+
+export async function getSharedBankById(id: string): Promise<SharedBank | null> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_banks')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw new Error(`getSharedBankById: ${error.message}`);
+  return (data as SharedBank | null) ?? null;
+}
+
+export async function getSharedBankBySlug(slug: string): Promise<SharedBank | null> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_banks')
+    .select('*')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (error) throw new Error(`getSharedBankBySlug: ${error.message}`);
+  return (data as SharedBank | null) ?? null;
+}
+
+export async function insertSharedBank(
+  bank: Pick<SharedBank, 'owner_user_id' | 'source_pdf_id' | 'title' | 'description' | 'slug' | 'visibility'>
+    & Partial<Pick<SharedBank, 'is_active' | 'published_at'>>,
+): Promise<SharedBank> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_banks')
+    .insert({
+      ...bank,
+      is_active: bank.is_active ?? true,
+      published_at: bank.published_at ?? new Date().toISOString(),
+    })
+    .select()
+    .single();
+  if (error) throw new Error(`insertSharedBank: ${error.message}`);
+  return data as SharedBank;
+}
+
+export async function updateSharedBank(
+  id: string,
+  patch: Partial<Omit<SharedBank, 'id' | 'owner_user_id' | 'source_pdf_id' | 'created_at' | 'updated_at'>>,
+): Promise<void> {
+  const { error } = await supabaseAdmin.from('shared_banks').update(patch).eq('id', id);
+  if (error) throw new Error(`updateSharedBank: ${error.message}`);
+}
+
+export async function getSharedBankMembers(sharedBankId: string): Promise<SharedBankMember[]> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_bank_members')
+    .select('*')
+    .eq('shared_bank_id', sharedBankId)
+    .order('joined_at', { ascending: true });
+  if (error) throw new Error(`getSharedBankMembers: ${error.message}`);
+  return (data ?? []) as SharedBankMember[];
+}
+
+export async function addSharedBankMember(
+  sharedBankId: string,
+  userId: string,
+  role: SharedBankMember['role'] = 'member',
+): Promise<SharedBankMember> {
+  const { data, error } = await supabaseAdmin
+    .from('shared_bank_members')
+    .upsert(
+      {
+        shared_bank_id: sharedBankId,
+        user_id: userId,
+        role,
+      },
+      { onConflict: 'shared_bank_id,user_id' },
+    )
+    .select()
+    .single();
+  if (error) throw new Error(`addSharedBankMember: ${error.message}`);
+  return data as SharedBankMember;
+}
+
+export async function removeSharedBankMember(sharedBankId: string, userId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('shared_bank_members')
+    .delete()
+    .eq('shared_bank_id', sharedBankId)
+    .eq('user_id', userId);
+  if (error) throw new Error(`removeSharedBankMember: ${error.message}`);
 }
 
 // ─── Chunks ───────────────────────────────────────────────────────────────────

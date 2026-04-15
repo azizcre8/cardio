@@ -91,6 +91,9 @@ export async function POST(req: NextRequest) {
     processing_cost_usd: null,
     concept_count: null,
     question_count: null,
+    deck_id:      null,
+    display_name: null,
+    position:     0,
   });
   const pdfId = pdfRow?.id;
   if (!pdfId) {

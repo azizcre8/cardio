@@ -3,8 +3,8 @@
  * Returns an adaptive study queue for the given PDF, with SRS state merged.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getQuestionsWithSRS, getConcepts, getUserProfile } from '@/lib/storage';
+import { NextRequest } from 'next/server';
+import { getQuestionsWithSRS, getConcepts, getUserProfile, getExamDeadlineForPdf } from '@/lib/storage';
 import { buildQueue, computeAllMastery } from '@/lib/srs';
 import type { QueueResponse } from '@/types';
 import { requireUser } from '@/lib/auth';
@@ -21,15 +21,20 @@ export async function GET(req: NextRequest) {
 
   const userId = auth.userId;
 
-  const [questions, concepts, profile] = await Promise.all([
+  const [questions, concepts, profile, deckDeadline] = await Promise.all([
     getQuestionsWithSRS(pdfId, userId),
     getConcepts(pdfId),
     getUserProfile(userId),
+    getExamDeadlineForPdf(pdfId),
   ]);
 
-  const examDate = profile?.exam_date ? new Date(profile.exam_date) : null;
+  // Exam-block due_date takes priority over the user's global exam date.
+  // This lets each folder have its own hard deadline that tightens the SRS.
+  const effectiveDeadline = deckDeadline ?? profile?.exam_date ?? null;
+  const examDate = effectiveDeadline ? new Date(effectiveDeadline) : null;
+
   const masteryData = computeAllMastery(concepts, questions);
   const queue = buildQueue(questions, masteryData, concepts, examDate);
 
-  return jsonOk({ queue, examDate: profile?.exam_date ?? null } satisfies QueueResponse);
+  return jsonOk({ queue, examDate: effectiveDeadline } satisfies QueueResponse);
 }
