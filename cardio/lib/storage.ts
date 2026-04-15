@@ -336,12 +336,35 @@ export async function insertQuestions(
   const BATCH = 100;
   const all: Question[] = [];
   for (let i = 0; i < questions.length; i += BATCH) {
-    const { data, error } = await supabaseAdmin
-      .from('questions')
-      .insert(questions.slice(i, i + BATCH))
-      .select();
-    if (error) throw new Error(`insertQuestions batch ${i}: ${error.message}`);
-    all.push(...((data ?? []) as Question[]));
+    let batch = questions.slice(i, i + BATCH).map(question => ({ ...question })) as Array<Record<string, unknown>>;
+    let lastError: string | null = null;
+
+    // Older databases may be missing newer optional columns. Strip unsupported
+    // fields progressively so generation can finish before every migration is applied.
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const { data, error } = await supabaseAdmin
+        .from('questions')
+        .insert(batch)
+        .select();
+
+      if (!error) {
+        all.push(...((data ?? []) as Question[]));
+        lastError = null;
+        break;
+      }
+
+      lastError = error.message;
+      const missingColumn = error.message.match(/Could not find the '([^']+)' column of 'questions'/)?.[1];
+      if (!missingColumn) break;
+
+      batch = batch.map(question => {
+        const next = { ...question };
+        delete next[missingColumn];
+        return next;
+      });
+    }
+
+    if (lastError) throw new Error(`insertQuestions batch ${i}: ${lastError}`);
   }
   return all;
 }

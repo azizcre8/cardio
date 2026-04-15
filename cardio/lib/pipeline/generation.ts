@@ -389,7 +389,7 @@ async function generateQuestionsBySlot(
       let lastReason = 'Writer did not return a normalizable question draft.';
       let lastRaw: Record<string, unknown> | null = null;
 
-      for (let attempt = 0; attempt < 2; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
         try {
           const { raw, costUSD } = await writerAgentGenerate(
             context.concept,
@@ -410,6 +410,12 @@ async function generateQuestionsBySlot(
             expectedLevel: slot.level,
             evidenceCorpus,
           });
+
+          if (!validation.ok) {
+            lastReason = validation.issues[0] ?? lastReason;
+            if (!validation.shouldRetry) break;
+            continue;
+          }
 
           const normed = normaliseQuestion(
             {
@@ -432,7 +438,7 @@ async function generateQuestionsBySlot(
             break;
           }
 
-          lastReason = validation.issues[0] ?? lastReason;
+          lastReason = 'Writer returned a draft that passed validation but could not be normalized.';
           if (!validation.shouldRetry) break;
         } catch (e) {
           lastReason = (e as Error).message;

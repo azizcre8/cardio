@@ -430,13 +430,15 @@ export function validateQuestionDraft(
       ctx.evidenceCorpus,
     );
 
+    const draftShouldRetry = validation.issues.length > 0 || !validation.evidenceOk;
+
     return {
       ok: validation.issues.length === 0 && validation.evidenceOk,
       issues: validation.issues,
       optionFlags: validation.optionFlags,
       evidenceOk: validation.evidenceOk,
       evidenceResult: validation.evidenceResult,
-      shouldRetry,
+      shouldRetry: draftShouldRetry,
     };
   }
 

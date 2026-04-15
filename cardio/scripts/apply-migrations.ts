@@ -56,9 +56,12 @@ const PROJECT_REF = new URL(SUPABASE_URL).hostname.split('.')[0];
 // ─── Migrations to apply ──────────────────────────────────────────────────────
 
 const DEFAULT_PENDING = [
+  '002_add_item_design_columns.sql',
+  '003_add_pdf_jobs.sql',
   '004_deck_hierarchy.sql',
   '005_exam_deadline_rpc.sql',
   '006_shared_banks.sql',
+  '007_question_concept_name_and_shared_bank_policy_fix.sql',
 ];
 
 const explicitMigrations = process.argv.slice(2).filter(Boolean);

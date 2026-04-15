@@ -501,7 +501,7 @@ export default function LibraryView({
 
 function DeckCard({
   pdf, displayName, examDeadline, deckName,
-  onStudy, onDelete, onRename,
+  onStudy, onDelete, onRename, onPublish, isPublishing,
 }: {
   pdf:          PDF;
   displayName:  string;

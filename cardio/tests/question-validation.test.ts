@@ -69,4 +69,39 @@ describe('question validation', () => {
     expect(validation.issues).toContain('Most tempting distractor must match one of the incorrect answer choices exactly.');
     expect(validation.evidenceOk).toBe(true);
   });
+
+  it('marks deterministic validation failures as retriable during draft generation', () => {
+    const result = validateQuestionDraft(
+      {
+        conceptId: 'concept-1',
+        conceptName: 'Achalasia',
+        level: 2,
+        question: 'What mechanism best explains persistent dysphagia to solids and liquids in achalasia?',
+        options: [
+          'Loss of inhibitory myenteric neurons',
+          'Fibrosis from chronic reflux',
+          'Failure of salivary secretion',
+          'External compression by aortic aneurysm',
+        ],
+        correctAnswer: 0,
+        explanation: 'Loss of inhibitory myenteric neurons explains failed LES relaxation.',
+        sourceQuote: 'Selective loss of inhibitory myenteric neurons causes aperistalsis and failure of LES relaxation in achalasia.',
+        decisionTarget: 'mechanism',
+        decidingClue: 'failed LES relaxation with aperistalsis',
+        mostTemptingDistractor: 'Fibrosis from chronic reflux',
+        whyTempting: 'both can cause dysphagia',
+        whyFails: 'reflux fibrosis causes progressive solids-first dysphagia',
+      },
+      {
+        conceptId: 'concept-1',
+        conceptName: 'Achalasia',
+        expectedLevel: 2,
+        evidenceCorpus: 'Selective loss of inhibitory myenteric neurons causes aperistalsis and failure of LES relaxation in achalasia.',
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.shouldRetry).toBe(true);
+    expect(result.issues).toContain('Explanation is missing the required "Key distinction" teaching sentence.');
+  });
 });

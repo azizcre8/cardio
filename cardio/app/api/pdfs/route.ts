@@ -4,6 +4,7 @@
 
 import { requireUser } from '@/lib/auth';
 import { jsonOk } from '@/lib/api';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { PDF, SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,7 @@ export async function GET() {
 
   let sharedBanks: SharedBank[] = [];
   if (pdfIds.length > 0) {
-    const { data: sharedRows, error: sharedError } = await auth.supabase
+    const { data: sharedRows, error: sharedError } = await supabaseAdmin
       .from('shared_banks')
       .select('*')
       .in('source_pdf_id', pdfIds)
