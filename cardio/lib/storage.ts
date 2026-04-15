@@ -110,13 +110,57 @@ export async function insertPDF(pdf: Omit<PDF, 'id' | 'created_at'>): Promise<PD
     .insert(pdf)
     .select()
     .single();
-  if (error) throw new Error(`insertPDF: ${error.message}`);
-  return data as PDF;
+
+  if (!error) return data as PDF;
+
+  // Older databases may not have deck/display metadata yet. Retry with the
+  // legacy pdfs shape so uploads still work before migration 004 is applied.
+  if (error.message.includes('display_name') || error.message.includes('deck_id') || error.message.includes('position')) {
+    const legacyInsert = {
+      user_id: pdf.user_id,
+      name: pdf.name,
+      page_count: pdf.page_count,
+      density: pdf.density,
+      processed_at: pdf.processed_at,
+      processing_cost_usd: pdf.processing_cost_usd,
+      concept_count: pdf.concept_count,
+      question_count: pdf.question_count,
+    };
+
+    const retry = await supabaseAdmin
+      .from('pdfs')
+      .insert(legacyInsert)
+      .select()
+      .single();
+
+    if (retry.error) throw new Error(`insertPDF: ${retry.error.message}`);
+    return {
+      ...(retry.data as PDF),
+      deck_id: null,
+      display_name: null,
+      position: 0,
+    };
+  }
+
+  throw new Error(`insertPDF: ${error.message}`);
 }
 
 export async function updatePDF(id: string, patch: Partial<PDF>): Promise<void> {
   const { error } = await supabaseAdmin.from('pdfs').update(patch).eq('id', id);
-  if (error) throw new Error(`updatePDF: ${error.message}`);
+  if (!error) return;
+
+  if (error.message.includes('display_name') || error.message.includes('deck_id') || error.message.includes('position')) {
+    const legacyPatch: Record<string, unknown> = { ...patch };
+    delete legacyPatch.deck_id;
+    delete legacyPatch.display_name;
+    delete legacyPatch.position;
+
+    const retry = await supabaseAdmin.from('pdfs').update(legacyPatch).eq('id', id);
+    if (retry.error) throw new Error(`updatePDF: ${retry.error.message}`);
+    return;
+  }
+
+  throw new Error(`updatePDF: ${error.message}`);
 }
 
 export async function deletePDF(id: string): Promise<void> {
@@ -379,6 +423,20 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     .single();
   if (error) return null;
   return data as UserProfile;
+}
+
+export async function ensureUserProfile(userId: string, email: string): Promise<void> {
+  const normalizedEmail = email.trim() || `${userId}@local.invalid`;
+  const { error } = await supabaseAdmin
+    .from('users')
+    .upsert(
+      {
+        id: userId,
+        email: normalizedEmail,
+      },
+      { onConflict: 'id' },
+    );
+  if (error) throw new Error(`ensureUserProfile: ${error.message}`);
 }
 
 export async function updateUserProfile(userId: string, patch: Partial<UserProfile>): Promise<void> {

@@ -16,7 +16,7 @@ import { generateCoverageQuestions } from '@/lib/pipeline/generation';
 import { auditQuestions } from '@/lib/pipeline/audit';
 import {
   insertPDF, updatePDF, insertChunks, insertConcepts, insertQuestions, insertFlaggedQuestion,
-  getAndMaybeResetMonthlyCount, incrementMonthlyCount,
+  getAndMaybeResetMonthlyCount, incrementMonthlyCount, ensureUserProfile,
 } from '@/lib/storage';
 import { DENSITY_CONFIG, type ProcessEvent, type Density, type DensityConfig } from '@/types';
 import { requireUser } from '@/lib/auth';
@@ -39,10 +39,11 @@ function encodeEvent(ev: ProcessEvent): string {
 export async function POST(req: NextRequest) {
   const auth = await requireUser();
   if (!auth.ok) {
-    return new Response('Unauthorized', { status: 401 });
+    return auth.response;
   }
 
   const { supabase, userId } = auth;
+  await ensureUserProfile(userId, auth.session.user.email ?? '');
 
   let formData: FormData;
   try {
@@ -120,7 +121,9 @@ export async function POST(req: NextRequest) {
       const recordCost = async (event: OpenAICostEvent) => {
         if (!(event.costUSD > 0)) return;
         runningOpenAICostUSD = roundUsdAmount(runningOpenAICostUSD + event.costUSD);
-        await updatePdfJob(pdfJob.id, { openai_cost_usd: runningOpenAICostUSD });
+        if (pdfJob?.id) {
+          await updatePdfJob(pdfJob.id, { openai_cost_usd: runningOpenAICostUSD });
+        }
       };
 
       const emit = (ev: ProcessEvent) => {
@@ -140,13 +143,15 @@ export async function POST(req: NextRequest) {
       };
 
       const failJobAndStop = async (msg: string) => {
-        await finishPdfJobError(pdfJob.id, {
-          page_count: latestPageCount,
-          concept_count: latestConceptCount,
-          question_count: latestQuestionCount,
-          openai_cost_usd: runningOpenAICostUSD,
-          error_message: msg,
-        });
+        if (pdfJob?.id) {
+          await finishPdfJobError(pdfJob.id, {
+            page_count: latestPageCount,
+            concept_count: latestConceptCount,
+            question_count: latestQuestionCount,
+            openai_cost_usd: runningOpenAICostUSD,
+            error_message: msg,
+          });
+        }
         fail(msg);
       };
 
@@ -175,7 +180,9 @@ export async function POST(req: NextRequest) {
 
         await updatePDF(pdfId, { page_count: pages.length });
         latestPageCount = pages.length;
-        await updatePdfJob(pdfJob.id, { page_count: pages.length });
+        if (pdfJob?.id) {
+          await updatePdfJob(pdfJob.id, { page_count: pages.length });
+        }
         emit({ phase: 1, message: `Phase 1: Extracted ${pages.length} pages`, pct: 8 });
 
         // ── Phase 2: Chunk
@@ -418,12 +425,14 @@ export async function POST(req: NextRequest) {
         latestQuestionCount = savedQuestions.length;
 
         await incrementMonthlyCount(userId);
-        await finishPdfJobSuccess(pdfJob.id, {
-          page_count: latestPageCount,
-          concept_count: savedConcepts.length,
-          question_count: savedQuestions.length,
-          openai_cost_usd: runningOpenAICostUSD,
-        });
+        if (pdfJob?.id) {
+          await finishPdfJobSuccess(pdfJob.id, {
+            page_count: latestPageCount,
+            concept_count: savedConcepts.length,
+            question_count: savedQuestions.length,
+            openai_cost_usd: runningOpenAICostUSD,
+          });
+        }
 
         emit({
           phase: 7,
@@ -435,13 +444,15 @@ export async function POST(req: NextRequest) {
       } catch (e) {
         console.error('[process] Pipeline crashed:', e);
         try {
-          await finishPdfJobError(pdfJob.id, {
-            page_count: latestPageCount,
-            concept_count: latestConceptCount,
-            question_count: latestQuestionCount,
-            openai_cost_usd: runningOpenAICostUSD,
-            error_message: (e as Error).message ?? String(e),
-          });
+          if (pdfJob?.id) {
+            await finishPdfJobError(pdfJob.id, {
+              page_count: latestPageCount,
+              concept_count: latestConceptCount,
+              question_count: latestQuestionCount,
+              openai_cost_usd: runningOpenAICostUSD,
+              error_message: (e as Error).message ?? String(e),
+            });
+          }
         } catch (jobError) {
           console.error('[process] Failed to persist pdf job error state:', jobError);
         }
@@ -452,7 +463,7 @@ export async function POST(req: NextRequest) {
         if (!isClosed) {
           try {
             controller.close();
-          } catch (e) {
+          } catch {
             // ignore
           }
           isClosed = true;

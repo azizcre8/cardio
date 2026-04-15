@@ -107,7 +107,8 @@ Full port would split into `DiagnosticView.tsx` matching the HTML's `startDiagno
 
 ## Deploy Checklist
 
-- [ ] Apply `supabase/migrations/001_initial.sql` in Supabase SQL editor
+- [ ] Apply `supabase/migrations/001_initial.sql`, `002_add_item_design_columns.sql`, and `003_add_pdf_jobs.sql` in Supabase SQL editor
+- [ ] Run `npm run db:migrate` for tracked follow-up migrations (`004` through `006`)
 - [ ] Enable Row Level Security on all tables (already in migration)
 - [ ] Set all env vars in `.env.local` (use `.env.local.example` as template)
 - [ ] Enable Supabase Auth: Email provider + Google OAuth

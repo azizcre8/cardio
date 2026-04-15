@@ -41,12 +41,32 @@ Required only if billing is enabled:
 - `STRIPE_STUDENT_PRICE_ID`
 - `STRIPE_BOARDS_PRICE_ID`
 
+Optional for the migration runner:
+
+- `SUPABASE_ACCESS_TOKEN`
+
 ## Supabase setup
 
-Run the SQL migrations in:
+Apply all SQL migrations before using the app:
+
+```bash
+npm run db:migrate
+```
+
+The runner loads `NEXT_PUBLIC_SUPABASE_URL` from `.env.local` and uses
+`SUPABASE_ACCESS_TOKEN` for the Supabase Management API. By default it applies
+the repo's tracked follow-up migrations:
+
+- `supabase/migrations/004_deck_hierarchy.sql`
+- `supabase/migrations/005_exam_deadline_rpc.sql`
+- `supabase/migrations/006_shared_banks.sql`
+
+Run the earlier base migrations once in the Supabase SQL editor if your project
+does not already have them:
 
 - `supabase/migrations/001_initial.sql`
 - `supabase/migrations/002_add_item_design_columns.sql`
+- `supabase/migrations/003_add_pdf_jobs.sql`
 
 Then configure Supabase Auth:
 

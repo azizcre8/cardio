@@ -2,6 +2,10 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { roundUsdAmount } from '@/lib/openai-cost';
 import type { PDFJob, PDFJobStatus, Density } from '@/types';
 
+function isMissingPdfJobsSchema(message: string): boolean {
+  return message.includes('pdf_jobs') || message.includes('plan_name') || message.includes('openai_cost_usd');
+}
+
 type CreatePdfJobInput = {
   user_id: string;
   pdf_id: string;
@@ -17,7 +21,7 @@ type CreatePdfJobInput = {
 
 type UpdatePdfJobPatch = Partial<Omit<PDFJob, 'id' | 'user_id' | 'pdf_id' | 'created_at' | 'updated_at'>>;
 
-export async function createPdfJob(input: CreatePdfJobInput): Promise<PDFJob> {
+export async function createPdfJob(input: CreatePdfJobInput): Promise<PDFJob | null> {
   const row = {
     user_id: input.user_id,
     pdf_id: input.pdf_id,
@@ -40,7 +44,10 @@ export async function createPdfJob(input: CreatePdfJobInput): Promise<PDFJob> {
     .select('*')
     .single();
 
-  if (error) throw new Error(`createPdfJob: ${error.message}`);
+  if (error) {
+    if (isMissingPdfJobsSchema(error.message)) return null;
+    throw new Error(`createPdfJob: ${error.message}`);
+  }
   return data as PDFJob;
 }
 
@@ -55,7 +62,10 @@ export async function updatePdfJob(id: string, patch: UpdatePdfJobPatch): Promis
   }
 
   const { error } = await supabaseAdmin.from('pdf_jobs').update(normalizedPatch).eq('id', id);
-  if (error) throw new Error(`updatePdfJob: ${error.message}`);
+  if (error) {
+    if (isMissingPdfJobsSchema(error.message)) return;
+    throw new Error(`updatePdfJob: ${error.message}`);
+  }
 }
 
 export async function finishPdfJobSuccess(

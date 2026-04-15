@@ -13,6 +13,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -73,25 +74,68 @@ const PENDING = explicitMigrations.length > 0
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-async function runSQL(sql: string, label: string): Promise<void> {
-  const res = await fetch(
-    `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`,
-    {
+async function callSupabaseQuery(sql: string, label: string): Promise<string> {
+  const url = `https://api.supabase.com/v1/projects/${PROJECT_REF}/database/query`;
+  const payload = JSON.stringify({ query: sql });
+
+  try {
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({ query: sql }),
-    },
-  );
+      body: payload,
+    });
 
-  if (!res.ok) {
     const body = await res.text();
-    throw new Error(`${label} failed (${res.status}): ${body}`);
+    if (!res.ok) {
+      throw new Error(`${label} failed (${res.status}): ${body}`);
+    }
+    return body;
+  } catch (error) {
+    // Some environments fail on Node's fetch with ENETUNREACH for IPv6 routes
+    // while `curl` works. Fall back to curl so migrations can still run.
+    try {
+      return execFileSync(
+        'curl',
+        [
+          '--silent',
+          '--show-error',
+          '--fail-with-body',
+          '-X',
+          'POST',
+          url,
+          '-H',
+          'Content-Type: application/json',
+          '-H',
+          `Authorization: Bearer ${ACCESS_TOKEN}`,
+          '--data-raw',
+          payload,
+        ],
+        { stdio: 'pipe', encoding: 'utf8' },
+      ) as string;
+    } catch (curlError) {
+      const fetchMessage = error instanceof Error ? error.message : String(error);
+      const curlMessage = curlError instanceof Error ? curlError.message : String(curlError);
+      throw new Error(`${label} failed via fetch (${fetchMessage}) and curl (${curlMessage})`);
+    }
   }
+}
 
+async function runSQL(sql: string, label: string): Promise<void> {
+  await callSupabaseQuery(sql, label);
   console.log(`✓ ${label}`);
+}
+
+async function hasMigration(file: string): Promise<boolean> {
+  const escaped = file.replace(/'/g, "''");
+  const res = await callSupabaseQuery(
+    `select exists(select 1 from public.codex_schema_migrations where filename = '${escaped}') as applied;`,
+    `check migration ${file}`,
+  );
+  const parsed = JSON.parse(res) as Array<{ applied: boolean }>;
+  return parsed[0]?.applied === true;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -100,8 +144,22 @@ async function main() {
   console.log(`Applying migrations to project: ${PROJECT_REF}\n`);
 
   const migrationsDir = path.join(__dirname, '..', 'supabase', 'migrations');
+  await runSQL(
+    `
+      create table if not exists public.codex_schema_migrations (
+        filename text primary key,
+        applied_at timestamptz not null default now()
+      );
+    `,
+    'ensure codex_schema_migrations',
+  );
 
   for (const file of PENDING) {
+    if (await hasMigration(file)) {
+      console.log(`↷ ${file} already recorded, skipping`);
+      continue;
+    }
+
     const filepath = path.join(migrationsDir, file);
     if (!fs.existsSync(filepath)) {
       console.warn(`⚠ Skipping ${file} — file not found`);
@@ -109,6 +167,10 @@ async function main() {
     }
     const sql = fs.readFileSync(filepath, 'utf8');
     await runSQL(sql, file);
+    await runSQL(
+      `insert into public.codex_schema_migrations(filename) values ('${file.replace(/'/g, "''")}')`,
+      `record ${file}`,
+    );
   }
 
   console.log('\nAll migrations applied. Restart your dev server to pick up schema changes.');
