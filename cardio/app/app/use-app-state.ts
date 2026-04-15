@@ -14,6 +14,12 @@ export function useUserLibraryData() {
   const [examDate, setExamDate] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
+  const refreshPdfs = useCallback(async () => {
+    const res = await fetch('/api/pdfs');
+    if (!res.ok) return;
+    setPdfs(await res.json() as PDF[]);
+  }, []);
+
   useEffect(() => {
     supabaseBrowser.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
       setUserId(data.user?.id ?? null);
@@ -23,10 +29,7 @@ export function useUserLibraryData() {
   useEffect(() => {
     if (!userId) return;
 
-    supabaseBrowser
-      .from('pdfs').select('*').eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .then(({ data }: { data: PDF[] | null }) => setPdfs((data ?? []) as PDF[]));
+    void refreshPdfs();
 
     supabaseBrowser
       .from('users').select('exam_date').eq('id', userId).single()
@@ -36,11 +39,12 @@ export function useUserLibraryData() {
       .then(r => r.ok ? r.json() : [])
       .then((data: Deck[]) => setDecks(data))
       .catch(() => { /* decks table may not exist yet */ });
-  }, [userId]);
+  }, [refreshPdfs, userId]);
 
   return {
     pdfs,
     setPdfs,
+    refreshPdfs,
     decks,
     setDecks,
     examDate,

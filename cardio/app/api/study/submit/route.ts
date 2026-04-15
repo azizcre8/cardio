@@ -7,21 +7,32 @@
  */
 
 import { NextRequest } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
 import { upsertSRSState, insertReview, getUserProfile } from '@/lib/storage';
 import { applySRS } from '@/lib/srs';
 import type { SubmitQualityBody, Question, SRSState } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { jsonBadRequest, jsonNotFound, jsonOk, parseJsonBody } from '@/lib/api';
+import { supabaseServer } from '@/lib/supabase';
 
-async function fetchQuestionWithSRS(questionId: string, userId: string): Promise<Question | null> {
-  const { data: q } = await supabaseAdmin.from('questions').select('*').eq('id', questionId).single();
+async function fetchQuestionWithSRS(
+  supabase: ReturnType<typeof supabaseServer>,
+  questionId: string,
+  pdfId: string,
+  userId: string,
+): Promise<Question | null> {
+  const { data: q } = await supabase
+    .from('questions')
+    .select('*')
+    .eq('id', questionId)
+    .eq('pdf_id', pdfId)
+    .single();
   if (!q) return null;
 
-  const { data: s } = await supabaseAdmin
+  const { data: s } = await supabase
     .from('srs_state')
     .select('*')
     .eq('question_id', questionId)
+    .eq('pdf_id', pdfId)
     .eq('user_id', userId)
     .single();
 
@@ -60,7 +71,7 @@ export async function POST(req: NextRequest) {
   const examDate = profile?.exam_date ? new Date(profile.exam_date) : null;
 
   // ── Apply SRS to the answered question
-  const answeredQ = await fetchQuestionWithSRS(questionId, userId);
+  const answeredQ = await fetchQuestionWithSRS(auth.supabase, questionId, pdfId, userId);
   if (!answeredQ) return jsonNotFound('Question not found');
 
   const updatedQ = applySRS(answeredQ, quality, examDate);
@@ -102,7 +113,7 @@ export async function POST(req: NextRequest) {
   // advance the ORIGINAL due question's schedule too.
   // Do NOT increment timesReviewed/timesCorrect on the original — only advance schedule.
   if (proxiedFromId && quality >= 3) {
-    const origQ = await fetchQuestionWithSRS(proxiedFromId, userId);
+    const origQ = await fetchQuestionWithSRS(auth.supabase, proxiedFromId, pdfId, userId);
     if (origQ) {
       const updatedOrig = applySRS(origQ, quality, examDate);
       await upsertSRSState({

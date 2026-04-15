@@ -38,7 +38,7 @@ export default function ConceptMapView({ pdf, onStudyNow, onBack }: Props) {
   const categories = Array.from(byCategory.keys()).sort();
 
   const highCount = concepts.filter(c => c.importance === 'high').length;
-  const deckName  = pdf.name.replace(/\.pdf$/i, '');
+  const deckName  = pdf.shared_bank_title ?? pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
 
   return (
     <div style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '40px' }}>

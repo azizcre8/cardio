@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useMemo } from 'react';
-import type { PDF, Deck, DeckNode, Density, ProcessEvent } from '@/types';
+import type { PDF, Deck, Density, ProcessEvent } from '@/types';
 import ProcessingLog from './ProcessingLog';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 
@@ -9,7 +9,6 @@ interface Props {
   pdfs:                  PDF[];
   decks:                 Deck[];
   examDate:              string | null;
-  userId:                string;
   onOpenConceptMap:      (pdfId: string) => void;
   onPdfsChange:          (pdfs: PDF[]) => void;
   onDecksChange:         (decks: Deck[]) => void;
@@ -17,11 +16,14 @@ interface Props {
 }
 
 export default function LibraryView({
-  pdfs, decks, examDate, userId,
+  pdfs, decks, examDate,
   onOpenConceptMap, onPdfsChange, onDecksChange, onProcessingComplete,
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
   const [processing,     setProcessing]     = useState<string | null>(null);
+  const [publishingId,   setPublishingId]   = useState<string | null>(null);
+  const [joinSlug,       setJoinSlug]       = useState('');
+  const [joinStatus,     setJoinStatus]     = useState<string | null>(null);
   const [logs,           setLogs]           = useState<ProcessEvent[]>([]);
   const [search,         setSearch]         = useState('');
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
@@ -60,7 +62,101 @@ export default function LibraryView({
   // ── Display name ────────────────────────────────────────────────────────────
 
   function getPdfDisplayName(pdf: PDF) {
-    return pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
+    return pdf.shared_bank_title ?? pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
+  }
+
+  async function refreshPdfsFromServer() {
+    const res = await fetch('/api/pdfs');
+    if (!res.ok) return;
+    onPdfsChange(await res.json() as PDF[]);
+  }
+
+  function parseSharedSlug(input: string) {
+    const trimmed = input.trim();
+    if (!trimmed) return '';
+
+    try {
+      const url = new URL(trimmed);
+      return url.searchParams.get('shared') ?? trimmed;
+    } catch {
+      return trimmed.replace(/^\/+/, '').replace(/^app\?shared=/, '').trim();
+    }
+  }
+
+  async function publishPdf(pdf: PDF) {
+    if (pdf.access_scope === 'shared') return;
+
+    const defaultTitle = getPdfDisplayName(pdf);
+    const title = window.prompt('Shared bank title:', defaultTitle)?.trim();
+    if (!title) return;
+
+    setPublishingId(pdf.id);
+    setJoinStatus(null);
+
+    try {
+      const res = await fetch('/api/shared-banks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pdfId: pdf.id,
+          title,
+          visibility: 'public',
+        }),
+      });
+
+      const data = await res.json().catch(() => null) as {
+        bank?: { slug?: string | null };
+        shareUrl?: string | null;
+        error?: string;
+      } | null;
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? 'Failed to publish shared bank.');
+      }
+
+      if (data?.shareUrl && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(data.shareUrl);
+      }
+
+      await refreshPdfsFromServer();
+      setJoinStatus(data?.shareUrl
+        ? `Published. Share link copied: ${data.shareUrl}`
+        : `Published shared bank ${data?.bank?.slug ?? ''}`.trim());
+    } catch (error) {
+      setJoinStatus(error instanceof Error ? error.message : 'Failed to publish shared bank.');
+    } finally {
+      setPublishingId(null);
+    }
+  }
+
+  async function joinSharedBank() {
+    const slug = parseSharedSlug(joinSlug);
+    if (!slug) {
+      setJoinStatus('Paste a shared-bank link or slug.');
+      return;
+    }
+
+    setJoinStatus('Joining shared bank…');
+
+    try {
+      const res = await fetch(`/api/shared-banks/${encodeURIComponent(slug)}/join`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => null) as {
+        bank?: { source_pdf_id?: string | null; title?: string | null };
+        error?: string;
+      } | null;
+
+      if (!res.ok) throw new Error(data?.error ?? 'Failed to join shared bank.');
+
+      await refreshPdfsFromServer();
+      const sourcePdfId = data?.bank?.source_pdf_id;
+      setJoinStatus(`Joined ${data?.bank?.title ?? slug}.`);
+      setJoinSlug('');
+      if (sourcePdfId) onOpenConceptMap(sourcePdfId);
+    } catch (error) {
+      setJoinStatus(error instanceof Error ? error.message : 'Failed to join shared bank.');
+    }
   }
 
   // ── Upload ──────────────────────────────────────────────────────────────────
@@ -120,12 +216,15 @@ export default function LibraryView({
   }
 
   async function deletePdf(pdfId: string) {
+    const pdf = pdfs.find(item => item.id === pdfId);
+    if (!pdf || pdf.access_scope === 'shared') return;
     if (!confirm('Delete this PDF and all its questions?')) return;
     await fetch(`/api/pdfs/${pdfId}`, { method: 'DELETE' });
     onPdfsChange(pdfs.filter(p => p.id !== pdfId));
   }
 
   async function renamePdf(pdf: PDF) {
+    if (pdf.access_scope === 'shared') return;
     const next = window.prompt('Rename:', getPdfDisplayName(pdf));
     if (!next?.trim() || next.trim() === getPdfDisplayName(pdf)) return;
     await fetch(`/api/pdfs/${pdf.id}`, {
@@ -179,6 +278,9 @@ export default function LibraryView({
   }
 
   async function handleMovePdf(pdfId: string, deckId: string | null) {
+    const pdf = pdfs.find(item => item.id === pdfId);
+    if (!pdf || pdf.access_scope === 'shared') return;
+
     await fetch(`/api/pdfs/${pdfId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -251,7 +353,7 @@ export default function LibraryView({
         )}
 
         {/* Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           {/* Search */}
           <div style={{ flex: 1, position: 'relative' }}>
             <svg style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', pointerEvents: 'none' }}
@@ -303,7 +405,52 @@ export default function LibraryView({
           </button>
           <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ''; }} />
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '320px', flex: '1 1 320px' }}>
+            <input
+              type="text"
+              value={joinSlug}
+              onChange={e => setJoinSlug(e.target.value)}
+              placeholder="Paste shared bank link or slug"
+              style={{
+                flex: 1,
+                height: '34px',
+                padding: '0 12px',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.78rem',
+                background: 'var(--bg-raised)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => { void joinSharedBank(); }}
+              style={{
+                height: '34px', padding: '0 14px',
+                borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 600,
+                background: 'var(--bg-sunken)', color: 'var(--text-secondary)', border: '1px solid var(--border)',
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}
+            >
+              Join Bank
+            </button>
+          </div>
         </div>
+
+        {joinStatus && (
+          <div style={{
+            marginBottom: '16px',
+            padding: '10px 12px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border)',
+            fontSize: '0.76rem',
+            color: 'var(--text-secondary)',
+          }}>
+            {joinStatus}
+          </div>
+        )}
 
         {/* Processing log */}
         {logs.length > 0 && (
@@ -339,6 +486,8 @@ export default function LibraryView({
                 onStudy={onOpenConceptMap}
                 onDelete={deletePdf}
                 onRename={renamePdf}
+                onPublish={publishPdf}
+                isPublishing={publishingId === pdf.id}
               />
             ))}
           </div>
@@ -361,11 +510,17 @@ function DeckCard({
   onStudy:      (id: string) => void;
   onDelete:     (id: string) => void;
   onRename:     (pdf: PDF) => void;
+  onPublish:    (pdf: PDF) => void;
+  isPublishing: boolean;
 }) {
   const [hov, setHov] = useState(false);
+  const isOwned = pdf.access_scope !== 'shared';
+  const isShared = !isOwned;
 
   const total    = pdf.question_count ?? 0;
-  const category = (pdf.name.split(/[\s_-]/)[0] ?? 'General').toUpperCase();
+  const category = isShared
+    ? 'SHARED BANK'
+    : (pdf.name.split(/[\s_-]/)[0] ?? 'General').toUpperCase();
 
   let examBadge: React.ReactNode = null;
   if (examDeadline) {
@@ -425,11 +580,35 @@ function DeckCard({
           </div>
         </div>
 
-        {/* Rename button (hover) */}
-        <div style={{ opacity: hov ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
-          <MetaBtn title="Rename" onClick={() => onRename(pdf)}>✎</MetaBtn>
-        </div>
+        {isOwned && (
+          <div style={{ opacity: hov ? 1 : 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
+            <MetaBtn title="Rename" onClick={() => onRename(pdf)}>✎</MetaBtn>
+          </div>
+        )}
       </div>
+
+      {(isShared || pdf.shared_bank_slug) && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
+          {isShared && (
+            <span style={{
+              fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.06em',
+              padding: '1px 6px', borderRadius: '99px',
+              background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(13,154,170,0.22)',
+            }}>
+              Shared
+            </span>
+          )}
+          {pdf.shared_bank_slug && (
+            <span style={{
+              fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.06em',
+              padding: '1px 6px', borderRadius: '99px',
+              background: 'var(--bg-sunken)', color: 'var(--text-dim)', border: '1px solid var(--border)',
+            }}>
+              /{pdf.shared_bank_slug}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Exam deadline badge */}
       {examBadge && <div style={{ marginBottom: '10px' }}>{examBadge}</div>}
@@ -455,18 +634,45 @@ function DeckCard({
             Processing…
           </span>
         )}
-        <button
-          onClick={() => onDelete(pdf.id)}
-          style={{
-            padding: '7px 12px', borderRadius: 'var(--radius-md)',
-            background: 'var(--bg-sunken)', border: '1px solid var(--border)',
-            color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
-          }}
-          onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
-          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
-        >
-          Delete
-        </button>
+        {isOwned ? (
+          pdf.shared_bank_slug ? (
+            <button
+              onClick={() => onPublish(pdf)}
+              style={{
+                padding: '7px 12px', borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+                color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              {isPublishing ? 'Sharing…' : 'Share'}
+            </button>
+          ) : (
+            <button
+              onClick={() => onPublish(pdf)}
+              style={{
+                padding: '7px 12px', borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+                color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
+              }}
+            >
+              {isPublishing ? 'Publishing…' : 'Publish'}
+            </button>
+          )
+        ) : null}
+        {isOwned && (
+          <button
+            onClick={() => onDelete(pdf.id)}
+            style={{
+              padding: '7px 12px', borderRadius: 'var(--radius-md)',
+              background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+              color: 'var(--text-dim)', fontSize: '0.75rem', fontWeight: 500, cursor: 'pointer',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
+          >
+            Delete
+          </button>
+        )}
       </div>
     </div>
   );

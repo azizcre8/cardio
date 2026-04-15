@@ -80,6 +80,11 @@ export interface PDF {
   deck_id: string | null;
   display_name: string | null;
   position: number;
+  access_scope?: 'owned' | 'shared';
+  shared_bank_id?: string | null;
+  shared_bank_title?: string | null;
+  shared_bank_slug?: string | null;
+  shared_bank_visibility?: SharedBankVisibility | null;
 }
 
 export interface SharedBank {
@@ -94,6 +99,9 @@ export interface SharedBank {
   published_at: string | null;
   created_at: string;
   updated_at: string;
+  source_pdf?: PDF | null;
+  membership_role?: SharedBankMemberRole | null;
+  membership_joined_at?: string | null;
 }
 
 export interface SharedBankMember {

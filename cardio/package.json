@@ -10,7 +10,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "cost:estimate": "tsx scripts/estimate-pdf-cost.ts",
-    "margin:project": "tsx scripts/project-margins.ts"
+    "margin:project": "tsx scripts/project-margins.ts",
+    "db:migrate": "tsx scripts/apply-migrations.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.1.0",

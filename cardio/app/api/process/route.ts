@@ -261,18 +261,22 @@ export async function POST(req: NextRequest) {
         /* map concept_id → importance for quality sorting */
         const conceptImportance: Record<string, string> = {};
 
-        const conceptSpecs = savedConcepts.map((c, i) => ({
-          id:               c.id,
-          name:             c.name,
-          category:         c.category,
-          importance:       c.importance,
-          keyFacts:         (canonical[i]?.coverageDomain ? canonical[i]! : canonical.find(cc => cc.name === c.name) ?? canonical[i]!).keyFacts ?? [],
-          clinicalRelevance: (canonical.find(cc => cc.name === c.name))?.clinicalRelevance ?? '',
-          associations:      (canonical.find(cc => cc.name === c.name))?.associations ?? [],
-          pageEstimate:      (canonical.find(cc => cc.name === c.name))?.pageEstimate ?? '',
-          coverageDomain:    (canonical.find(cc => cc.name === c.name))?.coverageDomain ?? 'definition_recall',
-          chunk_ids:         (canonical.find(cc => cc.name === c.name))?.sourceChunkIds ?? [],
-        }));
+        const canonicalByName = new Map(canonical.map(c => [c.name, c]));
+        const conceptSpecs = savedConcepts.map(c => {
+          const can = canonicalByName.get(c.name);
+          return {
+            id:               c.id,
+            name:             c.name,
+            category:         c.category,
+            importance:       c.importance,
+            keyFacts:         can?.keyFacts ?? [],
+            clinicalRelevance: can?.clinicalRelevance ?? '',
+            associations:      can?.associations ?? [],
+            pageEstimate:      can?.pageEstimate ?? '',
+            coverageDomain:    can?.coverageDomain ?? 'definition_recall',
+            chunk_ids:         can?.sourceChunkIds ?? [],
+          };
+        });
 
         /* ── Cap concepts before generation to prevent runaway pipelines ──
          * Sort high → medium → low importance so the most critical concepts

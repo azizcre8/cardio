@@ -62,7 +62,7 @@ export default function BankSelectView({ pdfs, onSelect, onBack }: Props) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
         {banks.map((pdf, i) => {
-          const name = pdf.name.replace(/\.pdf$/i, '');
+          const name = pdf.shared_bank_title ?? pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
           const isHov = hov === pdf.id;
           return (
             <button

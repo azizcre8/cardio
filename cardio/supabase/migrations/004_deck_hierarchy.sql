@@ -45,7 +45,7 @@ returns table (
   name          text,
   is_exam_block boolean,
   due_date      timestamptz,
-  position      integer,
+  "position"    integer,
   created_at    timestamptz,
   updated_at    timestamptz,
   depth         integer
@@ -54,7 +54,7 @@ language sql stable security definer as $$
   with recursive deck_tree as (
     -- Base case: root-level decks (no parent)
     select d.id, d.user_id, d.parent_id, d.name,
-           d.is_exam_block, d.due_date, d.position,
+           d.is_exam_block, d.due_date, d.position as "position",
            d.created_at, d.updated_at,
            0 as depth
     from public.decks d
@@ -65,12 +65,12 @@ language sql stable security definer as $$
 
     -- Recursive case: children of already-found nodes
     select d.id, d.user_id, d.parent_id, d.name,
-           d.is_exam_block, d.due_date, d.position,
+           d.is_exam_block, d.due_date, d.position as "position",
            d.created_at, d.updated_at,
            dt.depth + 1
     from public.decks d
     join deck_tree dt on d.parent_id = dt.id
   )
   select * from deck_tree
-  order by depth, position, name;
+  order by depth, "position", name;
 $$;

@@ -37,7 +37,6 @@ export async function GET(
       concepts(name)
     `)
     .eq('pdf_id', params.id)
-    .eq('user_id', auth.userId)
     .eq('flagged', false);
 
   if (error) return jsonError(error.message);

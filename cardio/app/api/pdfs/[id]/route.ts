@@ -4,9 +4,8 @@
  */
 
 import { NextRequest } from 'next/server';
-import { deletePDF, updatePDF } from '@/lib/storage';
 import { requireUser } from '@/lib/auth';
-import { jsonOk, jsonBadRequest } from '@/lib/api';
+import { jsonOk, jsonBadRequest, jsonError, jsonNotFound } from '@/lib/api';
 
 export async function PATCH(
   req: NextRequest,
@@ -25,7 +24,17 @@ export async function PATCH(
 
   if (Object.keys(patch).length === 0) return jsonBadRequest('no fields to update');
 
-  await updatePDF(params.id, patch as Parameters<typeof updatePDF>[1]);
+  const { data, error } = await auth.supabase
+    .from('pdfs')
+    .update(patch)
+    .eq('id', params.id)
+    .eq('user_id', auth.userId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) return jsonError(error.message);
+  if (!data) return jsonNotFound('PDF not found');
+
   return jsonOk({ updated: params.id });
 }
 
@@ -36,6 +45,16 @@ export async function DELETE(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  await deletePDF(params.id);
+  const { data, error } = await auth.supabase
+    .from('pdfs')
+    .delete()
+    .eq('id', params.id)
+    .eq('user_id', auth.userId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) return jsonError(error.message);
+  if (!data) return jsonNotFound('PDF not found');
+
   return jsonOk({ deleted: params.id });
 }

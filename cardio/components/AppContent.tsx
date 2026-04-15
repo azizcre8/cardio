@@ -67,7 +67,6 @@ export default function AppContent({
           pdfs={pdfs}
           decks={decks}
           examDate={examDate}
-          userId={userId ?? ''}
           onOpenConceptMap={onOpenConceptMap}
           onPdfsChange={onPdfsChange}
           onDecksChange={onDecksChange}

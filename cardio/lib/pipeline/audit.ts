@@ -232,9 +232,10 @@ export async function auditQuestions(
       }
 
       if (v.status === 'REJECT' || iteration >= MAX_REVISE_ITERATIONS) {
+        const rejectedConcept = conceptBatch.find(c => c.id === q.concept_id);
         hardRejected.push({
           conceptId:    q.concept_id,
-          conceptName:  q.concept_id, // concept name resolved at call site if needed
+          conceptName:  rejectedConcept?.name ?? q.concept_id,
           level:        q.level,
           criterion:    v.criterion ?? 'UNKNOWN',
           critique:     v.critique ?? 'Failed audit',
@@ -251,8 +252,9 @@ export async function auditQuestions(
           conceptBatch[0];
         if (!concept) {
           hardRejected.push({
-            conceptId: q.concept_id, conceptName: q.concept_id, level: q.level,
-            criterion: 'CONCEPT_MISSING', critique: 'Could not resolve concept for revision',
+            conceptId: q.concept_id, conceptName: q.concept_id,
+            level: q.level, criterion: 'CONCEPT_MISSING',
+            critique: 'Could not resolve concept for revision',
             attempts: iteration + 1, lastQuestion: q,
           });
           continue;
@@ -289,9 +291,11 @@ export async function auditQuestions(
           });
         }
       } catch (e) {
+        const errConcept = conceptBatch.find(c => c.id === q.concept_id);
         hardRejected.push({
-          conceptId: q.concept_id, conceptName: q.concept_id, level: q.level,
-          criterion: 'WRITER_ERROR', critique: (e as Error).message,
+          conceptId: q.concept_id, conceptName: errConcept?.name ?? q.concept_id,
+          level: q.level, criterion: 'WRITER_ERROR',
+          critique: (e as Error).message,
           attempts: iteration + 1, lastQuestion: q,
         });
       }

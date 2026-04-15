@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AppContent from '@/components/AppContent';
 import AppNav from '@/components/AppNav';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
@@ -11,7 +11,9 @@ export default function AppPage() {
   const [view, setView] = useState<AppView>('library');
   const [conceptMapPdfId, setConceptMapPdfId] = useState<string | null>(null);
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
-  const { pdfs, setPdfs, decks, setDecks, examDate, setExamDate, userId } = useUserLibraryData();
+  const [sharedSlug, setSharedSlug] = useState<string | null>(null);
+  const handledSharedSlug = useRef<string | null>(null);
+  const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId } = useUserLibraryData();
   const { darkMode, toggleDark } = useThemePreference();
   const { activeJob, isJobRunning, startProcessing } = useProcessingJob(setView, setPdfs);
 
@@ -25,6 +27,36 @@ export default function AppPage() {
     if (quizPdfId) setConceptMapPdfId(quizPdfId);
     setView('conceptmap');
   }
+
+  useEffect(() => {
+    const slug = new URLSearchParams(window.location.search).get('shared');
+    setSharedSlug(slug);
+  }, []);
+
+  useEffect(() => {
+    if (!userId || !sharedSlug || handledSharedSlug.current === sharedSlug) return;
+
+    handledSharedSlug.current = sharedSlug;
+
+    void (async () => {
+      const res = await fetch(`/api/shared-banks/${encodeURIComponent(sharedSlug)}/join`, {
+        method: 'POST',
+      });
+      if (!res.ok) return;
+
+      const data = await res.json().catch(() => null) as {
+        bank?: { source_pdf_id?: string | null };
+      } | null;
+
+      await refreshPdfs();
+
+      const sharedPdfId = data?.bank?.source_pdf_id ?? null;
+      if (sharedPdfId) {
+        setConceptMapPdfId(sharedPdfId);
+        setView('conceptmap');
+      }
+    })();
+  }, [refreshPdfs, sharedSlug, userId]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

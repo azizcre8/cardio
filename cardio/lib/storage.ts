@@ -20,11 +20,23 @@ import type {
 
 // ─── Decks ───────────────────────────────────────────────────────────────────
 
-/** Fetch all decks for a user via the recursive CTE (ordered depth-first). */
+/** Fetch all decks for a user. Tries the recursive CTE RPC first; falls back to a
+ *  flat table query if the function hasn't been deployed yet; returns [] if the
+ *  decks table itself is missing (migration 004 not yet applied). */
 export async function getDecks(userId: string): Promise<Deck[]> {
   const { data, error } = await supabaseAdmin.rpc('get_deck_tree', { p_user_id: userId });
-  if (error) throw new Error(`getDecks: ${error.message}`);
-  return (data ?? []) as Deck[];
+  if (!error) return (data ?? []) as Deck[];
+
+  // RPC not available yet — fall back to direct table query
+  const { data: rows, error: tableError } = await supabaseAdmin
+    .from('decks')
+    .select('*')
+    .eq('user_id', userId)
+    .order('position', { ascending: true });
+  if (!tableError) return (rows ?? []) as Deck[];
+
+  // Decks table doesn't exist yet (migration 004 pending) — degrade gracefully
+  return [];
 }
 
 export async function insertDeck(

@@ -179,6 +179,7 @@ export function normaliseQuestion(
   const normalized: Omit<Question, 'id' | 'created_at'> = {
     pdf_id:              pdfId,
     concept_id:          concept.id,
+    concept_name:        concept.name,
     user_id:             userId,
     level:               resolvedLevel as Question['level'],
     stem:                raw.question as string,

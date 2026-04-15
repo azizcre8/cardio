@@ -3,9 +3,8 @@
  */
 
 import { NextRequest } from 'next/server';
-import { getConcepts } from '@/lib/storage';
 import { requireUser } from '@/lib/auth';
-import { jsonOk } from '@/lib/api';
+import { jsonError, jsonOk } from '@/lib/api';
 
 export async function GET(
   _req: NextRequest,
@@ -14,8 +13,14 @@ export async function GET(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const concepts = await getConcepts(params.id);
-  const userConcepts = concepts.filter(c => c.user_id === auth.userId);
+  const { data, error } = await auth.supabase
+    .from('concepts')
+    .select('*')
+    .eq('pdf_id', params.id)
+    .order('importance', { ascending: false })
+    .order('name', { ascending: true });
 
-  return jsonOk({ concepts: userConcepts });
+  if (error) return jsonError(error.message);
+
+  return jsonOk({ concepts: data ?? [] });
 }
