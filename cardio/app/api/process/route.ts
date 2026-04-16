@@ -15,7 +15,12 @@ import { mergeInventory, canonicalizeConcepts, generateConfusionMap, toConceptRo
 import { generateCoverageQuestions } from '@/lib/pipeline/generation';
 import { auditQuestions } from '@/lib/pipeline/audit';
 import { buildDistractorCandidatePool, formatDistractorCandidatePool } from '@/lib/pipeline/distractors';
-import { buildGenerationBatchFailureFlags, extractInventoriesResilient, sortConceptsByImportanceAndName } from '@/lib/pipeline/process-helpers';
+import {
+  buildGenerationBatchFailureFlags,
+  extractInventoriesResilient,
+  sortConceptsByImportanceAndName,
+  summarizePipelineFailure,
+} from '@/lib/pipeline/process-helpers';
 import {
   insertPDF, updatePDF, insertChunks, insertConcepts, insertQuestions, insertFlaggedQuestion,
   getAndMaybeResetMonthlyCount, incrementMonthlyCount, ensureUserProfile,
@@ -246,8 +251,20 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        const inventoryFailure = summarizePipelineFailure(inventoryWarnings.map(warning => warning.message));
+        if (inventoryFailure) {
+          await failJobAndStop(inventoryFailure);
+          return;
+        }
+
         const merged = mergeInventory(inventories, pdfId);
         const canonical = canonicalizeConcepts(merged);
+        if (!canonical.length) {
+          const emptyInventoryFailure = summarizePipelineFailure(inventoryWarnings.map(warning => warning.message))
+            ?? 'Concept extraction produced zero concepts. Check the OpenAI configuration and processing logs before retrying.';
+          await failJobAndStop(emptyInventoryFailure);
+          return;
+        }
         emit({ phase: 4, message: `Phase 4: ${canonical.length} concepts extracted`, pct: 52 });
 
         // ── Phase 5: Confusion map

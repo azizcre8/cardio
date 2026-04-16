@@ -11,6 +11,7 @@ import OpenAI from 'openai';
 import type { RawChunk, ChunkRecord } from '@/types';
 import { env } from '@/lib/env';
 import { calculateOpenAIUsageCostUSD, type OpenAICostTracker } from '@/lib/openai-cost';
+import { isOpenAIAuthError } from './process-helpers';
 
 const EMBED_MODEL = 'text-embedding-3-small';
 const EMBED_DIMS  = 512;
@@ -67,6 +68,9 @@ export async function embedAllChunks(
         c.embedding = vecs[j]!;
       });
     } catch (e) {
+      if (isOpenAIAuthError(e)) {
+        throw e;
+      }
       // Non-fatal: generation falls back to key-facts-only if no embedding
       console.warn(
         `Embedding batch ${Math.floor(i / EBATCH) + 1} failed (${(e as Error).message}) — RAG will be partial`,

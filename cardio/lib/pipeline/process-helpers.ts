@@ -10,6 +10,20 @@ export interface InventoryBatchWarning {
   message: string;
 }
 
+export function isOpenAIAuthError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  const normalized = message.toLowerCase();
+  return normalized.includes('incorrect api key') || normalized.includes('invalid api key') || normalized.includes('401');
+}
+
+export function summarizePipelineFailure(messages: string[]): string | null {
+  if (!messages.length) return null;
+  if (messages.some(message => isOpenAIAuthError(message))) {
+    return 'OpenAI authentication failed. Check OPENAI_API_KEY in cardio/.env.local and restart the dev server.';
+  }
+  return null;
+}
+
 export async function extractInventoriesResilient(
   chunkRecords: ChunkRecord[],
   dc: DensityConfig,
@@ -27,6 +41,9 @@ export async function extractInventoriesResilient(
       const inv = await extractInventory(batch, dc, batchIndex, totalBatches, onCost);
       inventories.push(inv);
     } catch (error) {
+      if (isOpenAIAuthError(error)) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       warnings.push({
         batchIndex,
