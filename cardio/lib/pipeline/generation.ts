@@ -225,7 +225,7 @@ export function alignSourceQuoteToEvidence(
     }
   }
 
-  if (bestSentence && bestScore >= 0.55) {
+  if (bestSentence && bestScore >= 0.4) {
     return { ...raw, sourceQuote: bestSentence };
   }
 
@@ -275,7 +275,24 @@ export function repairDraftForValidation(
     if (matchedWrong) {
       repaired.mostTemptingDistractor = matchedWrong;
       repaired.most_tempting_distractor = matchedWrong;
-    } else if (!currentMostTempting) {
+    } else {
+      const closestWrong = [...wrongOptions]
+        .map(option => ({
+          option,
+          score: Math.max(
+            optionSimilarityScore(option, currentMostTempting),
+            optionSimilarityScore(option, correctOption),
+          ),
+        }))
+        .sort((a, b) => b.score - a.score)[0];
+
+      if (closestWrong && (closestWrong.score >= 0.34 || !currentMostTempting)) {
+        repaired.mostTemptingDistractor = closestWrong.option;
+        repaired.most_tempting_distractor = closestWrong.option;
+      }
+    }
+
+    if (!repaired.mostTemptingDistractor && !repaired.most_tempting_distractor) {
       const fallback = [...wrongOptions]
         .sort((a, b) => optionSimilarityScore(b, correctOption) - optionSimilarityScore(a, correctOption))[0];
       if (fallback) {

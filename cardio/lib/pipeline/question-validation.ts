@@ -144,8 +144,11 @@ export function runLengthAudit(
     const avgDistractorWords =
       distractors.reduce((s, d) => s + d.trim().split(/\s+/).length, 0) / Math.max(1, distractors.length);
     const ratio = avgDistractorWords > 0 ? correctWords / avgDistractorWords : 1;
+    const absoluteDiff = correctWords - avgDistractorWords;
 
-    if (ratio > 1.25) {
+    // Small noun-phrase answer sets often differ by only 1-2 words, which is not a
+    // meaningful tell. Reserve this audit for clearly dominant keyed answers.
+    if (ratio >= 1.6 && absoluteDiff >= 2.5 && correctWords >= 5) {
       return {
         idx,
         status: 'REVISE',

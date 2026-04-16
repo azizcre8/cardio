@@ -39,6 +39,25 @@ describe('alignSourceQuoteToEvidence', () => {
     expect(String(repaired.explanation)).toContain('Key distinction: venous constriction preserves venous return');
   });
 
+  it('maps a paraphrased mostTemptingDistractor onto the closest real wrong option', () => {
+    const repaired = repairDraftForValidation(
+      {
+        options: [
+          'Compliance',
+          'Distensibility',
+          'Resistance',
+          'Vascular tone',
+          'Pulse pressure',
+        ],
+        correctAnswer: 1,
+        mostTemptingDistractor: 'Vascular compliance',
+      },
+      '',
+    );
+
+    expect(repaired.mostTemptingDistractor).toBe('Compliance');
+  });
+
   it('builds a deterministic distensibility draft with named concept options', () => {
     const draft = buildPressureVolumePropertyDraft(
       {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDeterministicQuestionValidation, validateQuestionDraft } from '@/lib/pipeline/question-validation';
+import { buildDeterministicQuestionValidation, runLengthAudit, validateQuestionDraft } from '@/lib/pipeline/question-validation';
 
 describe('question validation', () => {
   it('rejects level 1 drafts with 4 options and missing conceptId', () => {
@@ -217,5 +217,36 @@ describe('question validation', () => {
 
     expect(validation.issues).not.toContain('Level 1 stem may be under-specified relative to the intended concept and source material.');
     expect(validation.evidenceOk).toBe(true);
+  });
+
+  it('does not flag small noun-phrase option length differences as a tell', () => {
+    const [audit] = runLengthAudit([
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 1,
+        stem: 'Which vascular property best explains venous blood storage?',
+        options: ['Compliance', 'Distensibility', 'Resistance', 'Tone', 'Pressure'],
+        answer: 0,
+        explanation: 'Compliance is correct because it reflects stored volume per pressure rise, whereas distensibility is fractional change. Key distinction: storage per pressure rise points to compliance.',
+        option_explanations: null,
+        source_quote: 'Compliance is the total quantity of blood that can be stored per mm Hg pressure rise.',
+        evidence_start: 0,
+        evidence_end: 0,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'definition',
+        deciding_clue: 'stored volume per pressure rise',
+        most_tempting_distractor: 'Distensibility',
+        why_tempting: 'both are pressure-volume properties',
+        why_fails: 'distensibility is fractional change rather than total storage',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+    ]);
+
+    expect(audit?.status).toBe('PASS');
   });
 });
