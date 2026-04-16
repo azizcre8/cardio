@@ -47,8 +47,20 @@ export function deterministicVerdict(
   const normalizedIssues = issues.map(issue => issue.toLowerCase());
   const hasIssue = (pattern: RegExp) => normalizedIssues.some(issue => pattern.test(issue));
 
+  if (hasIssue(/option lengths create|correct answer.*longer than average|trim the correct answer|expand distractors/)) {
+    const lengthDetail = issues.find(i => /longer than average|words.*longer/i.test(i)) ?? 'correct answer is longer than distractors';
+    return {
+      idx,
+      status: 'REVISE',
+      criterion: 'OPTION_SET_HOMOGENEITY',
+      critique: `Length tell: ${lengthDetail}. Do NOT shorten the correct answer — instead expand every distractor to match it in word count and grammatical structure. Use full mechanistic or descriptive phrases for all options (e.g. "Decreased X due to reduced Y" for every choice, not bare noun phrases for distractors). All options must be within 2 words of each other.`,
+      primaryFlaw: 'length tell',
+      fixInstruction: 'Expand all distractors to match the correct answer in length and structure — full phrases for every option, no bare noun phrases.',
+    };
+  }
+
   if (
-    hasIssue(/option lengths create|correct answer|unique qualifier|overly overlapping|mix conceptual categories|all of the above|most tempting distractor/)
+    hasIssue(/unique qualifier|overly overlapping|mix conceptual categories|all of the above|most tempting distractor/)
   ) {
     return {
       idx,
@@ -255,7 +267,18 @@ export async function auditQuestions(
   for (let iter = 0; iter <= MAX_REVISE_ITERATIONS; iter++) {
     if (!inFlight.length) break;
 
-    const programmatic = inFlight.map(entry => {
+    // Repair before validation so auto-fixable issues (missing "Key distinction:",
+    // contrast language, mostTemptingDistractor mismatch) don't generate
+    // unnecessary REVISE verdicts that exhaust the revision budget.
+    const repairedInFlight = inFlight.map(entry => ({
+      q: repairDraftForValidation(
+        entry.q as unknown as Record<string, unknown>,
+        ragPassages[entry.q.concept_id] ?? '',
+      ) as Omit<Question, 'id' | 'created_at'>,
+      iteration: entry.iteration,
+    }));
+
+    const programmatic = repairedInFlight.map(entry => {
       const concept = conceptBatch.find(item => item.id === entry.q.concept_id);
       return buildDeterministicQuestionValidation(
         entry.q,
@@ -264,7 +287,7 @@ export async function auditQuestions(
       );
     });
 
-    const verdicts: AuditVerdict[] = inFlight.map((entry, idx) => {
+    const verdicts: AuditVerdict[] = repairedInFlight.map((entry, idx) => {
       const validation = programmatic[idx]!;
       if (isCuratedPressureVolumePropertyItem(entry.q, validation)) {
         return { idx, status: 'PASS' };
@@ -285,7 +308,7 @@ export async function auditQuestions(
 
     if (auditableIndices.length) {
       const auditVerdicts = await runAuditAgent(
-        auditableIndices.map(idx => inFlight[idx]!.q),
+        auditableIndices.map(idx => repairedInFlight[idx]!.q),
         auditableIndices.map(idx => ({
           evidenceOk: programmatic[idx]!.evidenceOk,
           optionFlags: programmatic[idx]!.optionFlags,
@@ -306,7 +329,7 @@ export async function auditQuestions(
     for (let i = 0; i < inFlight.length; i++) {
       const entry = inFlight[i]!;
       const { iteration } = entry;
-      const q = repairDraftForValidation(entry.q as unknown as Record<string, unknown>, ragPassages[entry.q.concept_id] ?? '') as Omit<Question, 'id' | 'created_at'>;
+      const q = repairedInFlight[i]!.q;
       const v = verdicts[i]!;
 
       if (v.status === 'PASS') {

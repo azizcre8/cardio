@@ -155,6 +155,8 @@ export default function QuizView({ pdfId, onDone }: Props) {
           selectOption(n - 1);
         } else if (revealed && n >= 1 && n <= 4 && !rated[idx] && !submittingQuality) {
           void submitQuality(n);
+        } else if (revealed && rated[idx] && (n >= 1 && n <= 4)) {
+          if (idx < questions.length) goForward();
         } else if (e.key === 'ArrowRight' || (revealed && (e.key === 'Enter' || e.key === ' '))) {
         if (revealed && !rated[idx]) return;
         if (idx < questions.length) goForward();
@@ -976,10 +978,22 @@ function QualityBtn({
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled && !active ? 0.6 : 1,
         transition: 'all 0.15s ease',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '5px',
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
+      <span style={{
+        fontSize: '0.65rem',
+        fontWeight: 700,
+        opacity: 0.6,
+        background: hovered || active ? 'rgba(255,255,255,0.25)' : 'var(--bg-sunken)',
+        borderRadius: '3px',
+        padding: '1px 4px',
+        lineHeight: 1.4,
+      }}>{quality}</span>
       {label}
     </button>
   );

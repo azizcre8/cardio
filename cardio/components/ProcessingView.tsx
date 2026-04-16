@@ -119,6 +119,7 @@ export default function ProcessingView({ job, onBack }: Props) {
   const questionsGenerated = (job.logs.map(e => e.data?.questionsGenerated).filter(Boolean).pop() as number | undefined) ?? 0;
   const questionsAccepted  = (job.logs.map(e => e.data?.questionsAccepted).filter(Boolean).pop() as number | undefined) ?? 0;
   const questionsRejected  = (job.logs.map(e => e.data?.questionsRejected).filter(Boolean).pop() as number | undefined) ?? 0;
+  const rejectionBreakdown = (job.logs.map(e => e.data?.rejectionBreakdown).filter(Boolean).pop() as Record<string, number> | undefined) ?? {};
 
   /* quality rate */
   const qualityRate  = questionsGenerated > 0 ? Math.round((questionsAccepted / questionsGenerated) * 100) : null;
@@ -337,6 +338,37 @@ export default function ProcessingView({ job, onBack }: Props) {
             }} />
           </div>
         </div>
+
+        {/* ── Rejection breakdown ── */}
+        {Object.keys(rejectionBreakdown).length > 0 && (
+          <div style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.05)',
+            borderRadius: '10px',
+            padding: '16px 18px',
+            marginBottom: '24px',
+          }}>
+            <p style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#3D4652', marginBottom: '12px' }}>
+              Rejection Breakdown
+            </p>
+            {Object.entries(rejectionBreakdown)
+              .sort((a, b) => b[1] - a[1])
+              .map(([criterion, count]) => {
+                const pctOfRejected = questionsRejected > 0 ? Math.round((count / questionsRejected) * 100) : 0;
+                return (
+                  <div key={criterion} style={{ marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                      <span style={{ fontSize: '0.68rem', color: '#8B949E', fontFamily: 'monospace' }}>{criterion}</span>
+                      <span style={{ fontSize: '0.68rem', color: '#E6EDF3', fontWeight: 600 }}>{count} <span style={{ color: '#3D4652' }}>({pctOfRejected}%)</span></span>
+                    </div>
+                    <div style={{ height: '3px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${pctOfRejected}%`, background: '#C9505A', borderRadius: '2px', transition: 'width 0.4s ease' }} />
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        )}
 
         {/* ── Phase steps ── */}
         <div style={{

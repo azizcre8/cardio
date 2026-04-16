@@ -266,6 +266,7 @@ export async function POST(req: NextRequest) {
         let totalQuestions = 0;
         let totalRejected  = 0;
         const allPassedQuestions: any[] = [];
+        const rejectionBreakdown: Record<string, number> = {};
         /* map concept_id → importance for quality sorting */
         const conceptImportance: Record<string, string> = {};
 
@@ -347,7 +348,7 @@ export async function POST(req: NextRequest) {
           const distractorGuides: Record<string, string> = {};
           batch.forEach(c => {
             const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
-            ragPassages[c.id] = chunks.map(ch => ch.text.slice(0, 350)).join('\n\n');
+            ragPassages[c.id] = chunks.map(ch => ch.text).join('\n\n');
             const confusions = confusionMap[c.name] ?? [];
             const candidatePool = buildDistractorCandidatePool(
               {
@@ -410,6 +411,13 @@ export async function POST(req: NextRequest) {
           allPassedQuestions.push(...passed);
           totalQuestions += passed.length;
           totalRejected  += hardRejected.length + rejectedSlots.length;
+          for (const hr of hardRejected) {
+            const key = hr.criterion || 'UNKNOWN';
+            rejectionBreakdown[key] = (rejectionBreakdown[key] ?? 0) + 1;
+          }
+          for (const _sf of rejectedSlots) {
+            rejectionBreakdown['SLOT_GENERATION'] = (rejectionBreakdown['SLOT_GENERATION'] ?? 0) + 1;
+          }
           latestQuestionCount = totalQuestions;
           const totalAttempted = totalQuestions + totalRejected;
 
@@ -422,6 +430,7 @@ export async function POST(req: NextRequest) {
               questionsGenerated: totalAttempted,
               questionsAccepted: totalQuestions,
               questionsRejected: totalRejected,
+              rejectionBreakdown,
             },
           });
         }

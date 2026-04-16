@@ -1209,8 +1209,16 @@ export async function writerAgentRevise(
   const distractorSection = distractorGuide
     ? `\nDISTRACTOR GUIDE:\n${distractorGuide}\n`
     : '';
-  const definitionSection = prevQuestion.decisionTarget === 'definition'
-    ? `\nDEFINITION-STYLE REVISION GUIDANCE:\n- Do NOT keep a stem of the form "Which statement best defines ${concept.name}?" if that produces overlapping sentence-paraphrase options.\n- Prefer a clue-forward stem that states the defining feature, and use named competing concepts or short noun-phrase options.\n- For this item type, avoid five options that all begin with the same generic wording like "the ability/capacity of blood vessels to...".\n`
+  const isDefinitionStyleStem = /\bwhich\b.{0,30}(best\s+)?(describe|define|characterize|represent)/i.test(prevQuestion.stem)
+    || prevQuestion.decisionTarget === 'definition';
+  const allOptionsShareTemplate = prevQuestion.options.length >= 3 && (() => {
+    const prefix = (s: string) => s.trim().toLowerCase().split(/\s+/).slice(0, 4).join(' ');
+    const prefixes = prevQuestion.options.map(prefix);
+    const first = prefixes[0];
+    return prefixes.filter(p => p === first).length >= Math.ceil(prevQuestion.options.length * 0.6);
+  })();
+  const definitionSection = (isDefinitionStyleStem || criterion === 'OPTION_SET_HOMOGENEITY' || allOptionsShareTemplate)
+    ? `\nDEFINITION-STYLE REVISION GUIDANCE:\n- Do NOT keep a stem of the form "Which of the following best describes/defines ${concept.name}?" — this reliably produces option-template soup.\n- Instead, rewrite the stem as a clue-forward question: "The vascular property defined as [decidingClue] is:" or "A vessel characterized by [clue] is demonstrating:".\n- ALL options must be short named concepts or noun phrases (e.g. "Vascular Compliance", "Vascular Distensibility", "Vascular Elastance") drawn from the DISTRACTOR GUIDE — NOT sentence-definitions beginning with "The ability of..." or "The capacity of...".\n- If the DISTRACTOR GUIDE lacks enough named alternatives, invent plausible named chapter concepts at the same granularity.\n- Verify: no two options begin with the same 4 words.\n`
     : '';
 
   const prompt = `You are a specialist USMLE/COMLEX Writer Agent. Revise the question below based on the auditor's feedback.
@@ -1228,6 +1236,7 @@ AUDITOR REJECTION — Criterion violated: ${criterion}
 Specific fix required: "${critique}"
 
 Address ONLY the named criterion. Keep everything else correct (same concept, same level, same category constraints). Apply all standard board rules: same-category distractors, equal option lengths, no length tells, stem answerable before options.
+If the flaw is a LENGTH TELL: keep the correct answer exactly as-is and rewrite every distractor so it matches the correct answer's word count and grammatical structure (e.g. if correct answer is "Decreased preload due to venous pooling", each distractor must also be a full mechanistic phrase like "Increased afterload due to arterial vasoconstriction" — not bare noun phrases). Count words in the correct answer, then write each distractor to within 2 words of that count.
 If the flaw is option overlap, rewrite the entire option set so each distractor reflects a distinct misconception and prefer distinct named concepts from DISTRACTOR GUIDE instead of paraphrased synonyms of the keyed definition. For property/definition concepts, do not keep all options in the form "the ability/capacity of blood vessels to...". If the flaw is explanation quality, include explicit contrast clauses and a final "Key distinction:" sentence. If the flaw is evidence grounding, copy one verbatim proving sentence from SOURCE PASSAGES.
 Return exactly ${expectedOptionCount} options. Echo conceptId exactly. mostTemptingDistractor must exactly match one incorrect option.
 

@@ -295,6 +295,7 @@ export interface ProcessEvent {
     questionsGenerated?: number;
     questionsAccepted?: number;
     questionsRejected?: number;
+    rejectionBreakdown?: Record<string, number>;
     estimatedTotalSec?: number;
     [key: string]: unknown;
   };
