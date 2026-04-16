@@ -215,12 +215,7 @@ export async function POST(req: NextRequest) {
         await insertChunks(persistedChunkRows);
 
         // Keep lexical retrieval aligned with the exact text payload persisted above.
-        const bm25Index = buildBM25Index(
-          persistedChunkRows.map(row => ({
-            ...row,
-            pdf_id: row.pdf_id,
-          })),
-        );
+        const bm25Index = buildBM25Index(persistedChunkRows);
         emit({ phase: 3, message: 'Phase 3: Embeddings complete', pct: 28 });
 
         // ── Phase 4: Concept inventory
