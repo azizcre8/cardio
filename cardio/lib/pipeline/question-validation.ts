@@ -363,10 +363,6 @@ export function buildDeterministicQuestionValidation(
     }
   }
 
-  if (conceptName && !question.stem.toLowerCase().includes(conceptName.toLowerCase()) && question.level === 1) {
-    issues.push('Level 1 stem may be under-specified relative to the intended concept and source material.');
-  }
-
   return {
     issues: takeUnique(issues),
     optionFlags: optionFlags ?? [],

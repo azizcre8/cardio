@@ -14,6 +14,7 @@ import { buildBM25Index } from '@/lib/pipeline/retrieval';
 import { extractInventory, mergeInventory, canonicalizeConcepts, generateConfusionMap, toConceptRow } from '@/lib/pipeline/inventory';
 import { generateCoverageQuestions } from '@/lib/pipeline/generation';
 import { auditQuestions } from '@/lib/pipeline/audit';
+import { buildDistractorCandidatePool, formatDistractorCandidatePool } from '@/lib/pipeline/distractors';
 import {
   insertPDF, updatePDF, insertChunks, insertConcepts, insertQuestions, insertFlaggedQuestion,
   getAndMaybeResetMonthlyCount, incrementMonthlyCount, ensureUserProfile,
@@ -348,9 +349,29 @@ export async function POST(req: NextRequest) {
             const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
             ragPassages[c.id] = chunks.map(ch => ch.text.slice(0, 350)).join('\n\n');
             const confusions = confusionMap[c.name] ?? [];
-            distractorGuides[c.id] = confusions.length
+            const candidatePool = buildDistractorCandidatePool(
+              {
+                conceptId: c.id,
+                conceptName: c.name,
+                category: c.category,
+                importance: c.importance,
+                level: 2,
+                coverageDomain: c.coverageDomain,
+                chunkIds: c.chunk_ids,
+                pageEstimate: c.pageEstimate,
+                keyFacts: c.keyFacts,
+                clinicalRelevance: c.clinicalRelevance,
+                associations: c.associations,
+              },
+              cappedConceptSpecs,
+              confusions,
+              [],
+            );
+            const candidateGuide = formatDistractorCandidatePool(candidatePool);
+            const confusionGuide = confusions.length
               ? confusions.map(confusion => `${confusion.concept}: ${confusion.reason}`).join('\n')
               : '';
+            distractorGuides[c.id] = [candidateGuide, confusionGuide].filter(Boolean).join('\n');
           });
 
           let passed: any[] = [], hardRejected: any[] = [];

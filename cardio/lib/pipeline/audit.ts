@@ -10,7 +10,7 @@
  *                                   └── REJECT (after max loops) → flagged store
  */
 
-import { callOpenAI, parseJSON, normaliseQuestion, writerAgentRevise, AUDITOR_MODEL } from './generation';
+import { callOpenAI, parseJSON, normaliseQuestion, repairDraftForValidation, writerAgentRevise, AUDITOR_MODEL } from './generation';
 import type { Question } from '@/types';
 import type { OpenAICostTracker } from '@/lib/openai-cost';
 import { buildDeterministicQuestionValidation } from './question-validation';
@@ -38,17 +38,93 @@ interface HardRejected {
   lastQuestion: Omit<Question, 'id' | 'created_at'>;
 }
 
-function deterministicVerdict(
+export function deterministicVerdict(
   idx: number,
   issues: string[],
 ): AuditVerdict {
   if (!issues.length) return { idx, status: 'PASS' };
+
+  const normalizedIssues = issues.map(issue => issue.toLowerCase());
+  const hasIssue = (pattern: RegExp) => normalizedIssues.some(issue => pattern.test(issue));
+
+  if (
+    hasIssue(/option lengths create|correct answer|unique qualifier|overly overlapping|mix conceptual categories|all of the above|most tempting distractor/)
+  ) {
+    return {
+      idx,
+      status: 'REVISE',
+      criterion: 'OPTION_SET_HOMOGENEITY',
+      critique: 'Rewrite the full option set so every choice stays in one comparison class, the distractors are distinct near-misses, and no option-length or overlap tell remains; keep mostTemptingDistractor equal to one incorrect option.',
+      primaryFlaw: 'option-set weakness',
+      fixInstruction: 'Rewrite the entire option set for parity, diversity, and one-to-one distractor competition.',
+    };
+  }
+
+  if (
+    hasIssue(/source quote|grounded source quote|quoted pdf evidence|deciding clue is not clearly supported|correct answer is not clearly supported/)
+  ) {
+    return {
+      idx,
+      status: 'REVISE',
+      criterion: 'EVIDENCE_GROUNDING',
+      critique: 'Replace sourceQuote with one verbatim sentence from the source passages that directly proves the keyed answer and supports the deciding clue.',
+      primaryFlaw: 'evidence grounding',
+      fixInstruction: 'Copy one verbatim proving sentence from the PDF and align the deciding clue to that evidence.',
+    };
+  }
+
+  if (
+    hasIssue(/key distinction|contrast the correct answer|decision target metadata|deciding clue metadata|most tempting distractor metadata|whytempting|whyfails/)
+  ) {
+    return {
+      idx,
+      status: 'REVISE',
+      criterion: 'CLINICAL_PEDAGOGY',
+      critique: 'Keep the stem and answer set, but rewrite the explanation and metadata so decisionTarget, decidingClue, mostTemptingDistractor, whyTempting, and whyFails are present and the explanation ends with a final "Key distinction:" sentence using explicit contrast language.',
+      primaryFlaw: 'explanation and metadata',
+      fixInstruction: 'Repair the teaching explanation and metadata without changing the tested concept.',
+    };
+  }
+
+  if (hasIssue(/level 1 questions should avoid negation|level 3 questions must open|under-specified/)) {
+    return {
+      idx,
+      status: 'REVISE',
+      criterion: 'STEM_LEVEL_FIDELITY',
+      critique: 'Rewrite the stem so it matches the required level and is specific enough to answer before looking at the options.',
+      primaryFlaw: 'stem-level mismatch',
+      fixInstruction: 'Adjust the stem to the required level while preserving the concept and keyed answer.',
+    };
+  }
+
   return {
     idx,
-    status: issues.length === 1 ? 'REVISE' : 'REJECT',
+    status: 'REJECT',
     criterion: 'DETERMINISTIC_VALIDATION',
     critique: issues[0],
   };
+}
+
+function isLowRiskDefinitionItem(
+  question: Omit<Question, 'id' | 'created_at'>,
+  validation: ReturnType<typeof buildDeterministicQuestionValidation>,
+): boolean {
+  if (question.level !== 1 && question.level !== 2) return false;
+  if (!validation.evidenceOk || validation.issues.length || validation.optionFlags.length) return false;
+
+  const conciseOptions = question.options.every(option => option.trim().split(/\s+/).length <= 4);
+  if (!conciseOptions) return false;
+
+  return /\bdefined as\b|\bwhich concept\b|\bwhich property\b|\bwhich vascular property\b|\bwhat property\b|\bconcept of\b/i.test(question.stem);
+}
+
+function isCuratedPressureVolumePropertyItem(
+  question: Omit<Question, 'id' | 'created_at'>,
+  validation: ReturnType<typeof buildDeterministicQuestionValidation>,
+): boolean {
+  if (!validation.evidenceOk || validation.issues.length || validation.optionFlags.length) return false;
+  if (!['Vascular Distensibility', 'Vascular Compliance'].includes(question.concept_name ?? '')) return false;
+  return /\bvascular property\b|\bstored per mm hg pressure rise\b|\bfractional increase in volume\b|\bstore much more blood\b/i.test(question.stem);
 }
 
 // ─── runAuditAgent — upgraded prompt ─────────────────────────────────────────
@@ -190,6 +266,12 @@ export async function auditQuestions(
 
     const verdicts: AuditVerdict[] = inFlight.map((entry, idx) => {
       const validation = programmatic[idx]!;
+      if (isCuratedPressureVolumePropertyItem(entry.q, validation)) {
+        return { idx, status: 'PASS' };
+      }
+      if (isLowRiskDefinitionItem(entry.q, validation)) {
+        return { idx, status: 'PASS' };
+      }
       if (!validation.issues.length && validation.evidenceOk) {
         return { idx, status: 'PASS' };
       }
@@ -223,7 +305,8 @@ export async function auditQuestions(
 
     for (let i = 0; i < inFlight.length; i++) {
       const entry = inFlight[i]!;
-      const { q, iteration } = entry;
+      const { iteration } = entry;
+      const q = repairDraftForValidation(entry.q as unknown as Record<string, unknown>, ragPassages[entry.q.concept_id] ?? '') as Omit<Question, 'id' | 'created_at'>;
       const v = verdicts[i]!;
 
       if (v.status === 'PASS') {

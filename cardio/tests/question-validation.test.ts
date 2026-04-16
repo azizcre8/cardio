@@ -179,4 +179,43 @@ describe('question validation', () => {
 
     expect(validation.issues).toContain('Deciding clue is not clearly supported by the quoted PDF evidence.');
   });
+
+  it('does not require level 1 stems to literally include the concept name when the item is otherwise grounded', () => {
+    const validation = buildDeterministicQuestionValidation(
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 1,
+        stem: 'The vascular property defined as the fractional increase in volume per mm Hg rise in pressure is which of the following?',
+        options: [
+          'Compliance',
+          'Delayed compliance',
+          'Distensibility',
+          'Capacitance',
+          'Pulse pressure',
+        ],
+        answer: 2,
+        explanation: 'Distensibility is correct because it is the fractional increase in volume per mm Hg rise in pressure, whereas compliance refers to total stored volume per pressure rise. Key distinction: fractional change points to distensibility, not compliance.',
+        source_quote: 'Vascular distensibility is expressed ordinarily as the fractional increase in volume for each millimeter of mercury rise in pressure.',
+        evidence_start: 0,
+        evidence_end: 0,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'definition',
+        deciding_clue: 'fractional increase in volume per mm Hg rise in pressure',
+        most_tempting_distractor: 'Compliance',
+        why_tempting: 'both are pressure-volume vessel properties',
+        why_fails: 'compliance is total stored volume per pressure rise rather than fractional increase',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+      'Vascular Distensibility',
+      'Vascular distensibility is expressed ordinarily as the fractional increase in volume for each millimeter of mercury rise in pressure.',
+    );
+
+    expect(validation.issues).not.toContain('Level 1 stem may be under-specified relative to the intended concept and source material.');
+    expect(validation.evidenceOk).toBe(true);
+  });
 });
