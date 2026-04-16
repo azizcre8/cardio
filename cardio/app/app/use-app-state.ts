@@ -5,6 +5,7 @@ import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { Deck, Density, PDF, ProcessEvent } from '@/types';
 import type { ActiveJob } from '@/components/ProcessingView';
 import type { AppView } from './page';
+import { isDevAuthBypassEnabled } from '@/lib/dev-auth';
 
 const THEME_KEY = 'cardio-theme';
 
@@ -21,6 +22,14 @@ export function useUserLibraryData() {
   }, []);
 
   useEffect(() => {
+    if (isDevAuthBypassEnabled()) {
+      fetch('/api/users/me')
+        .then(r => r.ok ? r.json() : null)
+        .then((data: { id?: string | null } | null) => setUserId(data?.id ?? null))
+        .catch(() => setUserId(null));
+      return;
+    }
+
     supabaseBrowser.auth.getUser().then(({ data }: { data: { user: { id: string } | null } }) => {
       setUserId(data.user?.id ?? null);
     });
@@ -31,9 +40,10 @@ export function useUserLibraryData() {
 
     void refreshPdfs();
 
-    supabaseBrowser
-      .from('users').select('exam_date').eq('id', userId).single()
-      .then(({ data }: { data: { exam_date: string | null } | null }) => setExamDate(data?.exam_date ?? null));
+    fetch('/api/users/me')
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { exam_date: string | null } | null) => setExamDate(data?.exam_date ?? null))
+      .catch(() => setExamDate(null));
 
     fetch('/api/decks')
       .then(r => r.ok ? r.json() : [])

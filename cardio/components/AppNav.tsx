@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { AppView } from '@/app/app/page';
+import { isDevAuthBypassEnabled } from '@/lib/dev-auth';
 
 interface Props {
   view: AppView;
@@ -13,6 +14,17 @@ interface Props {
 }
 
 export default function AppNav({ view, isJobRunning, darkMode, onSetView, onToggleDark }: Props) {
+  const handleSignOut = () => {
+    if (isDevAuthBypassEnabled()) {
+      window.location.href = '/';
+      return;
+    }
+
+    void supabaseBrowser.auth.signOut().then(() => {
+      window.location.href = '/login';
+    });
+  };
+
   const navButtonStyle = (target: AppView | AppView[]): CSSProperties => {
     const active = Array.isArray(target) ? target.includes(view) : view === target;
     return {
@@ -127,7 +139,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
         </button>
 
         <button
-          onClick={() => supabaseBrowser.auth.signOut().then(() => { window.location.href = '/login'; })}
+          onClick={handleSignOut}
           className="text-xs font-semibold tracking-widest uppercase whitespace-nowrap transition-colors"
           style={{ color: 'var(--text-dim)' }}
           onMouseEnter={e => { e.currentTarget.style.color = 'var(--red)'; }}

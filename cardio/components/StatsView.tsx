@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { PDF, Concept, Question, MasteryData } from '@/types';
 
 interface Props {
@@ -61,21 +60,34 @@ export default function StatsView({ pdfs, examDate }: Props) {
   const [data, setData] = useState<ConceptWithMastery[]>([]);
 
   useEffect(() => {
-    if (!pdfs.length) return;
+    if (!pdfs.length) {
+      setData([]);
+      return;
+    }
 
     Promise.all(
       pdfs.map(async pdf => {
-        const [{ data: concepts }, { data: questions }] = await Promise.all([
-          supabaseBrowser.from('concepts').select('*').eq('pdf_id', pdf.id),
-          supabaseBrowser.from('questions').select('*').eq('pdf_id', pdf.id),
+        const [conceptRes, questionRes] = await Promise.all([
+          fetch(`/api/pdfs/${pdf.id}/concepts`),
+          fetch(`/api/pdfs/${pdf.id}/questions`),
         ]);
-        return (concepts ?? []).map(c => ({
-          concept: c as Concept,
+
+        const conceptPayload = conceptRes.ok
+          ? await conceptRes.json() as { concepts?: Concept[] }
+          : { concepts: [] };
+        const questionPayload = questionRes.ok
+          ? await questionRes.json() as { questions?: Question[] }
+          : { questions: [] };
+
+        return (conceptPayload.concepts ?? []).map(c => ({
+          concept: c,
           pdf,
-          mastery: conceptMastery(c as Concept, (questions ?? []) as Question[]),
+          mastery: conceptMastery(c, questionPayload.questions ?? []),
         }));
       }),
-    ).then(all => setData(all.flat()));
+    )
+      .then(all => setData(all.flat()))
+      .catch(() => setData([]));
   }, [pdfs]);
 
   const now = new Date();

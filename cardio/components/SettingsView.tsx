@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { supabaseBrowser } from '@/lib/supabase-browser';
 
 interface Props {
   examDate:         string | null;
@@ -16,11 +15,16 @@ export default function SettingsView({ examDate, onExamDateChange, userId }: Pro
 
   async function save() {
     setSaving(true);
-    await supabaseBrowser
-      .from('users')
-      .update({ exam_date: date || null })
-      .eq('id', userId);
-    onExamDateChange(date || null);
+    const res = await fetch('/api/users/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exam_date: date || null }),
+    });
+
+    if (res.ok) {
+      onExamDateChange(date || null);
+    }
+
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);

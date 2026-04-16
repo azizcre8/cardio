@@ -16,6 +16,7 @@ export async function GET() {
   const { data: pdfRows, error: pdfError } = await auth.supabase
     .from('pdfs')
     .select('*')
+    .eq('user_id', auth.userId)
     .order('created_at', { ascending: false });
 
   if (pdfError) {

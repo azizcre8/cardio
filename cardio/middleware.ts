@@ -7,11 +7,11 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient({ req, res });
 
   const { data: { session } } = await supabase.auth.getSession();
-
   const { pathname } = req.nextUrl;
+  const allowDevAppWithoutSession = process.env.NODE_ENV === 'development';
 
   // Protect /app routes — redirect unauthenticated users to login
-  if (pathname.startsWith('/app') && !session) {
+  if (pathname.startsWith('/app') && !session && !allowDevAppWithoutSession) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.search = '';
