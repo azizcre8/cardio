@@ -16,6 +16,12 @@ export interface EvidenceVerifyResult {
   reason?: string;
 }
 
+const EVIDENCE_STOPWORDS = new Set([
+  'which', 'their', 'there', 'these', 'those', 'because', 'during', 'through', 'between',
+  'within', 'without', 'about', 'after', 'before', 'under', 'above', 'below', 'other',
+  'into', 'from', 'that', 'this', 'with', 'have', 'been', 'they', 'them', 'than', 'then',
+]);
+
 /** Verifies that sourceQuote actually appears in chunkText.
  *  Returns matchType so callers can store it on the question. */
 export function verifyEvidenceSpan(
@@ -38,6 +44,16 @@ export function verifyEvidenceSpan(
   const normChunk = normalizeStr(chunkText);
   if (normChunk.includes(normQuote))
     return { ok: true, evidenceMatchType: 'normalized', evidenceMatchedText: sourceQuote, evidenceConfidence: 0.9 };
+
+  const clauseMatch = matchQuoteClauses(sourceQuote, normChunk);
+  if (clauseMatch.ok) {
+    return {
+      ok: true,
+      evidenceMatchType: 'normalized',
+      evidenceMatchedText: clauseMatch.matchedText,
+      evidenceConfidence: clauseMatch.confidence,
+    };
+  }
 
   // 3. Fuzzy match (sliding window)
   if (ENABLE_FUZZY_EVIDENCE_MATCH && sourceQuote.length >= 30) {
@@ -67,6 +83,25 @@ function normalizeStr(s: string): string {
     .trim();
 }
 
+function evidenceTokens(text: string): string[] {
+  return normalizeStr(text)
+    .split(' ')
+    .filter(token => token.length >= 4 && !EVIDENCE_STOPWORDS.has(token));
+}
+
+export function hasEvidenceAnchorSupport(anchorText: string, evidenceText: string): boolean {
+  const anchorTokens = new Set(evidenceTokens(anchorText));
+  const evidenceTokenSet = new Set(evidenceTokens(evidenceText));
+  if (!anchorTokens.size || !evidenceTokenSet.size) return false;
+
+  let overlap = 0;
+  for (const token of anchorTokens) {
+    if (evidenceTokenSet.has(token)) overlap += 1;
+  }
+
+  return overlap >= 2 || overlap / anchorTokens.size >= 0.5;
+}
+
 function fuzzyMatchQuote(normQuote: string, normChunk: string): { ratio: number; matchedText: string } {
   const qLen = normQuote.length;
   if (qLen < 20 || normChunk.length < qLen) return { ratio: 0, matchedText: '' };
@@ -78,6 +113,32 @@ function fuzzyMatchQuote(normQuote: string, normChunk: string): { ratio: number;
     if (r > best) { best = r; bestText = window; }
   }
   return { ratio: best, matchedText: bestText };
+}
+
+function matchQuoteClauses(sourceQuote: string, normChunk: string): { ok: boolean; matchedText: string; confidence: number } {
+  const rawClauses = sourceQuote
+    .split(/[;•]/)
+    .map(part => normalizeStr(part))
+    .filter(part => part.length >= 12);
+
+  if (rawClauses.length < 2) {
+    return { ok: false, matchedText: '', confidence: 0 };
+  }
+
+  const matchedClauses = rawClauses.filter(clause => normChunk.includes(clause));
+  const totalChars = rawClauses.reduce((sum, clause) => sum + clause.length, 0);
+  const matchedChars = matchedClauses.reduce((sum, clause) => sum + clause.length, 0);
+  const coverage = totalChars > 0 ? matchedChars / totalChars : 0;
+
+  if (matchedClauses.length === rawClauses.length || coverage >= 0.85) {
+    return {
+      ok: true,
+      matchedText: matchedClauses.join('; '),
+      confidence: Math.max(0.84, Math.min(0.9, coverage)),
+    };
+  }
+
+  return { ok: false, matchedText: '', confidence: 0 };
 }
 
 function charOverlapRatio(a: string, b: string): number {

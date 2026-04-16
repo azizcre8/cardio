@@ -57,7 +57,7 @@ export default function AppContent({
       style={{
         flex: 1,
         padding: (view === 'processing' || view === 'library') ? '0' : '24px 16px',
-        overflow: 'hidden',
+        overflow: 'auto',
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -75,15 +75,13 @@ export default function AppContent({
       )}
 
       {view === 'add' && (
-        <div style={{ padding: '24px 16px' }}>
-          <AddView
-            pdfs={pdfs}
-            isJobRunning={isJobRunning}
-            onStartProcessing={onStartProcessing}
-            onViewProcessing={() => onSetView('processing')}
-            onOpenDeck={onOpenConceptMap}
-          />
-        </div>
+        <AddView
+          pdfs={pdfs}
+          isJobRunning={isJobRunning}
+          onStartProcessing={onStartProcessing}
+          onViewProcessing={() => onSetView('processing')}
+          onOpenDeck={onOpenConceptMap}
+        />
       )}
 
       {view === 'processing' && activeJob && (
@@ -91,15 +89,13 @@ export default function AppContent({
       )}
 
       {view === 'processing' && !activeJob && (
-        <div style={{ padding: '24px 16px' }}>
-          <AddView
-            pdfs={pdfs}
-            isJobRunning={false}
-            onStartProcessing={onStartProcessing}
-            onViewProcessing={() => onSetView('processing')}
-            onOpenDeck={onOpenConceptMap}
-          />
-        </div>
+        <AddView
+          pdfs={pdfs}
+          isJobRunning={false}
+          onStartProcessing={onStartProcessing}
+          onViewProcessing={() => onSetView('processing')}
+          onOpenDeck={onOpenConceptMap}
+        />
       )}
 
       {view === 'conceptmap' && conceptMapPdf && (

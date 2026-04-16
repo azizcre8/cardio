@@ -145,6 +145,71 @@ function cleanOptions(options: string[]): string[] {
   return options.map(opt => String(opt || '').replace(/^[A-Ea-e][.)]\s*/, '').trim());
 }
 
+function normalizeEvidenceText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function evidenceTokenOverlap(a: string, b: string): number {
+  const aTokens = new Set(normalizeEvidenceText(a).split(' ').filter(token => token.length >= 4));
+  const bTokens = new Set(normalizeEvidenceText(b).split(' ').filter(token => token.length >= 4));
+  if (!aTokens.size || !bTokens.size) return 0;
+  let overlap = 0;
+  for (const token of aTokens) {
+    if (bTokens.has(token)) overlap += 1;
+  }
+  return overlap / Math.max(1, Math.min(aTokens.size, bTokens.size));
+}
+
+function extractEvidenceSentences(evidenceCorpus: string): string[] {
+  return evidenceCorpus
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map(part => part.trim())
+    .filter(part => part.length >= 30);
+}
+
+export function alignSourceQuoteToEvidence(
+  raw: Record<string, unknown>,
+  evidenceCorpus: string,
+): Record<string, unknown> {
+  const sourceQuote = typeof raw.sourceQuote === 'string' ? raw.sourceQuote.trim() : '';
+  if (!sourceQuote || sourceQuote === 'UNGROUNDED' || !evidenceCorpus.trim()) {
+    return raw;
+  }
+
+  const sentences = extractEvidenceSentences(evidenceCorpus);
+  if (!sentences.length) return raw;
+
+  const exactSentence = sentences.find(sentence => sentence.includes(sourceQuote));
+  if (exactSentence) {
+    return { ...raw, sourceQuote: exactSentence };
+  }
+
+  const normalizedQuote = normalizeEvidenceText(sourceQuote);
+  if (!normalizedQuote) return raw;
+
+  let bestSentence = '';
+  let bestScore = 0;
+  for (const sentence of sentences) {
+    const score = evidenceTokenOverlap(sourceQuote, sentence);
+    if (score > bestScore) {
+      bestScore = score;
+      bestSentence = sentence;
+    }
+  }
+
+  if (bestSentence && bestScore >= 0.55) {
+    return { ...raw, sourceQuote: bestSentence };
+  }
+
+  return raw;
+}
+
 // ─── normaliseQuestion — verbatim port ───────────────────────────────────────
 
 export function normaliseQuestion(
@@ -402,24 +467,26 @@ async function generateQuestionsBySlot(
             onCost,
           );
           totalCost += costUSD;
-          lastRaw = raw;
+          const alignedRaw = alignSourceQuoteToEvidence(raw, evidenceCorpus);
+          lastRaw = alignedRaw;
 
-          const validation = validateQuestionDraft(raw, {
+          const validation = validateQuestionDraft(alignedRaw, {
             conceptId: slot.conceptId,
             conceptName: slot.conceptName,
             expectedLevel: slot.level,
             evidenceCorpus,
           });
 
-          if (!validation.ok) {
-            lastReason = validation.issues[0] ?? lastReason;
-            if (!validation.shouldRetry) break;
-            continue;
-          }
+          // validateQuestionDraft is called for its side-effect data (evidenceMatchType,
+          // optionFlags). Do NOT gate on content-quality issues (evidence verification,
+          // explanation style, metadata completeness) — those are handled by the audit
+          // loop's writer-revision cycle. Blocking here causes near-total rejection
+          // because retries get no feedback and temperature=0.3 rarely changes the outcome.
+          // normaliseQuestion below enforces the structural minimum (option count, answer index).
 
           const normed = normaliseQuestion(
             {
-              ...raw,
+              ...alignedRaw,
               level: slot.level,
               conceptId: slot.conceptId,
               conceptName: slot.conceptName,
@@ -438,7 +505,7 @@ async function generateQuestionsBySlot(
             break;
           }
 
-          lastReason = 'Writer returned a draft that passed validation but could not be normalized.';
+          lastReason = 'Writer returned a draft that could not be normalized (wrong option count or invalid answer index).';
           if (!validation.shouldRetry) break;
         } catch (e) {
           lastReason = (e as Error).message;

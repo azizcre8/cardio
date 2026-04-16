@@ -1,5 +1,5 @@
 import type { Question } from '@/types';
-import { verifyEvidenceSpan, type EvidenceVerifyResult } from './validation';
+import { hasEvidenceAnchorSupport, verifyEvidenceSpan, type EvidenceVerifyResult } from './validation';
 
 type ValidationQuestion = Pick<
   Question,
@@ -68,6 +68,10 @@ export function normalizeText(text: string): string {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function stripOptionLabel(text: string): string {
+  return text.replace(/^\s*[A-Ea-e][.)]\s*/, '').trim();
 }
 
 export function compactIssue(text: string): string {
@@ -303,8 +307,14 @@ export function buildDeterministicQuestionValidation(
   }
   if (!question.most_tempting_distractor) {
     issues.push('Question is missing the required most tempting distractor metadata.');
-  } else if (!question.options.some((opt, idx) => idx !== question.answer && opt === question.most_tempting_distractor)) {
-    issues.push('Most tempting distractor must match one of the incorrect answer choices exactly.');
+  } else {
+    const normalizedMostTempting = stripOptionLabel(question.most_tempting_distractor);
+    const hasMatchingDistractor = question.options.some((opt, idx) => (
+      idx !== question.answer && stripOptionLabel(opt) === normalizedMostTempting
+    ));
+    if (!hasMatchingDistractor) {
+      issues.push('Most tempting distractor must match one of the incorrect answer choices exactly.');
+    }
   }
   if (!question.why_tempting) {
     issues.push('Question is missing the required whyTempting rationale.');
@@ -343,9 +353,13 @@ export function buildDeterministicQuestionValidation(
 
   if (question.deciding_clue && sourceQuote && sourceQuote !== 'UNGROUNDED') {
     const clue = normalizeText(question.deciding_clue);
-    const quote = normalizeText(sourceQuote);
+    const evidenceAnchor = evidenceResult.evidenceMatchedText || sourceQuote;
+    const quote = normalizeText(evidenceAnchor);
     if (clue && !quote.includes(clue) && clue.split(' ').filter(Boolean).length >= 3) {
-      issues.push('Deciding clue is not clearly supported by the quoted PDF evidence.');
+      const correctOption = question.options[question.answer] ?? '';
+      if (!hasEvidenceAnchorSupport(correctOption, evidenceAnchor)) {
+        issues.push('Deciding clue is not clearly supported by the quoted PDF evidence.');
+      }
     }
   }
 

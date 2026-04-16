@@ -283,7 +283,13 @@ export async function insertChunks(chunks: Omit<Chunk, 'created_at'>[]): Promise
   // Bulk insert in batches of 200 to avoid request-size limits
   const BATCH = 200;
   for (let i = 0; i < chunks.length; i += BATCH) {
-    const { error } = await supabaseAdmin.from('chunks').insert(chunks.slice(i, i + BATCH));
+    const normalizedBatch = chunks.slice(i, i + BATCH).map(chunk => ({
+      ...chunk,
+      embedding: Array.isArray(chunk.embedding) && chunk.embedding.length > 0
+        ? chunk.embedding
+        : null,
+    }));
+    const { error } = await supabaseAdmin.from('chunks').insert(normalizedBatch);
     if (error) throw new Error(`insertChunks batch ${i}: ${error.message}`);
   }
 }

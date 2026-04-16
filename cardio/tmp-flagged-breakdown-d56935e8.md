@@ -1,0 +1,134 @@
+# Grouped Flagged Breakdown for PDF Run d56935e8-1520-4b6b-b370-b28eb48a1bb8
+
+Total flagged: 121
+
+## Rejection Reasons
+
+- 34 :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 21 :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 13 :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 12 :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 11 :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 8 :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 4 :: DETERMINISTIC_VALIDATION: Deciding clue is not clearly supported by the quoted PDF evidence.
+- 3 :: DETERMINISTIC_VALIDATION: Explanation is missing the required "Key distinction" teaching sentence.
+- 2 :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 1.4x longer than average distractor (5.8 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (11 words) is 1.6x longer than average distractor (7.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (12 words) is 1.4x longer than average distractor (8.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (15 words) is 1.5x longer than average distractor (10.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (17 words) is 1.5x longer than average distractor (11.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.5x longer than average distractor (2.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.7x longer than average distractor (1.8 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.8x longer than average distractor (1.7 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (7 words) is 1.3x longer than average distractor (5.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 1.4x longer than average distractor (5.7 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 2.0x longer than average distractor (4.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (9 words) is 1.5x longer than average distractor (6.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (9 words) is 1.6x longer than average distractor (5.5 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: DETERMINISTIC_VALIDATION: Correct answer (9 words) is 1.6x longer than average distractor (5.7 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+
+## Concept x Reason
+
+- 4 :: Diastolic Pressure :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 2 :: Abnormal Pressure Pulse Contours :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Blood Reservoir Function :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Chagas Disease :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 2 :: Cuff Pressure Oscillations :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Damping of Pressure Pulses :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 2 :: Hematocrit :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Intra-abdominal Pressure :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 2 :: Liver :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 2 :: Peripheral Venous Pressure :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 2 :: Pulmonary Pressures :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Reticuloendothelial Cells :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Spleen Enlargement :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Systolic Pressure :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 2 :: Trabecular Mesh :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 2 :: Tricuspid Valve :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Achalasia :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 1.4x longer than average distractor (5.8 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Achalasia :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 1 :: Aortic Insufficiency :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Aortic Insufficiency :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Arterial Pressure :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Arterial Pressure :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Arterial Pressure Pulsations :: DETERMINISTIC_VALIDATION: Correct answer (12 words) is 1.4x longer than average distractor (8.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Arterial Pressure Pulsations :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Arteriovenous Fistula :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Arteriovenous Fistula :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Auscultatory Method :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Auscultatory Method :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Blood Cleansing Function of the Spleen :: DETERMINISTIC_VALIDATION: Correct answer (11 words) is 1.6x longer than average distractor (7.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Blood Cleansing Function of the Spleen :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 1.4x longer than average distractor (5.8 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Blood Volume :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Blood Volume :: DETERMINISTIC_VALIDATION: Deciding clue is not clearly supported by the quoted PDF evidence.
+- 1 :: Blood Volume Loss :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Blood Volume Loss :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Capillaries :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Capillaries :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Capillary Permeability :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Capillary Permeability :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Capillary Pressure :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Capillary Pressure :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Cardiac Output Regulation :: DETERMINISTIC_VALIDATION: Deciding clue is not clearly supported by the quoted PDF evidence.
+- 1 :: Cardiac Output Regulation :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Circulatory Pressure Measurement :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.7x longer than average distractor (1.8 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Circulatory Pressure Measurement :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.8x longer than average distractor (1.7 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Compression Points in Veins :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Compression Points in Veins :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Delayed Compliance :: DETERMINISTIC_VALIDATION: Correct answer (9 words) is 1.6x longer than average distractor (5.7 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Delayed Compliance :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Edema :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Edema :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Fluid Overload :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.5x longer than average distractor (2.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Fluid Overload :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 1 :: Gravitational Pressure :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Gravitational Pressure :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Hirschsprung Disease :: DETERMINISTIC_VALIDATION: Explanation is missing the required "Key distinction" teaching sentence.
+- 1 :: Hirschsprung Disease :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Hydrostatic Pressure :: DETERMINISTIC_VALIDATION: Correct answer (7 words) is 1.3x longer than average distractor (5.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Hydrostatic Pressure :: DETERMINISTIC_VALIDATION: Correct answer (9 words) is 1.6x longer than average distractor (5.5 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Korotkoff Sounds :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 1.4x longer than average distractor (5.7 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Korotkoff Sounds :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Mean Arterial Pressure :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Mean Arterial Pressure :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 1 :: Nervous Signals from Carotid Sinuses :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Nervous Signals from Carotid Sinuses :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Oscillometric Method :: DETERMINISTIC_VALIDATION: Explanation is missing the required "Key distinction" teaching sentence.
+- 1 :: Oscillometric Method :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Pressure Regulation Mechanism :: DETERMINISTIC_VALIDATION: Deciding clue is not clearly supported by the quoted PDF evidence.
+- 1 :: Pressure Regulation Mechanism :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Right Atrial Pressure :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Right Atrial Pressure :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Right Ventricle :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Right Ventricle :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 1 :: Sphygmomanometer :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Sphygmomanometer :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Spleen :: DETERMINISTIC_VALIDATION: Correct answer (15 words) is 1.5x longer than average distractor (10.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Spleen :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Surgical Intervention for Varicose Veins :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Surgical Intervention for Varicose Veins :: DETERMINISTIC_VALIDATION: Option lengths create a test-taking tell rather than requiring medical knowledge.
+- 1 :: Sympathetic Nervous System :: DETERMINISTIC_VALIDATION: Explanation is missing the required "Key distinction" teaching sentence.
+- 1 :: Sympathetic Nervous System :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Sympathetic Stimulation :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Systolic Pressure :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Systolic Pressure :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Transmission of Pressure Pulses :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Transmission of Pressure Pulses :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 1 :: Varicose Veins :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Varicose Veins :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Vascular Compliance :: DETERMINISTIC_VALIDATION: Correct answer (17 words) is 1.5x longer than average distractor (11.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Vascular Compliance :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: Vascular Distensibility :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Vascular Distensibility :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
+- 1 :: Venous Plexus :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Venous Plexus :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Venous Pump :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Venous Pump :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Venous System :: DETERMINISTIC_VALIDATION: Correct answer (8 words) is 2.0x longer than average distractor (4.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Venous System :: DETERMINISTIC_VALIDATION: Correct answer (9 words) is 1.5x longer than average distractor (6.0 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: Venous Valves :: DETERMINISTIC_VALIDATION: Explanation does not clearly contrast the correct answer against distractors.
+- 1 :: Venous Valves :: DETERMINISTIC_VALIDATION: Stored source quote could not be verified against the source PDF text.
+- 1 :: Volume-Pressure Curve :: DETERMINISTIC_VALIDATION: Deciding clue is not clearly supported by the quoted PDF evidence.
+- 1 :: Volume-Pressure Curve :: DETERMINISTIC_VALIDATION: Most tempting distractor must match one of the incorrect answer choices exactly.
+- 1 :: White Pulp :: DETERMINISTIC_VALIDATION: Correct answer (3 words) is 1.3x longer than average distractor (2.3 words). Trim the correct answer or expand distractors so all options are within 2 words of each other in length.
+- 1 :: White Pulp :: DETERMINISTIC_VALIDATION: Two answer choices are overly overlapping, which weakens distractor diversity.
