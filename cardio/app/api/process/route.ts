@@ -11,10 +11,11 @@ import { extractTextServer, assessTextQuality } from '@/lib/pipeline/ingestion';
 import { chunkText } from '@/lib/pipeline/chunking';
 import { embedAllChunks } from '@/lib/pipeline/embeddings';
 import { buildBM25Index } from '@/lib/pipeline/retrieval';
-import { extractInventory, mergeInventory, canonicalizeConcepts, generateConfusionMap, toConceptRow } from '@/lib/pipeline/inventory';
+import { mergeInventory, canonicalizeConcepts, generateConfusionMap, toConceptRow } from '@/lib/pipeline/inventory';
 import { generateCoverageQuestions } from '@/lib/pipeline/generation';
 import { auditQuestions } from '@/lib/pipeline/audit';
 import { buildDistractorCandidatePool, formatDistractorCandidatePool } from '@/lib/pipeline/distractors';
+import { buildGenerationBatchFailureFlags, extractInventoriesResilient, sortConceptsByImportanceAndName } from '@/lib/pipeline/process-helpers';
 import {
   insertPDF, updatePDF, insertChunks, insertConcepts, insertQuestions, insertFlaggedQuestion,
   getAndMaybeResetMonthlyCount, incrementMonthlyCount, ensureUserProfile,
@@ -199,37 +200,55 @@ export async function POST(req: NextRequest) {
           emit({ phase: 3, message: `Phase 3: Embedding ${done}/${total}…`, pct });
         }, recordCost);
 
-        await insertChunks(
-          chunkRecords.map(c => ({
-            id:         c.id,
-            pdf_id:     pdfId,
-            user_id:    userId,
-            text:       c.text,
-            start_page: c.start_page,
-            end_page:   c.end_page,
-            headers:    c.headers,
-            word_count: c.word_count,
-            embedding:  c.embedding,
+        const persistedChunkRows = chunkRecords.map(c => ({
+          id:         c.id,
+          pdf_id:     pdfId,
+          user_id:    userId,
+          text:       c.text,
+          start_page: c.start_page,
+          end_page:   c.end_page,
+          headers:    c.headers,
+          word_count: c.word_count,
+          embedding:  c.embedding,
+        }));
+
+        await insertChunks(persistedChunkRows);
+
+        // Keep lexical retrieval aligned with the exact text payload persisted above.
+        const bm25Index = buildBM25Index(
+          persistedChunkRows.map(row => ({
+            ...row,
+            pdf_id: row.pdf_id,
           })),
         );
-
-        const bm25Index = buildBM25Index(chunkRecords);
         emit({ phase: 3, message: 'Phase 3: Embeddings complete', pct: 28 });
 
         // ── Phase 4: Concept inventory
         emit({ phase: 4, message: 'Phase 4: Extracting concept inventory…', pct: 30 });
+        const { inventories, warnings: inventoryWarnings } = await extractInventoriesResilient(chunkRecords, dc, recordCost);
+        const totalBatches = Math.ceil(chunkRecords.length / 3);
 
-        const BATCH_SIZE = 3; 
-        const inventories = [];
-        const totalBatches = Math.ceil(chunkRecords.length / BATCH_SIZE);
+        inventories.forEach((inv, idx) => {
+          const conceptsSoFar = inventories
+            .slice(0, idx + 1)
+            .reduce((sum, inventory) => sum + (inventory?.concepts?.length ?? 0), 0);
+          const pct = 30 + Math.round((((idx + 1) * 3) / chunkRecords.length) * 20);
+          emit({
+            phase: 4,
+            message: `Phase 4: Inventory batch ${idx + 1}/${totalBatches}`,
+            pct: Math.min(pct, 50),
+            data: { conceptsGenerated: conceptsSoFar },
+          });
+        });
 
-        for (let b = 0; b < chunkRecords.length; b += BATCH_SIZE) {
-          const batch = chunkRecords.slice(b, b + BATCH_SIZE);
-          const inv = await extractInventory(batch, dc, Math.floor(b / BATCH_SIZE), totalBatches, recordCost);
-          inventories.push(inv);
-          const conceptsSoFar = inventories.reduce((s, inv) => s + (inv?.concepts?.length ?? 0), 0);
-          const pct = 30 + Math.round(((b + BATCH_SIZE) / chunkRecords.length) * 20);
-          emit({ phase: 4, message: `Phase 4: Inventory batch ${Math.floor(b / BATCH_SIZE) + 1}/${totalBatches}`, pct: Math.min(pct, 50), data: { conceptsGenerated: conceptsSoFar } });
+        for (const warning of inventoryWarnings) {
+          console.warn(`[process] Inventory batch ${warning.batchIndex + 1}/${totalBatches} failed: ${warning.message}`);
+          emit({
+            phase: 4,
+            message: `Phase 4: Skipped inventory batch ${warning.batchIndex + 1}/${totalBatches} after parse failure`,
+            pct: 50,
+            data: { warning: warning.message, chunkIds: warning.chunkIds },
+          });
         }
 
         const merged = mergeInventory(inventories, pdfId);
@@ -291,9 +310,7 @@ export async function POST(req: NextRequest) {
          * Sort high → medium → low importance so the most critical concepts
          * are always included when the PDF has hundreds of concepts.
          * In development mode we skip the cap to allow full testing.            */
-        const importanceOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-        const sortedConceptSpecs = [...conceptSpecs]
-          .sort((a, b) => (importanceOrder[a.importance] ?? 2) - (importanceOrder[b.importance] ?? 2));
+        const sortedConceptSpecs = sortConceptsByImportanceAndName(conceptSpecs);
 
         let cappedConceptSpecs = sortedConceptSpecs;
         if (process.env.NODE_ENV !== 'development') {
@@ -342,6 +359,18 @@ export async function POST(req: NextRequest) {
             rejectedSlots = result.rejectedSlots;
           } catch (genErr) {
             console.error(`[process] Generation batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, genErr);
+            const failureFlags = buildGenerationBatchFailureFlags(batch, genErr);
+            for (const failureFlag of failureFlags) {
+              await insertFlaggedQuestion({
+                pdf_id: pdfId,
+                user_id: userId,
+                question_id: null,
+                reason: failureFlag.reason,
+                raw_json: failureFlag.raw_json,
+              });
+            }
+            totalRejected += failureFlags.length;
+            rejectionBreakdown['GENERATION_BATCH_FAILED'] = (rejectionBreakdown['GENERATION_BATCH_FAILED'] ?? 0) + failureFlags.length;
           }
 
           const ragPassages: Record<string, string> = {};

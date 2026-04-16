@@ -22,6 +22,16 @@ describe('deterministicVerdict', () => {
     expect(verdict.criterion).toBe('CLINICAL_PEDAGOGY');
   });
 
+  it('prioritizes evidence grounding over stylistic tells when both are present', () => {
+    const verdict = deterministicVerdict(0, [
+      'Correct answer is longer than average and creates a test-taking tell.',
+      'Deciding clue is not clearly supported by the quoted PDF evidence.',
+    ]);
+
+    expect(verdict.status).toBe('REVISE');
+    expect(verdict.criterion).toBe('EVIDENCE_GROUNDING');
+  });
+
   it('passes low-risk level 1 definition items without sending them to the model auditor', async () => {
     const question = {
       pdf_id: 'pdf-1',

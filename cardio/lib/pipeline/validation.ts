@@ -56,7 +56,7 @@ export function verifyEvidenceSpan(
   }
 
   // 3. Fuzzy match (sliding window)
-  if (ENABLE_FUZZY_EVIDENCE_MATCH && sourceQuote.length >= 30) {
+  if (ENABLE_FUZZY_EVIDENCE_MATCH && sourceQuote.length >= 20) {
     const result = fuzzyMatchQuote(normQuote, normChunk);
     if (result.ratio >= 0.82)
       return { ok: true, evidenceMatchType: 'fuzzy', evidenceMatchedText: result.matchedText, evidenceConfidence: result.ratio };
@@ -86,7 +86,7 @@ function normalizeStr(s: string): string {
 function evidenceTokens(text: string): string[] {
   return normalizeStr(text)
     .split(' ')
-    .filter(token => token.length >= 4 && !EVIDENCE_STOPWORDS.has(token));
+    .filter(token => token.length >= 3 && !EVIDENCE_STOPWORDS.has(token));
 }
 
 export function hasEvidenceAnchorSupport(anchorText: string, evidenceText: string): boolean {

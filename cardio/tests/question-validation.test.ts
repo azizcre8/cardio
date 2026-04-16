@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDeterministicQuestionValidation, runLengthAudit, validateQuestionDraft } from '@/lib/pipeline/question-validation';
+import { hasEvidenceAnchorSupport, verifyEvidenceSpan } from '@/lib/pipeline/validation';
 
 describe('question validation', () => {
   it('rejects level 1 drafts with 4 options and missing conceptId', () => {
@@ -248,5 +249,21 @@ describe('question validation', () => {
     ]);
 
     expect(audit?.status).toBe('PASS');
+  });
+
+  it('accepts 20-29 character fuzzy evidence matches', () => {
+    const result = verifyEvidenceSpan(
+      'Reduced venous return occurs',
+      0,
+      0,
+      'Reduced venous returns occur during acute hypovolemia.',
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.evidenceMatchType).toBe('fuzzy');
+  });
+
+  it('counts 3-letter acronyms as evidence anchors', () => {
+    expect(hasEvidenceAnchorSupport('CHF causes RV strain', 'RV strain can develop in CHF')).toBe(true);
   });
 });

@@ -47,6 +47,19 @@ export function deterministicVerdict(
   const normalizedIssues = issues.map(issue => issue.toLowerCase());
   const hasIssue = (pattern: RegExp) => normalizedIssues.some(issue => pattern.test(issue));
 
+  if (
+    hasIssue(/source quote|grounded source quote|quoted pdf evidence|deciding clue is not clearly supported|correct answer is not clearly supported/)
+  ) {
+    return {
+      idx,
+      status: 'REVISE',
+      criterion: 'EVIDENCE_GROUNDING',
+      critique: 'Replace sourceQuote with one verbatim sentence from the source passages that directly proves the keyed answer and supports the deciding clue.',
+      primaryFlaw: 'evidence grounding',
+      fixInstruction: 'Copy one verbatim proving sentence from the PDF and align the deciding clue to that evidence.',
+    };
+  }
+
   if (hasIssue(/option lengths create|correct answer.*longer than average|trim the correct answer|expand distractors/)) {
     const lengthDetail = issues.find(i => /longer than average|words.*longer/i.test(i)) ?? 'correct answer is longer than distractors';
     return {
@@ -69,19 +82,6 @@ export function deterministicVerdict(
       critique: 'Rewrite the full option set so every choice stays in one comparison class, the distractors are distinct near-misses, and no option-length or overlap tell remains; keep mostTemptingDistractor equal to one incorrect option.',
       primaryFlaw: 'option-set weakness',
       fixInstruction: 'Rewrite the entire option set for parity, diversity, and one-to-one distractor competition.',
-    };
-  }
-
-  if (
-    hasIssue(/source quote|grounded source quote|quoted pdf evidence|deciding clue is not clearly supported|correct answer is not clearly supported/)
-  ) {
-    return {
-      idx,
-      status: 'REVISE',
-      criterion: 'EVIDENCE_GROUNDING',
-      critique: 'Replace sourceQuote with one verbatim sentence from the source passages that directly proves the keyed answer and supports the deciding clue.',
-      primaryFlaw: 'evidence grounding',
-      fixInstruction: 'Copy one verbatim proving sentence from the PDF and align the deciding clue to that evidence.',
     };
   }
 
@@ -149,15 +149,17 @@ export async function runAuditAgent(
   if (!questions.length) return [];
 
   const letters = ['A', 'B', 'C', 'D', 'E'];
+  const serializeAuditField = (value: string | null | undefined, fallback: string) =>
+    JSON.stringify(value && value.trim().length ? value : fallback);
   const qList = questions.map((q, i) =>
     `Q${i + 1} [${q.concept_id || '?'}] L${q.level}
 Stem: ${q.stem}
 Options: ${q.options.map((o, j) => `${j === q.answer ? '★' : ''}${letters[j]}) ${o}`).join(' | ')}
-SourceQuote: ${q.source_quote || '(none)'}
+SourceQuote: ${serializeAuditField(q.source_quote, '(none)')}
 EvidenceValid: ${validations[i]?.evidenceOk ? 'true' : 'false'}
-DecisionTarget: ${q.decision_target || '(not specified)'}
-DecidingClue: ${q.deciding_clue || '(not specified)'}
-MostTemptingDistractor: ${q.most_tempting_distractor || '(not specified)'}
+DecisionTarget: ${serializeAuditField(q.decision_target, '(not specified)')}
+DecidingClue: ${serializeAuditField(q.deciding_clue, '(not specified)')}
+MostTemptingDistractor: ${serializeAuditField(q.most_tempting_distractor, '(not specified)')}
 ProgrammaticFlags: ${validations[i]?.optionFlags?.length ? validations[i]!.optionFlags.join(', ') : 'none'}`,
   ).join('\n\n');
 

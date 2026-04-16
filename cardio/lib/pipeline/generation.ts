@@ -81,7 +81,7 @@ export async function callOpenAI(
       const isRateLimit = e.status === 429 || msg.toLowerCase().includes('rate limit');
 
       if (isRateLimit && attempt < 3) {
-        const wait = 10_000 * (attempt + 1);
+        const wait = 10_000 * (attempt + 1) + Math.floor(Math.random() * 5000);
         console.warn(`Rate limit — waiting ${wait / 1000}s before retry…`);
         await sleep(wait);
         continue;
