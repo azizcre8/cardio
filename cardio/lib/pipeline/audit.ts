@@ -86,13 +86,13 @@ export function deterministicVerdict(
   }
 
   if (
-    hasIssue(/key distinction|contrast the correct answer|decision target metadata|deciding clue metadata|most tempting distractor metadata|whytempting|whyfails/)
+    hasIssue(/decision target metadata|deciding clue metadata|most tempting distractor metadata|whytempting|whyfails|explanation is too short/)
   ) {
     return {
       idx,
       status: 'REVISE',
       criterion: 'CLINICAL_PEDAGOGY',
-      critique: 'Keep the stem and answer set, but rewrite the explanation and metadata so decisionTarget, decidingClue, mostTemptingDistractor, whyTempting, and whyFails are present and the explanation ends with a final "Key distinction:" sentence using explicit contrast language.',
+      critique: 'Keep the stem and answer set, but rewrite the explanation and metadata so decisionTarget, decidingClue, whyTempting, and whyFails are present and the two-sentence explanation teaches why the keyed answer is right and the top distractor is wrong.',
       primaryFlaw: 'explanation and metadata',
       fixInstruction: 'Repair the teaching explanation and metadata without changing the tested concept.',
     };
@@ -317,9 +317,9 @@ export async function auditQuestions(
   for (let iter = 0; iter <= MAX_REVISE_ITERATIONS; iter++) {
     if (!inFlight.length) break;
 
-    // Repair before validation so auto-fixable issues (missing "Key distinction:",
-    // contrast language, mostTemptingDistractor mismatch) don't generate
-    // unnecessary REVISE verdicts that exhaust the revision budget.
+    // Repair before validation so auto-fixable issues (mostTemptingDistractor
+    // mismatch, sourceQuote paraphrase) don't generate unnecessary REVISE
+    // verdicts that exhaust the revision budget.
     const repairedInFlight = inFlight.map(entry => ({
       q: repairDraftForValidation(
         entry.q as unknown as Record<string, unknown>,

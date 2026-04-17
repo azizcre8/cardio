@@ -15,7 +15,7 @@ describe('deterministicVerdict', () => {
   it('routes explanation and metadata misses into a single pedagogy revision', () => {
     const verdict = deterministicVerdict(0, [
       'Question is missing the required whyTempting rationale.',
-      'Explanation is missing the required "Key distinction" teaching sentence.',
+      'Explanation is too short to teach why the correct answer is right and the top distractor is wrong.',
     ]);
 
     expect(verdict.status).toBe('REVISE');
