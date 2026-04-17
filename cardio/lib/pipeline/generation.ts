@@ -975,12 +975,22 @@ async function generateQuestionsBySlot(
             evidenceCorpus,
           });
 
-          // validateQuestionDraft is called for its side-effect data (evidenceMatchType,
-          // optionFlags). Do NOT gate on content-quality issues (evidence verification,
-          // explanation style, metadata completeness) — those are handled by the audit
-          // loop's writer-revision cycle. Blocking here causes near-total rejection
-          // because retries get no feedback and temperature=0.3 rarely changes the outcome.
-          // normaliseQuestion below enforces the structural minimum (option count, answer index).
+          const hasExplanationAnswerMismatch = validation.issues.some(issue =>
+            /different answer choice than the keyed correct answer/i.test(issue)
+          );
+          if (hasExplanationAnswerMismatch) {
+            lastCriterion = 'ANSWER_KEY_MISMATCH';
+            lastCritique = validation.issues.find(issue =>
+              /different answer choice than the keyed correct answer/i.test(issue)
+            ) ?? 'Align the explanation and the correctAnswer index so they point to the same option.';
+            lastReason = 'Writer returned a draft whose explanation supports a different option than the keyed answer.';
+            continue;
+          }
+
+          // validateQuestionDraft is still primarily used for side-effect data
+          // (evidenceMatchType, optionFlags). Most content-quality issues remain in
+          // the downstream audit/revision loop. The explanation/key mismatch is the
+          // exception because it produces user-visible wrong-answer grading.
 
           const normed = normaliseQuestion(
             {
