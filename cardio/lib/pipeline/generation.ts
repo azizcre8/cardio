@@ -48,10 +48,15 @@ export async function callOpenAI(
   maxTokens = 8192,
   model     = OPENAI_MODEL,
   onCost?: OpenAICostTracker,
-  options?: { responseFormat?: { type: 'json_object' } },
+  options?: { responseFormat?: { type: 'json_object' }; temperature?: number },
 ): Promise<{ text: string; costUSD: number }> {
   const openai = getOpenAI();
   let totalCost = 0;
+
+  // Writer model runs at low temperature to maximize compliance with the strict
+  // verbatim-evidence and option-discipline rules. All other callers default to
+  // 0.3 unless they pass an explicit override.
+  const temperature = options?.temperature ?? (model === WRITER_MODEL ? 0.1 : 0.3);
 
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
@@ -59,7 +64,7 @@ export async function callOpenAI(
         model,
         messages: [{ role: 'user', content: prompt }],
         max_tokens: maxTokens,
-        temperature: 0.3,
+        temperature,
         response_format: options?.responseFormat,
       });
 
@@ -322,6 +327,93 @@ export function repairDraftForValidation(
     repaired.most_tempting_distractor = chosen;
   }
 
+  // Auto-repair decidingClue so it is a verbatim span of sourceQuote. The dominant
+  // failure mode (44% of all flags in the latest run) was the writer paraphrasing
+  // the clue. If the writer's clue is already a substring, leave it; otherwise pick
+  // the longest contiguous run of writer-clue tokens that DOES appear verbatim
+  // in the sourceQuote.
+  const sourceQuote = typeof repaired.sourceQuote === 'string' ? repaired.sourceQuote.trim() : '';
+  const writerClue = typeof repaired.decidingClue === 'string' ? repaired.decidingClue.trim() : '';
+  if (sourceQuote && writerClue) {
+    const sourceLower = sourceQuote.toLowerCase();
+    const clueLower = writerClue.toLowerCase().replace(/[.,;:!?]+$/, '').trim();
+    if (clueLower && !sourceLower.includes(clueLower)) {
+      const clueTokens = clueLower.split(/\s+/).filter(Boolean);
+      if (clueTokens.length >= 2) {
+        // Find the longest contiguous slice of writer-clue tokens that appears
+        // verbatim inside sourceQuote, preferring 4-12 word spans.
+        let bestSpan = '';
+        for (let start = 0; start < clueTokens.length; start++) {
+          for (let end = clueTokens.length; end > start; end--) {
+            const candidate = clueTokens.slice(start, end).join(' ');
+            const wordCount = end - start;
+            if (wordCount < 2 || wordCount > 14) continue;
+            if (sourceLower.includes(candidate) && candidate.length > bestSpan.length) {
+              bestSpan = candidate;
+            }
+          }
+        }
+        if (bestSpan) {
+          // Recover the original casing/punctuation from the source quote.
+          const matchIdx = sourceLower.indexOf(bestSpan);
+          if (matchIdx >= 0) {
+            const verbatim = sourceQuote.slice(matchIdx, matchIdx + bestSpan.length).trim();
+            repaired.decidingClue = verbatim;
+            repaired.deciding_clue = verbatim;
+          }
+        }
+      }
+    }
+  }
+
+  const explanation = typeof repaired.explanation === 'string' ? repaired.explanation : '';
+  const decisionTarget = typeof repaired.decisionTarget === 'string' ? repaired.decisionTarget.toLowerCase() : '';
+  const conceptName = typeof repaired.conceptName === 'string' ? repaired.conceptName.trim() : '';
+  if (
+    options.length
+    && conceptName
+    && ['definition', 'diagnosis'].includes(decisionTarget)
+    && explanationStartsWithConcept(explanation, conceptName)
+  ) {
+    const conceptOptionIndex = options.findIndex(option =>
+      normalizeOptionComparisonText(option) === normalizeOptionComparisonText(conceptName),
+    );
+    if (conceptOptionIndex >= 0) {
+      repaired.correctAnswer = conceptOptionIndex;
+      repaired.answer = conceptOptionIndex;
+    }
+  }
+
+  const repairedAnswer = typeof repaired.correctAnswer === 'number'
+    ? repaired.correctAnswer
+    : (typeof repaired.answer === 'number' ? repaired.answer : -1);
+  const repairedCorrectOption = repairedAnswer >= 0 && repairedAnswer < options.length ? options[repairedAnswer] ?? '' : '';
+  const evidenceKeywords = [
+    typeof repaired.decidingClue === 'string' ? repaired.decidingClue : '',
+    repairedCorrectOption,
+    conceptName,
+  ].filter(Boolean);
+  if (evidenceKeywords.length && evidenceCorpus.trim()) {
+    const betterSourceQuote = pickBetterEvidenceSentence(
+      evidenceCorpus,
+      typeof repaired.sourceQuote === 'string' ? repaired.sourceQuote.trim() : '',
+      evidenceKeywords,
+    );
+    if (betterSourceQuote) {
+      repaired.sourceQuote = betterSourceQuote;
+      if ('source_quote' in raw) {
+        repaired.source_quote = betterSourceQuote;
+      }
+    }
+  }
+
+  if (typeof repaired.explanation === 'string') {
+    repaired.explanation = normalizeGeneratedExplanation(
+      repaired.explanation,
+      typeof repaired.decidingClue === 'string' ? repaired.decidingClue : undefined,
+    );
+  }
+
   return repaired;
 }
 
@@ -352,6 +444,72 @@ function findEvidenceSentenceByKeywords(evidenceCorpus: string, keywords: string
 function findEvidenceClause(evidenceCorpus: string, pattern: RegExp): string {
   const match = evidenceCorpus.match(pattern);
   return match?.[0]?.replace(/\s+/g, ' ').trim() ?? '';
+}
+
+function normalizeGeneratedExplanation(explanation: string, decidingClue?: string): string {
+  const trimmed = explanation.trim();
+  if (!trimmed || !/\bkey distinction\s*:/i.test(trimmed)) return trimmed;
+
+  return trimmed
+    .replace(/\s*Key distinction:\s*([^.!?]+)([.!?])?/i, (_, clueBody: string, punctuation: string | undefined) => {
+      const clue = (clueBody || decidingClue || '').trim();
+      if (!clue) return '.';
+      return `. The deciding clue is ${clue}${punctuation || '.'}`;
+    })
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function explanationStartsWithConcept(explanation: string, conceptName: string): boolean {
+  const normalizedExplanation = normalizeEvidenceText(explanation);
+  const normalizedConcept = normalizeEvidenceText(conceptName);
+  if (!normalizedExplanation || !normalizedConcept) return false;
+  return normalizedExplanation.startsWith(normalizedConcept);
+}
+
+function scoreEvidenceSentence(sentence: string, keywords: string[]): number {
+  const normalizedSentence = normalizeEvidenceText(sentence);
+  if (!normalizedSentence) return 0;
+
+  let score = 0;
+  for (const keyword of keywords.map(keyword => normalizeEvidenceText(keyword)).filter(Boolean)) {
+    if (normalizedSentence.includes(keyword)) {
+      score += Math.max(4, keyword.split(' ').length);
+      continue;
+    }
+
+    const tokens = keyword.split(' ').filter(Boolean);
+    const matchedTokens = tokens.filter(token => normalizedSentence.includes(token)).length;
+    if (matchedTokens >= Math.max(2, Math.ceil(tokens.length / 2))) {
+      score += matchedTokens;
+    }
+  }
+
+  if (sentence.split(/\s+/).filter(Boolean).length >= 10) {
+    score += 1;
+  }
+  return score;
+}
+
+function pickBetterEvidenceSentence(
+  evidenceCorpus: string,
+  currentSourceQuote: string,
+  keywords: string[],
+): string {
+  const sentences = extractEvidenceSentences(evidenceCorpus);
+  if (!sentences.length) return currentSourceQuote;
+
+  let bestSentence = currentSourceQuote;
+  let bestScore = currentSourceQuote ? scoreEvidenceSentence(currentSourceQuote, keywords) : 0;
+  for (const sentence of sentences) {
+    const score = scoreEvidenceSentence(sentence, keywords);
+    if (score > bestScore) {
+      bestSentence = sentence;
+      bestScore = score;
+    }
+  }
+
+  return bestSentence;
 }
 
 export function buildPressureVolumePropertyDraft(
@@ -385,7 +543,7 @@ export function buildPressureVolumePropertyDraft(
           'Pulse pressure',
         ],
         correctAnswer: 1,
-        explanation: 'Distensibility is correct because it is defined as the fractional increase in volume per mm Hg rise in pressure, whereas compliance refers to the total quantity of blood stored per pressure rise. Compliance is tempting because both are pressure-volume vessel properties, but fails because it measures total storage capacity rather than fractional change. Key distinction: fractional increase points to distensibility, whereas total stored volume per pressure rise points to compliance.',
+        explanation: 'Distensibility is correct because it is defined as the fractional increase in volume per mm Hg rise in pressure, whereas compliance refers to the total quantity of blood stored per pressure rise. Compliance is tempting because both are pressure-volume vessel properties, but fails because it measures total storage capacity rather than fractional change.',
         sourceQuote,
         decisionTarget: 'definition',
         decidingClue: 'fractional increase in volume per mm Hg rise in pressure',
@@ -408,7 +566,7 @@ export function buildPressureVolumePropertyDraft(
           'Pulse pressure',
         ],
         correctAnswer: 1,
-        explanation: 'Distensibility is correct because it describes how readily a vessel expands with a pressure increase, whereas compliance refers to the total blood volume stored per pressure rise. Compliance is tempting because both concepts help explain venous storage, but fails because this stem is asking about the vessel wall property that allows expansion itself. Key distinction: readiness to expand with pressure points to distensibility, whereas total storage capacity per pressure rise points to compliance.',
+        explanation: 'Distensibility is correct because it describes how readily a vessel expands with a pressure increase, whereas compliance refers to the total blood volume stored per pressure rise. Compliance is tempting because both concepts help explain venous storage, but fails because this stem is asking about the vessel wall property that allows expansion itself.',
         sourceQuote:
           findEvidenceClause(evidenceCorpus, /[^.;\n]*veins[^.;\n]*more distensible than arteries[^.;\n]*[.;]?/i)
           || sourceQuote
@@ -446,7 +604,7 @@ export function buildPressureVolumePropertyDraft(
           'Pulse pressure',
         ],
         correctAnswer: 1,
-        explanation: 'Compliance is correct because it is the total quantity of blood that can be stored per mm Hg pressure rise, whereas distensibility refers to fractional volume change with pressure. Distensibility is tempting because both are pressure-volume concepts, but fails because it does not include the vessel volume term that determines storage capacity. Key distinction: total stored volume per pressure rise points to compliance, whereas fractional change points to distensibility.',
+        explanation: 'Compliance is correct because it is the total quantity of blood that can be stored per mm Hg pressure rise, whereas distensibility refers to fractional volume change with pressure. Distensibility is tempting because both are pressure-volume concepts, but fails because it does not include the vessel volume term that determines storage capacity.',
         sourceQuote,
         decisionTarget: 'definition',
         decidingClue: 'total quantity of blood stored per mm Hg pressure rise',
@@ -469,7 +627,7 @@ export function buildPressureVolumePropertyDraft(
           'Pulse pressure',
         ],
         correctAnswer: 1,
-        explanation: 'Compliance is correct because veins can store more blood for a given pressure rise, whereas distensibility alone describes relative expansibility without directly capturing total storage. Distensibility is tempting because veins are also highly distensible, but fails because the stem asks about the property that explains much greater blood storage. Key distinction: when the clue is blood stored per pressure rise, the answer is compliance rather than distensibility.',
+        explanation: 'Compliance is correct because veins can store more blood for a given pressure rise, whereas distensibility alone describes relative expansibility without directly capturing total storage. Distensibility is tempting because veins are also highly distensible, but fails because the stem asks about the property that explains much greater blood storage.',
         sourceQuote:
           findEvidenceClause(evidenceCorpus, /[^.;\n]*systemic veins[^.;\n]*compliance[^.;\n]*arteries[^.;\n]*[.;]?/i)
           || sourceQuote
@@ -682,14 +840,16 @@ function shouldRewriteAsNamedConceptDefinition(raw: Record<string, unknown>, slo
 }
 
 function buildDefinitionStemFromClue(clue: string): string {
+  // Avoid template stems that trigger the definition-soup detector in
+  // question-validation.ts (e.g. "The concept defined by..."). Use a
+  // clue-forward phrasing that reads as a real recall question.
   const normalized = clue.replace(/\.$/, '').trim();
   if (!normalized) {
-    return 'Which concept best matches the defining clue in this stem?';
+    return 'In the source passage, which named concept matches the clue described in this stem?';
   }
-  if (/^(the|a|an)\b/i.test(normalized)) {
-    return `${normalized} is which of the following?`;
-  }
-  return `The concept defined by ${normalized} is which of the following?`;
+  // Shorten very long clues so the stem stays readable.
+  const trimmedClue = normalized.length > 140 ? `${normalized.slice(0, 137)}...` : normalized;
+  return `In the source passage, which named concept is described by "${trimmedClue}"?`;
 }
 
 function rewriteDefinitionStyleDraft(
@@ -756,7 +916,7 @@ function rewriteDefinitionStyleDraft(
     mostTemptingDistractor,
     whyTempting,
     whyFails,
-    explanation: `${slot.conceptName} is correct because it matches the defining clue in the stem. ${mostTemptingDistractor} is tempting because ${whyTempting.replace(/\.$/, '')}, but fails because ${whyFails.replace(/\.$/, '')}. Key distinction: ${decidingClue || clue}.`,
+    explanation: `${slot.conceptName} is correct because it matches the defining clue in the stem. ${mostTemptingDistractor} is tempting because ${whyTempting.replace(/\.$/, '')}, but fails because ${whyFails.replace(/\.$/, '')}.`,
   };
 }
 
@@ -964,7 +1124,10 @@ async function generateQuestionsBySlot(
 
           if (env.flags.strictQuestionValidation && (!validation.ok || !validation.evidenceOk)) {
             lastCriterion = validation.evidenceOk ? 'STRICT_VALIDATION' : 'EVIDENCE_GROUNDING';
-            lastCritique = validation.issues[0] ?? 'Return a fully grounded draft that satisfies all deterministic validation checks.';
+            const issueList = validation.issues.length
+              ? validation.issues.map((issue, i) => `${i + 1}. ${issue}`).join('\n')
+              : 'Return a fully grounded draft that satisfies all deterministic validation checks.';
+            lastCritique = `Fix EVERY one of the following issues in your next draft (do not ignore any):\n${issueList}`;
             lastReason = validation.issues[0] ?? 'Writer returned a draft that failed deterministic validation.';
             continue;
           }
@@ -974,9 +1137,13 @@ async function generateQuestionsBySlot(
           );
           if (hasExplanationAnswerMismatch) {
             lastCriterion = 'ANSWER_KEY_MISMATCH';
-            lastCritique = validation.issues.find(issue =>
+            const mismatchIssue = validation.issues.find(issue =>
               /different answer choice than the keyed correct answer/i.test(issue)
             ) ?? 'Align the explanation and the correctAnswer index so they point to the same option.';
+            const otherIssues = validation.issues.filter(issue => issue !== mismatchIssue);
+            lastCritique = otherIssues.length
+              ? `${mismatchIssue}\nAlso fix:\n${otherIssues.map((issue, i) => `${i + 1}. ${issue}`).join('\n')}`
+              : mismatchIssue;
             lastReason = 'Writer returned a draft whose explanation supports a different option than the keyed answer.';
             continue;
           }
@@ -1013,7 +1180,9 @@ async function generateQuestionsBySlot(
           }
 
           lastCriterion = 'SHAPE_VALIDATION';
-          lastCritique = validation.issues[0] ?? 'Return the exact required option count and a valid correctAnswer index.';
+          lastCritique = validation.issues.length
+            ? `Fix EVERY one of the following issues in your next draft:\n${validation.issues.map((issue, i) => `${i + 1}. ${issue}`).join('\n')}`
+            : 'Return the exact required option count and a valid correctAnswer index.';
           lastReason = 'Writer returned a draft that could not be normalized (wrong option count or invalid answer index).';
           if (!validation.shouldRetry) break;
         } catch (e) {
@@ -1115,15 +1284,15 @@ Required level: ${levelLabel}
 Key information: ${facts}${sourceSection}${confusionSection}${candidatePoolSection}${neighborSection}${definitionSection}
 
 RULES (all mandatory):
-1. EVIDENCE. sourceQuote MUST be ONE complete sentence copied verbatim from SOURCE PASSAGES, from its capital letter to its period. No paraphrasing, no stitching clauses from different sentences, no deleting words. Minimum 10 words. The sentence must directly prove the keyed answer. If no single sentence in the passages proves the answer, pick a different angle on the same concept.
-2. STEM. The stem must be specific enough that an expert can answer it before seeing the options. Never write "Which is true about X" or "Which best describes X" stems. ${level === 3 ? 'L3: open with age, sex, and a short presentation, then ask the reasoning question.' : level === 2 ? 'L2: frame a mechanism or application, not a plain definition.' : 'L1: ask for a named concept that matches a specific clue from the source.'}
-3. OPTIONS. Exactly ${expectedOptionCount} options. All in the same comparison class (all mechanisms, or all named entities, or all lab findings — never mixed). All within 2 words of each other in length. All the same grammatical shape.
+1. EVIDENCE. sourceQuote MUST be ONE complete sentence copied verbatim from SOURCE PASSAGES, from its capital letter to its period. No paraphrasing, no stitching clauses from different sentences, no deleting words. Minimum 10 words. The sentence must directly prove the keyed answer. Do NOT pick a sentence from a chapter outline, table of contents, index, list of figures, or page header — pick a body-text sentence. If no single body-text sentence in the passages proves the answer, pick a different angle on the same concept.
+2. STEM. The stem must be specific enough that an expert can answer it before seeing the options. Never write "Which is true about X" or "Which best describes X" stems. Never use template stems such as "The concept defined by X is...", "The condition characterized by Y is...", or "Which condition is characterized by Z?" — write a real clinical, mechanistic, or applied question. ${level === 3 ? 'L3: open with age, sex, and a short presentation, then ask the reasoning question.' : level === 2 ? 'L2: frame a mechanism or application, not a plain definition.' : 'L1: ask for a named concept that matches a specific clue from the source.'}
+3. OPTIONS. Exactly ${expectedOptionCount} options. All in the same comparison class (all mechanisms, or all named entities, or all lab findings — never mixed). All within 1–2 words of each other in length AND the same grammatical shape (all noun phrases, OR all "verb + object" phrases, OR all "noun + because-clause" — never mix shapes). No two options may end with the same word. If the correct answer contains a parenthetical, every distractor must also contain a parenthetical of similar length; otherwise no parentheticals at all.
 4. DISTRACTORS. Each must be a genuine near-miss a partially-informed student would plausibly pick. Prefer entries from the DISTRACTOR CANDIDATE POOL. Do not reuse the same clinical word or root across 3+ options while the correct answer lacks it.
 5. NO TELLS. The correct answer must not stand out by length, specificity, grammar, or parenthetical detail. Never use "all of the above" or "none of the above".
 6. CONCEPT FIDELITY. Echo conceptId exactly as provided. The question must test ${concept.name}, not a neighboring concept.
 7. NEGATION. Avoid NOT/EXCEPT/LEAST stems at L1. At L2/L3, if you use one, every non-keyed option must be unambiguously true.
-8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source. Sentence two: why the single closest distractor is wrong for THIS question. Do not list all distractors. Do not include the phrase "Key distinction".
-9. METADATA. Populate decisionTarget (diagnosis / mechanism / distinguishing feature / next best step / comparison / definition), decidingClue (the specific clue that separates correct from the closest distractor), whyTempting (one short clause), whyFails (one short clause). These are stored as sidecar data — do not paste them into the explanation text.
+8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source AND naming the keyed answer text explicitly. Sentence two: why the single closest distractor is wrong for THIS question, naming that distractor explicitly. Do not list all distractors. Do not include the phrase "Key distinction".
+9. METADATA. Populate decisionTarget (diagnosis / mechanism / distinguishing feature / next best step / comparison / definition), decidingClue, whyTempting (one short clause), whyFails (one short clause). decidingClue MUST be a verbatim phrase of 4–12 words copied directly from your sourceQuote — do NOT paraphrase, do NOT invent new wording. The decidingClue must literally appear inside sourceQuote. These are stored as sidecar data — do not paste them into the explanation text.
 
 Return a single JSON object only — no markdown, no prose:
 {"conceptId":"${slot.conceptId}","conceptName":"${concept.name}","level":${level},"question":"...","options":[${Array.from({ length: expectedOptionCount }).map(() => '"..."').join(',')}],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","whyTempting":"...","whyFails":"..."}`;
@@ -1208,10 +1377,12 @@ Fix: "${critique}"
 Address ONLY the named flaw. Preserve everything else that worked. Keep the same concept, level, and tested mechanism.
 
 Writing rules that still apply:
-- sourceQuote is ONE complete verbatim sentence from SOURCE PASSAGES, ≥10 words, and directly proves the keyed answer. Do not paraphrase.
-- Exactly ${expectedOptionCount} options. Same comparison class. All options within 2 words of each other in length, same grammatical shape.
-- Explanation is two plain sentences: why correct, why the closest distractor fails. No "Key distinction" phrase, no scaffolding.
-- Echo conceptId exactly. Keep decisionTarget, decidingClue, whyTempting, whyFails populated as sidecar metadata — do not paste them into the explanation.
+- sourceQuote is ONE complete verbatim sentence from SOURCE PASSAGES, ≥10 words, and directly proves the keyed answer. Do not paraphrase. Do NOT pick a sentence from a chapter outline, table of contents, index, or list of figures.
+- Exactly ${expectedOptionCount} options. Same comparison class. All options within 1–2 words of each other in length, same grammatical shape. No two options end with the same word. No parentheticals on only the correct answer.
+- Stem must NOT use template phrasings such as "The concept defined by X is..." or "The condition characterized by Y is...". Write a real clinical, mechanistic, or applied question.
+- Explanation is two plain sentences: why correct (naming the keyed answer text explicitly), why the closest distractor fails (naming that distractor explicitly). No "Key distinction" phrase, no scaffolding. The keyed answer text must literally appear somewhere in your explanation.
+- Echo conceptId exactly. Keep decisionTarget, whyTempting, whyFails populated as sidecar metadata — do not paste them into the explanation.
+- decidingClue MUST be a verbatim 4–12 word phrase copied directly from your sourceQuote (no paraphrase, no rewording).
 
 If the flaw is a LENGTH TELL: keep the correct answer as-is and expand every distractor to match its word count and grammatical shape.
 If the flaw is OPTION OVERLAP: rewrite distractors so each reflects a distinct misconception; prefer distinct named concepts from DISTRACTOR GUIDE over paraphrased synonyms.

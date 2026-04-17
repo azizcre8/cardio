@@ -1,0 +1,144 @@
+[Pipeline] L3→L2 downgrade: Acute Interstitial Nephritis (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Acute Tubular Necrosis (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Anti-Glomerular Basement Membrane Disease (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Autosomal Dominant Polycystic Kidney Disease (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Diabetic Nephropathy (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Focal Segmental Glomerulosclerosis (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: IgA Nephropathy (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Membranous Nephropathy (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Minimal Change Disease (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Nephritic Syndrome (insufficient clinical context in chunks)
+{
+  "pdfPath": "/Users/sajedaziz/Documents/Claude/pdf/cardio/tmp/kidney-stress-smoke.pdf",
+  "requestedConceptCount": 10,
+  "pages": 24,
+  "chunks": 4,
+  "inventoryWarnings": 0,
+  "extractedConcepts": 13,
+  "testedConcepts": [
+    "Acute Interstitial Nephritis",
+    "Acute Tubular Necrosis",
+    "Anti-Glomerular Basement Membrane Disease",
+    "Autosomal Dominant Polycystic Kidney Disease",
+    "Diabetic Nephropathy",
+    "Focal Segmental Glomerulosclerosis",
+    "IgA Nephropathy",
+    "Membranous Nephropathy",
+    "Minimal Change Disease",
+    "Nephritic Syndrome"
+  ],
+  "generatedQuestions": 20,
+  "slotFailures": 0,
+  "acceptedQuestions": 20,
+  "hardRejectedQuestions": 0,
+  "totalRejected": 0,
+  "totalGenerated": 20,
+  "acceptanceRate": 1,
+  "rejectionBreakdown": {},
+  "slotFailureBreakdown": {},
+  "openaiCostUSD": 0.1968,
+  "acceptedStems": [
+    {
+      "concept": "Acute Interstitial Nephritis",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"fever, rash, eosinophilia, and acute kidney injury\"?"
+    },
+    {
+      "concept": "Acute Interstitial Nephritis",
+      "level": 2,
+      "stem": "A 45-year-old man presents with fever, rash, and acute kidney injury after starting a new medication. Laboratory tests reveal eosinophilia and urine eosinophils. Which medication is most likely responsible for this condition?"
+    },
+    {
+      "concept": "Acute Tubular Necrosis",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"Urinalysis classically shows muddy brown granular casts\"?"
+    },
+    {
+      "concept": "Acute Tubular Necrosis",
+      "level": 2,
+      "stem": "A 65-year-old man with a history of hypertension and recent aminoglycoside use presents with acute kidney injury. Urinalysis reveals muddy brown granular casts. What is the most likely underlying mechanism for his condition?"
+    },
+    {
+      "concept": "Anti-Glomerular Basement Membrane Disease",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"linear immunofluorescence on biopsy\"?"
+    },
+    {
+      "concept": "Anti-Glomerular Basement Membrane Disease",
+      "level": 2,
+      "stem": "A 28-year-old man presents with hematuria and hemoptysis. A renal biopsy shows linear immunofluorescence. Which condition is most likely responsible for these findings?"
+    },
+    {
+      "concept": "Autosomal Dominant Polycystic Kidney Disease",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"leads to numerous enlarging renal cysts\"?"
+    },
+    {
+      "concept": "Autosomal Dominant Polycystic Kidney Disease",
+      "level": 2,
+      "stem": "A 45-year-old man presents with hypertension, hematuria, and a family history of kidney disease. Imaging reveals numerous renal cysts. Which genetic mutation is most likely responsible for his condition?"
+    },
+    {
+      "concept": "Diabetic Nephropathy",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"dominant pattern of glomerular injury\"?"
+    },
+    {
+      "concept": "Diabetic Nephropathy",
+      "level": 2,
+      "stem": "A 55-year-old man with a 15-year history of type 2 diabetes presents with persistent microalbuminuria. Which pathological finding is most characteristic of his condition?"
+    },
+    {
+      "concept": "Focal Segmental Glomerulosclerosis",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"sclerosis in some glomeruli\"?"
+    },
+    {
+      "concept": "Focal Segmental Glomerulosclerosis",
+      "level": 2,
+      "stem": "A 35-year-old obese male presents with nephrotic syndrome. A renal biopsy shows sclerosis in some glomeruli. Which condition is most likely responsible for these findings?"
+    },
+    {
+      "concept": "IgA Nephropathy",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"Kidney pathology repeatedly distinguishes nephritic syndrome\"?"
+    },
+    {
+      "concept": "IgA Nephropathy",
+      "level": 2,
+      "stem": "A 25-year-old male presents with recurrent episodes of hematuria following upper respiratory infections. His serum complement levels are normal. Which condition is most likely responsible for these findings?"
+    },
+    {
+      "concept": "Membranous Nephropathy",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"emphasizes board-style recognition of nephritic and nephrotic framework\"?"
+    },
+    {
+      "concept": "Membranous Nephropathy",
+      "level": 2,
+      "stem": "A 45-year-old male presents with edema and significant proteinuria. A renal biopsy shows a spike-and-dome appearance on silver stain. Which condition is most likely responsible for these findings?"
+    },
+    {
+      "concept": "Minimal Change Disease",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"responds dramatically to corticosteroids\"?"
+    },
+    {
+      "concept": "Minimal Change Disease",
+      "level": 2,
+      "stem": "A 6-year-old boy presents with edema and proteinuria. Which condition is most likely to respond dramatically to corticosteroids?"
+    },
+    {
+      "concept": "Nephritic Syndrome",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"dominant pattern of glomerular injury\"?"
+    },
+    {
+      "concept": "Nephritic Syndrome",
+      "level": 2,
+      "stem": "A 12-year-old boy presents with hematuria, oliguria, and hypertension. Urinalysis reveals red blood cell casts. Which condition is most likely responsible for these findings?"
+    }
+  ],
+  "slotFailuresDetail": [],
+  "rejected": []
+}

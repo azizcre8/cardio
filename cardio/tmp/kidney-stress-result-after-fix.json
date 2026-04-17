@@ -1,0 +1,472 @@
+[Pipeline] L3→L2 downgrade: Acute Interstitial Nephritis (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Acute Tubular Necrosis (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Anti-Glomerular Basement Membrane Disease (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Autosomal Dominant Polycystic Kidney Disease (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Beta-Lactam Antibiotics (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Diabetic Nephropathy (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Focal Segmental Glomerulosclerosis (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: IgA Nephropathy (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Membranous Nephropathy (insufficient clinical context in chunks)
+[Pipeline] L3→L2 downgrade: Minimal Change Disease (insufficient clinical context in chunks)
+{
+  "pdfPath": "/Users/sajedaziz/Documents/Claude/pdf/cardio/tmp/kidney-stress-smoke.pdf",
+  "requestedConceptCount": 10,
+  "pages": 24,
+  "chunks": 4,
+  "inventoryWarnings": 0,
+  "extractedConcepts": 26,
+  "testedConcepts": [
+    "Acute Interstitial Nephritis",
+    "Acute Tubular Necrosis",
+    "Anti-Glomerular Basement Membrane Disease",
+    "Autosomal Dominant Polycystic Kidney Disease",
+    "Beta-Lactam Antibiotics",
+    "Diabetic Nephropathy",
+    "Focal Segmental Glomerulosclerosis",
+    "IgA Nephropathy",
+    "Membranous Nephropathy",
+    "Minimal Change Disease"
+  ],
+  "generatedQuestions": 6,
+  "slotFailures": 14,
+  "acceptedQuestions": 5,
+  "hardRejectedQuestions": 1,
+  "totalRejected": 15,
+  "totalGenerated": 20,
+  "acceptanceRate": 0.25,
+  "rejectionBreakdown": {
+    "DETERMINISTIC_VALIDATION": 1,
+    "SLOT_GENERATION": 14
+  },
+  "slotFailureBreakdown": {
+    "Two answer choices are overly overlapping, which weakens distractor diversity.": 2,
+    "Source quote must be at least 10 words copied verbatim from the source passages.": 1,
+    "Explanation appears to justify a different answer choice than the keyed correct answer (Acute Tubular Necrosis).": 1,
+    "Deciding clue is not clearly supported by the quoted PDF evidence.": 8,
+    "Explanation appears to justify a different answer choice than the keyed correct answer (Focal Segmental Glomerulosclerosis).": 1,
+    "Explanation appears to justify a different answer choice than the keyed correct answer (Immune complex deposition along the subepithelial side).": 1
+  },
+  "openaiCostUSD": 0.3591,
+  "acceptedStems": [
+    {
+      "concept": "Acute Interstitial Nephritis",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"Patients may present with fever, rash, eosinophilia\"?"
+    },
+    {
+      "concept": "Autosomal Dominant Polycystic Kidney Disease",
+      "level": 2,
+      "stem": "A 45-year-old man presents with hypertension, hematuria, and a family history of kidney disease. Imaging reveals numerous renal cysts. Which additional screening is recommended for this patient?"
+    },
+    {
+      "concept": "Beta-Lactam Antibiotics",
+      "level": 1,
+      "stem": "Which class of antibiotics is known to cause acute interstitial nephritis as a hypersensitivity reaction?"
+    },
+    {
+      "concept": "Beta-Lactam Antibiotics",
+      "level": 2,
+      "stem": "A 45-year-old man presents with fever, rash, and acute kidney injury after starting a new antibiotic. Which class of antibiotics is most likely responsible for these symptoms?"
+    },
+    {
+      "concept": "Diabetic Nephropathy",
+      "level": 1,
+      "stem": "In the source passage, which named concept is described by \"dominant pattern of glomerular injury\"?"
+    }
+  ],
+  "slotFailuresDetail": [
+    {
+      "concept": "Acute Interstitial Nephritis",
+      "level": 2,
+      "reason": "Two answer choices are overly overlapping, which weakens distractor diversity.",
+      "raw": {
+        "conceptId": "smoke-concept-1",
+        "conceptName": "Acute Interstitial Nephritis",
+        "level": 2,
+        "question": "A 45-year-old man presents with fever, rash, and acute kidney injury after starting a new medication. Laboratory tests reveal eosinophilia. Which condition is most likely responsible for his symptoms?",
+        "options": [
+          "Acute Tubular Necrosis",
+          "Acute Interstitial Nephritis",
+          "Diabetic Nephropathy",
+          "IgA Nephropathy"
+        ],
+        "correctAnswer": 1,
+        "explanation": "Acute Interstitial Nephritis is indicated by the triad of fever, rash, and eosinophilia. Acute Tubular Necrosis fails because it does not typically present with eosinophilia.",
+        "sourceQuote": "Patients may present with fever, rash, eosinophilia, and acute kidney injury.",
+        "pageEstimate": "",
+        "decisionTarget": "diagnosis",
+        "decidingClue": "Patients may present with fever, rash, eosinophilia",
+        "whyTempting": "Both conditions can present with acute kidney injury and similar clinical symptoms, leading to confusion in diagnosis.",
+        "whyFails": "It does not typically present with eosinophilia.",
+        "mostTemptingDistractor": "Acute Tubular Necrosis",
+        "most_tempting_distractor": "Acute Tubular Necrosis"
+      }
+    },
+    {
+      "concept": "Acute Tubular Necrosis",
+      "level": 1,
+      "reason": "Source quote must be at least 10 words copied verbatim from the source passages.",
+      "raw": {
+        "conceptId": "smoke-concept-2",
+        "conceptName": "Acute Tubular Necrosis",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"Urinalysis classically shows muddy brown granular casts\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Acute Tubular Necrosis",
+          "Autosomal Dominant Polycystic Kidney Disease",
+          "Diabetic Nephropathy"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Acute Tubular Necrosis is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Acute Interstitial Nephritis can also present with acute kidney injury, leading to confusion, but fails because Acute Interstitial Nephritis does not typically show muddy brown granular casts on urinalysis.",
+        "sourceQuote": "Urinalysis classically shows muddy brown granular casts.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "Urinalysis classically shows muddy brown granular casts.",
+        "whyTempting": "Acute Interstitial Nephritis can also present with acute kidney injury, leading to confusion.",
+        "whyFails": "Acute Interstitial Nephritis does not typically show muddy brown granular casts on urinalysis.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "Acute Tubular Necrosis",
+      "level": 2,
+      "reason": "Explanation appears to justify a different answer choice than the keyed correct answer (Acute Tubular Necrosis).",
+      "raw": {
+        "conceptId": "smoke-concept-2",
+        "conceptName": "Acute Tubular Necrosis",
+        "level": 2,
+        "question": "A 65-year-old man presents with acute kidney injury following recent exposure to aminoglycosides. Urinalysis reveals muddy brown granular casts. What is the most likely diagnosis?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "Diabetic Nephropathy",
+          "Focal Segmental Glomerulosclerosis"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Acute Tubular Necrosis is indicated by muddy brown granular casts. Acute Interstitial Nephritis is tempting due to similar acute kidney injury presentation but lacks these casts.",
+        "sourceQuote": "Urinalysis classically shows muddy brown granular casts.",
+        "pageEstimate": "",
+        "decisionTarget": "diagnosis",
+        "decidingClue": "Urinalysis classically shows muddy brown granular casts.",
+        "whyTempting": "Acute Interstitial Nephritis can present with acute kidney injury and similar clinical symptoms, leading to confusion in diagnosis.",
+        "whyFails": "Acute Interstitial Nephritis lacks the muddy brown granular casts seen in Acute Tubular Necrosis.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "Anti-Glomerular Basement Membrane Disease",
+      "level": 1,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-3",
+        "conceptName": "Anti-Glomerular Basement Membrane Disease",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"immunofluorescence shows linear deposition of IgG\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Autosomal Dominant Polycystic Kidney Disease",
+          "Diabetic Nephropathy"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Anti-Glomerular Basement Membrane Disease is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Both Anti-Glomerular Basement Membrane Disease and Membranous Nephropathy involve the glomerular basement membrane, but fails because Membranous Nephropathy involves granular deposition, not linear.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "immunofluorescence shows linear deposition of IgG",
+        "whyTempting": "Both Anti-Glomerular Basement Membrane Disease and Membranous Nephropathy involve the glomerular basement membrane.",
+        "whyFails": "Membranous Nephropathy involves granular deposition, not linear.",
+        "mostTemptingDistractor": "Autosomal Dominant Polycystic Kidney Disease",
+        "most_tempting_distractor": "Autosomal Dominant Polycystic Kidney Disease"
+      }
+    },
+    {
+      "concept": "Anti-Glomerular Basement Membrane Disease",
+      "level": 2,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-3",
+        "conceptName": "Anti-Glomerular Basement Membrane Disease",
+        "level": 2,
+        "question": "A 28-year-old man presents with hemoptysis and hematuria. A renal biopsy shows linear deposition of IgG along the glomerular basement membrane. Which condition is most likely responsible for these findings?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Autosomal Dominant Polycystic Kidney Disorder",
+          "Diabetic Nephropathy"
+        ],
+        "correctAnswer": 1,
+        "explanation": "Anti-Glomerular Basement Membrane Disease is indicated by linear deposition of IgG. Autosomal Dominant Polycystic Kidney Disorder involves renal cysts, not linear IgG deposition.",
+        "sourceQuote": "Kidney Pathology Review Cycle 1 Nephritic and Nephrotic Framework This review cycle emphasizes board-style recognition of nephritic and nephrotic framework through mechanism, pathology, and clinical contrast clues.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "diagnosis",
+        "decidingClue": "linear deposition of IgG",
+        "whyTempting": "Both involve the glomerular basement membrane but have different underlying mechanisms, which can confuse students.",
+        "whyFails": "Involves renal cysts, not linear IgG deposition.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "Autosomal Dominant Polycystic Kidney Disease",
+      "level": 1,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-4",
+        "conceptName": "Autosomal Dominant Polycystic Kidney Disease",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"leads to numerous enlarging renal cysts\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "Autosomal Dominant Polycystic Kidney Disease",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Diabetic Nephropathy"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Autosomal Dominant Polycystic Kidney Disease is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Anti-Glomerular Basement Membrane Disease also involves kidney pathology but lacks cyst formation, but fails because Anti-Glomerular Basement Membrane Disease does not cause renal cysts, which is a key feature of Autosomal Dominant Polycystic Kidney Disease.",
+        "sourceQuote": "Clinical features include hypertension, hematuria, flank pain, progressive renal insufficiency, hepatic cysts, and an increased risk of berry aneurysms.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "leads to numerous enlarging renal cysts",
+        "whyTempting": "Anti-Glomerular Basement Membrane Disease also involves kidney pathology but lacks cyst formation.",
+        "whyFails": "Anti-Glomerular Basement Membrane Disease does not cause renal cysts, which is a key feature of Autosomal Dominant Polycystic Kidney Disease.",
+        "mostTemptingDistractor": "Anti-Glomerular Basement Membrane Disease",
+        "most_tempting_distractor": "Anti-Glomerular Basement Membrane Disease"
+      }
+    },
+    {
+      "concept": "Focal Segmental Glomerulosclerosis",
+      "level": 1,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-7",
+        "conceptName": "Focal Segmental Glomerulosclerosis",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"poor response to corticosteroids\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "Focal Segmental Glomerulosclerosis",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Autosomal Dominant Polycystic Kidney Disease"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Focal Segmental Glomerulosclerosis is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Minimal Change Disease can present with similar clinical features, making it easy to confuse with Focal Segmental Glomerulosclerosis, but fails because Minimal Change Disease typically responds well to corticosteroids, unlike Focal Segmental Glomerulosclerosis.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "poor response to corticosteroids",
+        "whyTempting": "Minimal Change Disease can present with similar clinical features, making it easy to confuse with Focal Segmental Glomerulosclerosis.",
+        "whyFails": "Minimal Change Disease typically responds well to corticosteroids, unlike Focal Segmental Glomerulosclerosis.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "Focal Segmental Glomerulosclerosis",
+      "level": 2,
+      "reason": "Explanation appears to justify a different answer choice than the keyed correct answer (Focal Segmental Glomerulosclerosis).",
+      "raw": {
+        "conceptId": "smoke-concept-7",
+        "conceptName": "Focal Segmental Glomerulosclerosis",
+        "level": 2,
+        "question": "A 35-year-old man with a history of obesity presents with edema and proteinuria. A renal biopsy shows sclerosis affecting some glomeruli. Which condition is most likely responsible for these findings?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Focal Segmental Glomerulosclerosis",
+          "Minimal Change Disease",
+          "Membranous Nephropathy"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Focal Segmental Glomerulosclerosis is indicated by sclerosis affecting some glomeruli. Minimal Change Disease is tempting due to similar nephrotic syndrome presentation but lacks sclerosis.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "diagnosis",
+        "decidingClue": "sclerosis affecting some glomeruli",
+        "whyTempting": "Both are types of nephrotic syndrome and can present with similar clinical features, making them easy to mix up.",
+        "whyFails": "Minimal Change Disease does not show sclerosis affecting some glomeruli.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "IgA Nephropathy",
+      "level": 1,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-8",
+        "conceptName": "IgA Nephropathy",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"characterized by mesangial proliferation with IgA deposition\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "IgA Nephropathy",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Autosomal Dominant Polycystic Kidney Disease"
+        ],
+        "correctAnswer": 2,
+        "explanation": "IgA Nephropathy is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Both IgA Nephropathy and Acute Interstitial Nephritis can present with hematuria, leading to confusion, but fails because Acute Interstitial Nephritis is not characterized by IgA deposition.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "characterized by mesangial proliferation with IgA deposition",
+        "whyTempting": "Both IgA Nephropathy and Acute Interstitial Nephritis can present with hematuria, leading to confusion.",
+        "whyFails": "Acute Interstitial Nephritis is not characterized by IgA deposition.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "IgA Nephropathy",
+      "level": 2,
+      "reason": "Two answer choices are overly overlapping, which weakens distractor diversity.",
+      "raw": {
+        "conceptId": "smoke-concept-8",
+        "conceptName": "IgA Nephropathy",
+        "level": 2,
+        "question": "A 25-year-old male presents with recurrent episodes of gross hematuria following upper respiratory infections. Laboratory tests show normal serum complement levels. Which of the following conditions is most likely responsible for these findings?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "IgA Nephropathy",
+          "Acute Tubular Necrosis",
+          "Diabetic Nephropathy"
+        ],
+        "correctAnswer": 1,
+        "explanation": "IgA Nephropathy is characterized by recurrent gross hematuria after infections. Diabetic Nephropathy fails because it typically presents with proteinuria rather than recurrent hematuria.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "diagnosis",
+        "decidingClue": "recurrent gross hematuria after infections",
+        "whyTempting": "Both can lead to proteinuria and hematuria, and students may confuse their underlying causes and pathophysiology.",
+        "whyFails": "Diabetic Nephropathy typically presents with proteinuria rather than recurrent hematuria.",
+        "mostTemptingDistractor": "Diabetic Nephropathy",
+        "most_tempting_distractor": "Diabetic Nephropathy"
+      }
+    },
+    {
+      "concept": "Membranous Nephropathy",
+      "level": 1,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-9",
+        "conceptName": "Membranous Nephropathy",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"diffuse capillary and basement membrane thickening\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "Membranous Nephropathy",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Autosomal Dominant Polycystic Kidney Disease"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Membranous Nephropathy is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Both involve the glomerular basement membrane but have different underlying mechanisms, which can confuse students, but fails because Anti-Glomerular Basement Membrane Disease involves the basement membrane but has different underlying mechanisms.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "diffuse capillary and basement membrane thickening",
+        "whyTempting": "Both involve the glomerular basement membrane but have different underlying mechanisms, which can confuse students.",
+        "whyFails": "Anti-Glomerular Basement Membrane Disease involves the basement membrane but has different underlying mechanisms.",
+        "mostTemptingDistractor": "Acute Interstitial Nephritis",
+        "most_tempting_distractor": "Acute Interstitial Nephritis"
+      }
+    },
+    {
+      "concept": "Membranous Nephropathy",
+      "level": 2,
+      "reason": "Explanation appears to justify a different answer choice than the keyed correct answer (Immune complex deposition along the subepithelial side).",
+      "raw": {
+        "conceptId": "smoke-concept-9",
+        "conceptName": "Membranous Nephropathy",
+        "level": 2,
+        "question": "A 45-year-old male presents with edema and proteinuria. A kidney biopsy shows diffuse capillary and basement membrane thickening on light microscopy. Which of the following is the most likely underlying mechanism for this condition?",
+        "options": [
+          "Autoantibody-mediated damage to the glomerular basement membrane",
+          "Immune complex deposition along the subepithelial side",
+          "Podocyte effacement without immune complex deposition",
+          "Cyst formation due to genetic mutations"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Immune complex deposition along the subepithelial side is the mechanism for membranous nephropathy. Podocyte effacement without immune complex deposition is characteristic of minimal change disease.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "mechanism",
+        "decidingClue": "dominant pattern of glomerular injury",
+        "whyTempting": "Both membranous nephropathy and minimal change disease are nephrotic syndromes.",
+        "whyFails": "Podocyte effacement without immune complex deposition is not the mechanism for membranous nephropathy.",
+        "mostTemptingDistractor": "Immune complex deposition along the subepithelial side",
+        "most_tempting_distractor": "Immune complex deposition along the subepithelial side"
+      }
+    },
+    {
+      "concept": "Minimal Change Disease",
+      "level": 1,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-10",
+        "conceptName": "Minimal Change Disease",
+        "level": 1,
+        "question": "In the source passage, which named concept is described by \"responds dramatically to corticosteroids\"?",
+        "options": [
+          "Acute Interstitial Nephritis",
+          "Acute Tubular Necrosis",
+          "Minimal Change Disease",
+          "Anti-Glomerular Basement Membrane Disease",
+          "Autosomal Dominant Polycystic Kidney Disease"
+        ],
+        "correctAnswer": 2,
+        "explanation": "Minimal Change Disease is correct because it matches the defining clue in the stem. Acute Interstitial Nephritis is tempting because Both are types of nephrotic syndrome and can present with similar clinical features, making them easy to mix up, but fails because Focal Segmental Glomerulosclerosis does not respond well to corticosteroids, unlike Minimal Change Disease.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "definition",
+        "decidingClue": "responds dramatically to corticosteroids",
+        "whyTempting": "Both are types of nephrotic syndrome and can present with similar clinical features, making them easy to mix up.",
+        "whyFails": "Focal Segmental Glomerulosclerosis does not respond well to corticosteroids, unlike Minimal Change Disease.",
+        "mostTemptingDistractor": "Anti-Glomerular Basement Membrane Disease",
+        "most_tempting_distractor": "Anti-Glomerular Basement Membrane Disease"
+      }
+    },
+    {
+      "concept": "Minimal Change Disease",
+      "level": 2,
+      "reason": "Deciding clue is not clearly supported by the quoted PDF evidence.",
+      "raw": {
+        "conceptId": "smoke-concept-10",
+        "conceptName": "Minimal Change Disease",
+        "level": 2,
+        "question": "A 6-year-old boy presents with generalized edema and proteinuria. A kidney biopsy shows diffuse foot process effacement. Which condition is most likely given the dramatic response to corticosteroids?",
+        "options": [
+          "Focal Segmental Glomerulosclerosis",
+          "Minimal Change Disease",
+          "Diabetic Nephropathy",
+          "Membranous Nephropathy"
+        ],
+        "correctAnswer": 1,
+        "explanation": "Minimal Change Disease is correct because it responds dramatically to corticosteroids. Focal Segmental Glomerulosclerosis fails because it does not typically respond to corticosteroids.",
+        "sourceQuote": "Kidney pathology repeatedly distinguishes nephritic syndrome from nephrotic syndrome by the dominant pattern of glomerular injury and the resulting urinary findings.",
+        "pageEstimate": "1–24",
+        "decisionTarget": "diagnosis",
+        "decidingClue": "responds dramatically to corticosteroids",
+        "whyTempting": "Both are types of nephrotic syndrome and can present with similar clinical features, making them easy to mix up.",
+        "whyFails": "Focal Segmental Glomerulosclerosis does not typically respond to corticosteroids.",
+        "mostTemptingDistractor": "Focal Segmental Glomerulosclerosis",
+        "most_tempting_distractor": "Focal Segmental Glomerulosclerosis"
+      }
+    }
+  ],
+  "rejected": [
+    {
+      "concept": "Diabetic Nephropathy",
+      "level": 2,
+      "criterion": "DETERMINISTIC_VALIDATION",
+      "critique": "Explanation appears to justify a different answer choice than the keyed correct answer (Nodular glomerulosclerosis)."
+    }
+  ]
+}

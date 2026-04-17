@@ -78,6 +78,12 @@ export function validateSourceQuoteShape(sourceQuote: string): string | null {
     return 'Source quote must be a complete sentence ending in a period from the source passages.';
   }
 
+  // Guard against table-of-contents or index pages (high density of page numbers).
+  const pageNumberMatches = (trimmed.match(/\b\d{3,4}\b/g) ?? []).length;
+  if (pageNumberMatches >= 3 && pageNumberMatches / wordCount > 0.07) {
+    return 'Source quote appears to be a table of contents or index page — use a verbatim sentence from the body text.';
+  }
+
   return null;
 }
 
@@ -174,6 +180,27 @@ export function detectExplanationAnswerMismatch(
 
   if (incorrectLead && !correctMatch.mentionedEarly) {
     return `Explanation appears to justify a different answer choice than the keyed correct answer (${incorrectLead.option}).`;
+  }
+
+  // Second prong: keyed answer is never mentioned anywhere in the explanation,
+  // but at least one distractor is — flag as a probable key error.
+  const correctAliases = buildOptionAliases(options[answer] ?? '');
+  const correctMentioned = correctAliases.some(alias =>
+    explanationMentionsAlias(normalizedExplanation, alias),
+  );
+  if (!correctMentioned && normalizedExplanation.length > 20) {
+    const incorrectTokenCounts = options
+      .map((opt, idx) => {
+        if (idx === answer) return { idx, count: 0 };
+        const aliases = buildOptionAliases(opt);
+        const count = aliases.filter(a => explanationMentionsAlias(normalizedExplanation, a)).length;
+        return { idx, count };
+      })
+      .sort((a, b) => b.count - a.count);
+    if ((incorrectTokenCounts[0]?.count ?? 0) > 0) {
+      const dominantIdx = incorrectTokenCounts[0]!.idx;
+      return `Explanation appears to justify a different answer choice than the keyed correct answer (${options[dominantIdx]}).`;
+    }
   }
 
   return null;
@@ -320,6 +347,14 @@ export function runOptionSetAudit(
       flags.push('CORRECT_LONGER_TELL');
     }
 
+    // Detect artificial shared suffix (all options end with the same word).
+    if (opts.length >= 3) {
+      const lastWords = opts.map(o => o.trim().split(/\s+/).pop()?.toLowerCase() ?? '');
+      if (lastWords[0] && lastWords[0].length >= 4 && lastWords.every(w => w === lastWords[0])) {
+        flags.push('SHARED_SUFFIX');
+      }
+    }
+
     return flags;
   });
 }
@@ -393,6 +428,9 @@ export function buildDeterministicQuestionValidation(
       case 'UNIQUE_QUALIFIER':
         issues.push('The keyed answer stands out with a unique qualifier or parenthetical detail.');
         break;
+      case 'SHARED_SUFFIX':
+        issues.push('All options end with the same word — remove the artificial suffix so each option reads naturally.');
+        break;
       default:
         if (flag.startsWith('OPTION_OVERLAP_')) {
           issues.push('Two answer choices are overly overlapping, which weakens distractor diversity.');
@@ -408,6 +446,20 @@ export function buildDeterministicQuestionValidation(
 
   if (question.level === 1 && isNegationStem(question.stem)) {
     issues.push('Level 1 questions should avoid negation stems such as NOT/EXCEPT/LEAST.');
+  }
+
+  // Detect definition-soup stems — template-style stems that just ask students to match a
+  // definition rather than reason clinically or mechanistically.
+  const DEFINITION_SOUP_PATTERNS = [
+    /^the concept defined by/i,
+    /^the condition defined by/i,
+    /^the (renal|glomerular|tubular|interstitial|pathological?) (pathology|condition|disease|process) (best )?characterized by/i,
+    /^which (renal|glomerular|tubular|pathological?) (condition|disease|process|pathology) is (best )?characterized by/i,
+  ];
+  if (DEFINITION_SOUP_PATTERNS.some(p => p.test(question.stem.trim()))) {
+    issues.push(
+      'Stem uses a definition-lookup template ("The concept defined by…" / "The condition characterized by…") — rewrite as a clinical or mechanistic question requiring the student to reason, not match a dictionary entry.',
+    );
   }
 
   if (question.level === 3 && !isLevel3Stem(question.stem)) {
@@ -445,6 +497,11 @@ export function buildDeterministicQuestionValidation(
     const explanationWords = explanation.split(/\s+/).length;
     if (explanationWords < 12) {
       issues.push('Explanation is too short to teach why the correct answer is right and the top distractor is wrong.');
+    }
+    if (/\bkey distinction\b/i.test(explanation)) {
+      issues.push(
+        'Explanation must not include the phrase "Key distinction" — embed the teaching point as plain prose in the two required sentences.',
+      );
     }
   }
 
