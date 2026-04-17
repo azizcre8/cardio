@@ -172,7 +172,7 @@ export interface Question {
 
   // Content
   stem: string;
-  options: string[];            // 4 options, A-D
+  options: string[];            // L1 uses 5 options (A-E); L2/L3 use 4 options (A-D)
   answer: number;               // 0-indexed correct option
   explanation: string;
   option_explanations: string[] | null; // per-distractor explanations, generated lazily

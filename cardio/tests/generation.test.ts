@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alignSourceQuoteToEvidence, buildPressureVolumePropertyDraft, repairDraftForValidation } from '@/lib/pipeline/generation';
+import { alignSourceQuoteToEvidence, buildPressureVolumePropertyDraft, inferEvidenceProvenance, repairDraftForValidation } from '@/lib/pipeline/generation';
 
 describe('alignSourceQuoteToEvidence', () => {
   it('replaces a paraphrased sourceQuote with the closest evidence sentence', () => {
@@ -79,5 +79,25 @@ describe('alignSourceQuoteToEvidence', () => {
     expect(draft).not.toBeNull();
     expect(draft?.correctAnswer).toBe(1);
     expect(draft?.options).toEqual(['Compliance', 'Distensibility', 'Resistance', 'Vascular tone', 'Pulse pressure']);
+  });
+
+  it('infers chunk provenance for a verified source quote', () => {
+    const provenance = inferEvidenceProvenance(
+      'Selective loss of inhibitory myenteric neurons causes aperistalsis and failure of LES relaxation in achalasia.',
+      [{
+        id: 'chunk-1',
+        pdf_id: 'pdf-1',
+        text: 'Selective loss of inhibitory myenteric neurons causes aperistalsis and failure of LES relaxation in achalasia.',
+        start_page: 1,
+        end_page: 1,
+        headers: [],
+        word_count: 14,
+        embedding: [],
+      }],
+    );
+
+    expect(provenance.chunkId).toBe('chunk-1');
+    expect(provenance.evidenceStart).toBe(0);
+    expect(provenance.evidenceEnd).toBeGreaterThan(20);
   });
 });

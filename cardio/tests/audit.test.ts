@@ -76,6 +76,7 @@ describe('deterministicVerdict', () => {
       'pdf-1',
       'user-1',
       { 'concept-1': 'Vascular distensibility is expressed ordinarily as the fractional increase in volume for each millimeter of mercury rise in pressure.' },
+      { 'concept-1': [] },
       { 'concept-1': 'Vascular Compliance: often confused pressure-volume property' },
     );
 
@@ -127,6 +128,7 @@ describe('deterministicVerdict', () => {
       'pdf-1',
       'user-1',
       { 'concept-1': 'Compliance is the total quantity of blood that can be stored per mm Hg pressure rise.' },
+      { 'concept-1': [] },
       { 'concept-1': 'Vascular Distensibility: commonly confused contrast concept' },
     );
 

@@ -195,6 +195,53 @@ function extractEvidenceSentences(evidenceCorpus: string): string[] {
     .filter(part => part.length >= 30);
 }
 
+export function inferEvidenceProvenance(
+  sourceQuote: string,
+  chunks: ChunkRecord[],
+  matchedText?: string,
+): { chunkId: string | null; evidenceStart: number; evidenceEnd: number } {
+  const targets = [matchedText, sourceQuote]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map(value => value.trim());
+
+  if (!targets.length || !chunks.length) {
+    return { chunkId: null, evidenceStart: 0, evidenceEnd: 0 };
+  }
+
+  for (const target of targets) {
+    for (const chunk of chunks) {
+      const directIndex = chunk.text.indexOf(target);
+      if (directIndex >= 0) {
+        return {
+          chunkId: chunk.id,
+          evidenceStart: directIndex,
+          evidenceEnd: directIndex + target.length,
+        };
+      }
+
+      const normalizedChunk = normalizeEvidenceText(chunk.text);
+      const normalizedTarget = normalizeEvidenceText(target);
+      if (!normalizedTarget || !normalizedChunk.includes(normalizedTarget)) continue;
+
+      const sentence = extractEvidenceSentences(chunk.text).find(candidate =>
+        normalizeEvidenceText(candidate).includes(normalizedTarget),
+      );
+      if (!sentence) continue;
+
+      const sentenceIndex = chunk.text.indexOf(sentence);
+      if (sentenceIndex >= 0) {
+        return {
+          chunkId: chunk.id,
+          evidenceStart: sentenceIndex,
+          evidenceEnd: sentenceIndex + sentence.length,
+        };
+      }
+    }
+  }
+
+  return { chunkId: null, evidenceStart: 0, evidenceEnd: 0 };
+}
+
 export function alignSourceQuoteToEvidence(
   raw: Record<string, unknown>,
   evidenceCorpus: string,
@@ -578,7 +625,7 @@ export function normaliseQuestion(
     source_quote:        typeof raw.sourceQuote === 'string' ? raw.sourceQuote as string : '',
     evidence_start:      typeof raw.evidenceStart === 'number' ? raw.evidenceStart as number : 0,
     evidence_end:        typeof raw.evidenceEnd === 'number' ? raw.evidenceEnd as number : 0,
-    chunk_id:            null,
+    chunk_id:            typeof raw.chunkId === 'string' ? raw.chunkId : null,
     evidence_match_type: (raw.evidenceMatchType as Question['evidence_match_type']) ?? null,
     decision_target:     typeof raw.decisionTarget === 'string' ? raw.decisionTarget : null,
     deciding_clue:       typeof raw.decidingClue === 'string' ? raw.decidingClue : null,
@@ -975,6 +1022,13 @@ async function generateQuestionsBySlot(
             evidenceCorpus,
           });
 
+          if (env.flags.strictQuestionValidation && (!validation.ok || !validation.evidenceOk)) {
+            lastCriterion = validation.evidenceOk ? 'STRICT_VALIDATION' : 'EVIDENCE_GROUNDING';
+            lastCritique = validation.issues[0] ?? 'Return a fully grounded draft that satisfies all deterministic validation checks.';
+            lastReason = validation.issues[0] ?? 'Writer returned a draft that failed deterministic validation.';
+            continue;
+          }
+
           const hasExplanationAnswerMismatch = validation.issues.some(issue =>
             /different answer choice than the keyed correct answer/i.test(issue)
           );
@@ -998,6 +1052,11 @@ async function generateQuestionsBySlot(
               level: slot.level,
               conceptId: slot.conceptId,
               conceptName: slot.conceptName,
+              ...inferEvidenceProvenance(
+                typeof repairedRaw.sourceQuote === 'string' ? repairedRaw.sourceQuote : '',
+                context.chunks,
+                validation.evidenceResult.evidenceMatchedText,
+              ),
               evidenceMatchType: validation.evidenceResult.evidenceMatchType,
               optionSetFlags: validation.optionFlags,
             },

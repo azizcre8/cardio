@@ -460,7 +460,9 @@ export function buildDeterministicQuestionValidation(
     const quote = normalizeText(evidenceAnchor);
     if (clue && !quote.includes(clue) && clue.split(' ').filter(Boolean).length >= 3) {
       const correctOption = question.options[question.answer] ?? '';
-      if (!hasEvidenceAnchorSupport(correctOption, evidenceAnchor)) {
+      const clueSupported = hasEvidenceAnchorSupport(question.deciding_clue, evidenceAnchor);
+      const answerSupported = hasEvidenceAnchorSupport(correctOption, evidenceAnchor);
+      if (!clueSupported && !answerSupported) {
         issues.push('Deciding clue is not clearly supported by the quoted PDF evidence.');
       }
     }
