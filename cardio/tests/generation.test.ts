@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alignSourceQuoteToEvidence, buildPressureVolumePropertyDraft, repairDraftForValidation } from '@/lib/pipeline/generation';
+import { alignSourceQuoteToEvidence, buildPressureVolumePropertyDraft, inferEvidenceProvenance, repairDraftForValidation } from '@/lib/pipeline/generation';
 
 describe('alignSourceQuoteToEvidence', () => {
   it('replaces a paraphrased sourceQuote with the closest evidence sentence', () => {
@@ -16,7 +16,7 @@ describe('alignSourceQuoteToEvidence', () => {
     expect(aligned.sourceQuote).toBe('The sympathetic nervous system is critical for maintaining blood pressure during stress or blood loss.');
   });
 
-  it('repairs explanation contrast and key distinction when metadata is present', () => {
+  it('leaves explanation text unchanged when metadata is present', () => {
     const repaired = repairDraftForValidation(
       {
         explanation: 'Venous constriction preserves venous return during hemorrhage.',
@@ -35,8 +35,7 @@ describe('alignSourceQuoteToEvidence', () => {
       '',
     );
 
-    expect(String(repaired.explanation)).toContain('but fails because');
-    expect(String(repaired.explanation)).toContain('Key distinction: venous constriction preserves venous return');
+    expect(String(repaired.explanation)).toBe('Venous constriction preserves venous return during hemorrhage.');
   });
 
   it('maps a paraphrased mostTemptingDistractor onto the closest real wrong option', () => {
@@ -79,5 +78,25 @@ describe('alignSourceQuoteToEvidence', () => {
     expect(draft).not.toBeNull();
     expect(draft?.correctAnswer).toBe(1);
     expect(draft?.options).toEqual(['Compliance', 'Distensibility', 'Resistance', 'Vascular tone', 'Pulse pressure']);
+  });
+
+  it('infers chunk provenance for a verified source quote', () => {
+    const provenance = inferEvidenceProvenance(
+      'Selective loss of inhibitory myenteric neurons causes aperistalsis and failure of LES relaxation in achalasia.',
+      [{
+        id: 'chunk-1',
+        pdf_id: 'pdf-1',
+        text: 'Selective loss of inhibitory myenteric neurons causes aperistalsis and failure of LES relaxation in achalasia.',
+        start_page: 1,
+        end_page: 1,
+        headers: [],
+        word_count: 14,
+        embedding: [],
+      }],
+    );
+
+    expect(provenance.chunkId).toBe('chunk-1');
+    expect(provenance.evidenceStart).toBe(0);
+    expect(provenance.evidenceEnd).toBeGreaterThan(20);
   });
 });

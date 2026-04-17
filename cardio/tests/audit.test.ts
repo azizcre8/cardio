@@ -15,7 +15,7 @@ describe('deterministicVerdict', () => {
   it('routes explanation and metadata misses into a single pedagogy revision', () => {
     const verdict = deterministicVerdict(0, [
       'Question is missing the required whyTempting rationale.',
-      'Explanation is missing the required "Key distinction" teaching sentence.',
+      'Explanation is too short to teach why the correct answer is right and the top distractor is wrong.',
     ]);
 
     expect(verdict.status).toBe('REVISE');
@@ -76,6 +76,7 @@ describe('deterministicVerdict', () => {
       'pdf-1',
       'user-1',
       { 'concept-1': 'Vascular distensibility is expressed ordinarily as the fractional increase in volume for each millimeter of mercury rise in pressure.' },
+      { 'concept-1': [] },
       { 'concept-1': 'Vascular Compliance: often confused pressure-volume property' },
     );
 
@@ -127,6 +128,7 @@ describe('deterministicVerdict', () => {
       'pdf-1',
       'user-1',
       { 'concept-1': 'Compliance is the total quantity of blood that can be stored per mm Hg pressure rise.' },
+      { 'concept-1': [] },
       { 'concept-1': 'Vascular Distensibility: commonly confused contrast concept' },
     );
 

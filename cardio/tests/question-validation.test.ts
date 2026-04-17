@@ -141,7 +141,7 @@ describe('question validation', () => {
 
     expect(result.ok).toBe(false);
     expect(result.shouldRetry).toBe(true);
-    expect(result.issues).toContain('Explanation is missing the required "Key distinction" teaching sentence.');
+    expect(result.issues).toContain('Explanation is too short to teach why the correct answer is right and the top distractor is wrong.');
   });
 
   it('rejects weakly grounded evidence when neither clue nor keyed answer is anchored', () => {
@@ -220,6 +220,45 @@ describe('question validation', () => {
     expect(validation.evidenceOk).toBe(true);
   });
 
+  it('flags explanation-answer mismatches when the explanation points to a different option', () => {
+    const validation = buildDeterministicQuestionValidation(
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 2,
+        stem: 'In the context of atherosclerosis, which mechanism is primarily responsible for destabilization and rupture of plaques?',
+        options: [
+          'Acute Plaque Change',
+          'Matrix Metalloproteinases (MMPs)',
+          'Endothelial Injury',
+          'Lipid Accumulation',
+        ],
+        answer: 2,
+        explanation: 'MMP activity directly affects plaque stability by degrading structural components. Matrix metalloproteinases (MMPs) degrade extracellular matrix components, which can lead to plaque destabilization and rupture. Key distinction: extracellular matrix degradation drives plaque destabilization.',
+        source_quote: 'Collagen turnover is controlled by metalloproteinases (MMPs) within the atheromatous plaque.',
+        evidence_start: 0,
+        evidence_end: 0,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'mechanism',
+        deciding_clue: 'extracellular matrix degradation',
+        most_tempting_distractor: 'Acute Plaque Change',
+        why_tempting: 'it is closely related to plaque rupture',
+        why_fails: 'it describes the outcome rather than the mechanism',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+      'Atherosclerotic plaque destabilization',
+      'Collagen turnover is controlled by metalloproteinases (MMPs) within the atheromatous plaque.',
+    );
+
+    expect(validation.issues).toContain(
+      'Explanation appears to justify a different answer choice than the keyed correct answer (Matrix Metalloproteinases (MMPs)).',
+    );
+  });
+
   it('does not flag small noun-phrase option length differences as a tell', () => {
     const [audit] = runLengthAudit([
       {
@@ -265,5 +304,42 @@ describe('question validation', () => {
 
   it('counts 3-letter acronyms as evidence anchors', () => {
     expect(hasEvidenceAnchorSupport('CHF causes RV strain', 'RV strain can develop in CHF')).toBe(true);
+  });
+
+  it('marks explanation-answer mismatches as retriable during draft generation', () => {
+    const result = validateQuestionDraft(
+      {
+        conceptId: 'concept-1',
+        conceptName: 'Atherosclerotic Plaque Destabilization',
+        level: 2,
+        question: 'In the context of atherosclerosis, which mechanism is primarily responsible for destabilization and rupture of plaques?',
+        options: [
+          'Acute Plaque Change',
+          'Matrix Metalloproteinases (MMPs)',
+          'Endothelial Injury',
+          'Lipid Accumulation',
+        ],
+        correctAnswer: 2,
+        explanation: 'MMP activity directly affects plaque stability by degrading structural components. Matrix metalloproteinases (MMPs) degrade extracellular matrix components, which can lead to plaque destabilization and rupture. Key distinction: extracellular matrix degradation drives plaque destabilization.',
+        sourceQuote: 'Collagen turnover is controlled by metalloproteinases (MMPs) within the atheromatous plaque.',
+        decisionTarget: 'mechanism',
+        decidingClue: 'extracellular matrix degradation',
+        mostTemptingDistractor: 'Acute Plaque Change',
+        whyTempting: 'it is closely related to plaque rupture',
+        whyFails: 'it describes the outcome rather than the mechanism',
+      },
+      {
+        conceptId: 'concept-1',
+        conceptName: 'Atherosclerotic Plaque Destabilization',
+        expectedLevel: 2,
+        evidenceCorpus: 'Collagen turnover is controlled by metalloproteinases (MMPs) within the atheromatous plaque.',
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.shouldRetry).toBe(true);
+    expect(result.issues).toContain(
+      'Explanation appears to justify a different answer choice than the keyed correct answer (Matrix Metalloproteinases (MMPs)).',
+    );
   });
 });

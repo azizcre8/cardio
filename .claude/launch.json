@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "MedStudy App",
-      "cwd": "/Users/sajedaziz/Documents/Claude/pdf/cardio",
-      "runtimeExecutable": "/opt/homebrew/bin/npm",
+      "cwd": "cardio",
+      "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": false

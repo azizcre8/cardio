@@ -10,6 +10,24 @@ import type { OpenAICostTracker } from '@/lib/openai-cost';
 
 const OPENAI_MODEL = 'gpt-4o-mini';
 
+function isLikelyFrontMatterChunk(text: string): boolean {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (!normalized) return false;
+
+  const contentsSignals = [
+    /\bchapter\s+contents\b/i,
+    /\bsee targeted therapy available online\b/i,
+    /\bvascular structure and function\b/i,
+    /\bvascular anomalies\b/i,
+    /\bpathology of vascular intervention\b/i,
+  ];
+  const hasContentsSignal = contentsSignals.some(pattern => pattern.test(normalized));
+  const tocEntryCount = (normalized.match(/\b\d{3}\s+[A-Z][A-Za-z][^.;]{3,60}/g) ?? []).length;
+  const pageNumberBurst = (normalized.match(/\b\d{3}\b/g) ?? []).length;
+
+  return hasContentsSignal && (tocEntryCount >= 6 || pageNumberBurst >= 10);
+}
+
 // ─── Coverage domain classifier — verbatim from HTML ─────────────────────────
 
 function assignCoverageDomain(
@@ -64,6 +82,14 @@ export async function extractInventory(
 ): Promise<InventoryBatch> {
   // P0.1 — skip chunks shorter than 80 chars (garbage from scanned or blank pages)
   const records = chunkBatch.filter(r => {
+    if ((r.text || '').length < 80) {
+      console.warn(`[extractInventory] skipping chunk ${r.id} — only ${(r.text || '').length} chars`);
+      return false;
+    }
+    if (isLikelyFrontMatterChunk(r.text || '')) {
+      console.warn(`[extractInventory] skipping chunk ${r.id} — looks like table-of-contents/front matter`);
+      return false;
+    }
     if ((r.text || '').length >= 80) return true;
     console.warn(`[extractInventory] skipping chunk ${r.id} — only ${(r.text || '').length} chars`);
     return false;

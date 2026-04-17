@@ -386,9 +386,11 @@ export async function POST(req: NextRequest) {
           }
 
           const ragPassages: Record<string, string> = {};
+          const ragChunks: Record<string, typeof chunkRecords> = {};
           const distractorGuides: Record<string, string> = {};
           batch.forEach(c => {
             const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
+            ragChunks[c.id] = chunks;
             ragPassages[c.id] = chunks.map(ch => ch.text).join('\n\n');
             const confusions = confusionMap[c.name] ?? [];
             const candidatePool = buildDistractorCandidatePool(
@@ -418,7 +420,7 @@ export async function POST(req: NextRequest) {
 
           let passed: any[] = [], hardRejected: any[] = [];
           try {
-            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages, distractorGuides, recordCost);
+            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages, ragChunks, distractorGuides, recordCost);
             passed = auditResult.passed;
             hardRejected = auditResult.hardRejected;
           } catch (auditErr) {

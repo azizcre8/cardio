@@ -105,3 +105,23 @@ npm run build
 ```
 
 Use the production build as the final pre-deploy check.
+
+## Auditing saved answer keys
+
+To scan existing saved questions for explanation/answer-key mismatches:
+
+```bash
+npm run questions:audit-keys
+```
+
+This is a dry run by default. To flag matching rows in Supabase:
+
+```bash
+npm run questions:audit-keys -- --apply
+```
+
+Optional filters:
+
+- `--pdf-id=<uuid>`
+- `--user-id=<uuid>`
+- `--limit=<n>`

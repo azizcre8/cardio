@@ -10,8 +10,8 @@
  *                                   └── REJECT (after max loops) → flagged store
  */
 
-import { callOpenAI, parseJSON, normaliseQuestion, repairDraftForValidation, writerAgentRevise, AUDITOR_MODEL } from './generation';
-import type { Question } from '@/types';
+import { callOpenAI, inferEvidenceProvenance, parseJSON, normaliseQuestion, repairDraftForValidation, writerAgentRevise, AUDITOR_MODEL } from './generation';
+import type { ChunkRecord, Question } from '@/types';
 import type { OpenAICostTracker } from '@/lib/openai-cost';
 import { buildDeterministicQuestionValidation } from './question-validation';
 
@@ -86,13 +86,13 @@ export function deterministicVerdict(
   }
 
   if (
-    hasIssue(/key distinction|contrast the correct answer|decision target metadata|deciding clue metadata|most tempting distractor metadata|whytempting|whyfails/)
+    hasIssue(/decision target metadata|deciding clue metadata|most tempting distractor metadata|whytempting|whyfails|explanation is too short/)
   ) {
     return {
       idx,
       status: 'REVISE',
       criterion: 'CLINICAL_PEDAGOGY',
-      critique: 'Keep the stem and answer set, but rewrite the explanation and metadata so decisionTarget, decidingClue, mostTemptingDistractor, whyTempting, and whyFails are present and the explanation ends with a final "Key distinction:" sentence using explicit contrast language.',
+      critique: 'Keep the stem and answer set, but rewrite the explanation and metadata so decisionTarget, decidingClue, whyTempting, and whyFails are present and the two-sentence explanation teaches why the keyed answer is right and the top distractor is wrong.',
       primaryFlaw: 'explanation and metadata',
       fixInstruction: 'Repair the teaching explanation and metadata without changing the tested concept.',
     };
@@ -218,15 +218,61 @@ Be strict but fair. REVISE for one fixable flaw. REJECT only when fundamentally 
   try {
     const { text } = await callOpenAI(prompt, 1500, AUDITOR_MODEL, onCost);
     const results = parseJSON(text);
-    if (!Array.isArray(results)) return questions.map((_, i) => ({ idx: i, status: 'PASS' as const }));
+    if (!Array.isArray(results)) {
+      return questions.map((_, i) => ({
+        idx: i,
+        status: 'REJECT' as const,
+        criterion: 'AUDIT_AGENT_FAILURE',
+        critique: 'Auditor returned invalid JSON and the question cannot be auto-approved.',
+      }));
+    }
 
     const byIdx = Object.fromEntries(
       (results as AuditVerdict[]).map(r => [r.idx, r]),
     );
     return questions.map((_, i) => byIdx[i] ?? { idx: i, status: 'PASS' as const });
-  } catch {
-    return questions.map((_, i) => ({ idx: i, status: 'PASS' as const }));
+  } catch (error) {
+    return questions.map((_, i) => ({
+      idx: i,
+      status: 'REJECT' as const,
+      criterion: 'AUDIT_AGENT_FAILURE',
+      critique: `Auditor call failed: ${(error as Error).message}`,
+    }));
   }
+}
+
+function buildChunkMapByConcept(
+  conceptBatch: ConceptSpec[],
+  ragChunks: Record<string, ChunkRecord[]>,
+): Record<string, ChunkRecord[]> {
+  const out: Record<string, ChunkRecord[]> = {};
+  conceptBatch.forEach(concept => {
+    out[concept.id] = ragChunks[concept.id] ?? [];
+  });
+  return out;
+}
+
+function withEvidenceProvenance(
+  question: Omit<Question, 'id' | 'created_at'>,
+  conceptChunks: ChunkRecord[],
+  evidenceMatchedText?: string,
+): Omit<Question, 'id' | 'created_at'> {
+  const provenance = inferEvidenceProvenance(question.source_quote, conceptChunks, evidenceMatchedText);
+  return {
+    ...question,
+    chunk_id: provenance.chunkId,
+    evidence_start: provenance.evidenceStart,
+    evidence_end: provenance.evidenceEnd,
+  };
+}
+
+function extractEvidenceMatchedText(
+  conceptName: string | null,
+  question: Omit<Question, 'id' | 'created_at'>,
+  evidenceCorpus: string,
+): string | undefined {
+  const validation = buildDeterministicQuestionValidation(question, conceptName, evidenceCorpus);
+  return validation.evidenceResult.evidenceMatchedText;
 }
 
 // ─── auditQuestions — main orchestrator, verbatim from HTML ──────────────────
@@ -250,6 +296,7 @@ export async function auditQuestions(
   pdfId:        string,
   userId:       string,
   ragPassages:  Record<string, string>,
+  ragChunks:    Record<string, ChunkRecord[]>,
   distractorGuides: Record<string, string>,
   onCost?: OpenAICostTracker,
 ): Promise<{
@@ -262,6 +309,7 @@ export async function auditQuestions(
   const passed: Array<Omit<Question, 'id' | 'created_at'>> = [];
   const hardRejected: HardRejected[] = [];
   let totalCost = 0;
+  const chunkMapByConcept = buildChunkMapByConcept(conceptBatch, ragChunks);
 
   // Track questions in flight: may go through multiple revise cycles
   let inFlight = questions.map(q => ({ q, iteration: 0 }));
@@ -269,9 +317,9 @@ export async function auditQuestions(
   for (let iter = 0; iter <= MAX_REVISE_ITERATIONS; iter++) {
     if (!inFlight.length) break;
 
-    // Repair before validation so auto-fixable issues (missing "Key distinction:",
-    // contrast language, mostTemptingDistractor mismatch) don't generate
-    // unnecessary REVISE verdicts that exhaust the revision budget.
+    // Repair before validation so auto-fixable issues (mostTemptingDistractor
+    // mismatch, sourceQuote paraphrase) don't generate unnecessary REVISE
+    // verdicts that exhaust the revision budget.
     const repairedInFlight = inFlight.map(entry => ({
       q: repairDraftForValidation(
         entry.q as unknown as Record<string, unknown>,
@@ -289,23 +337,28 @@ export async function auditQuestions(
       );
     });
 
+    const modelAuditEligible: boolean[] = [];
     const verdicts: AuditVerdict[] = repairedInFlight.map((entry, idx) => {
       const validation = programmatic[idx]!;
       if (isCuratedPressureVolumePropertyItem(entry.q, validation)) {
+        modelAuditEligible[idx] = false;
         return { idx, status: 'PASS' };
       }
       if (isLowRiskDefinitionItem(entry.q, validation)) {
+        modelAuditEligible[idx] = false;
         return { idx, status: 'PASS' };
       }
       if (!validation.issues.length && validation.evidenceOk) {
+        modelAuditEligible[idx] = true;
         return { idx, status: 'PASS' };
       }
+      modelAuditEligible[idx] = false;
       return deterministicVerdict(idx, validation.issues);
     });
 
     const auditableIndices = verdicts
       .map((verdict, idx) => ({ verdict, idx }))
-      .filter(entry => entry.verdict.status === 'PASS')
+      .filter(entry => entry.verdict.status === 'PASS' && modelAuditEligible[entry.idx])
       .map(entry => entry.idx);
 
     if (auditableIndices.length) {
@@ -335,7 +388,12 @@ export async function auditQuestions(
       const v = verdicts[i]!;
 
       if (v.status === 'PASS') {
-        passed.push(q);
+        const evidenceMatchedText = extractEvidenceMatchedText(
+          conceptBatch.find(item => item.id === q.concept_id)?.name ?? null,
+          q,
+          ragPassages[q.concept_id] ?? '',
+        );
+        passed.push(withEvidenceProvenance(q, chunkMapByConcept[q.concept_id] ?? [], evidenceMatchedText));
         continue;
       }
 
@@ -390,7 +448,12 @@ export async function auditQuestions(
 
         const normed = normaliseQuestion(revised, concept, q.level, pdfId, userId);
         if (normed) {
-          nextRound.push({ q: normed, iteration: iteration + 1 });
+          const evidenceCorpus = ragPassages[concept.id] ?? '';
+          const evidenceMatchedText = extractEvidenceMatchedText(concept.name, normed, evidenceCorpus);
+          nextRound.push({
+            q: withEvidenceProvenance(normed, chunkMapByConcept[concept.id] ?? [], evidenceMatchedText),
+            iteration: iteration + 1,
+          });
         } else {
           hardRejected.push({
             conceptId: q.concept_id, conceptName: concept.name, level: q.level,

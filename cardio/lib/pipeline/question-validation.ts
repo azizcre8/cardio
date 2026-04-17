@@ -60,6 +60,27 @@ export function getExpectedOptionCount(level: number): number {
   return level === 1 ? 5 : 4;
 }
 
+export function validateSourceQuoteShape(sourceQuote: string): string | null {
+  const trimmed = sourceQuote.trim();
+  if (!trimmed) return null;
+
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 10) {
+    return 'Source quote must be at least 10 words copied verbatim from the source passages.';
+  }
+
+  // Guard against multi-sentence stitching or a clause ripped out of the middle of a sentence.
+  const sentenceTerminators = trimmed.match(/[.!?](?=\s|$)/g) ?? [];
+  if (sentenceTerminators.length > 1) {
+    return 'Source quote must be a single sentence from the source passages — do not merge multiple sentences.';
+  }
+  if (sentenceTerminators.length === 0 && wordCount < 18) {
+    return 'Source quote must be a complete sentence ending in a period from the source passages.';
+  }
+
+  return null;
+}
+
 export function normalizeText(text: string): string {
   return text
     .toLowerCase()
@@ -72,6 +93,90 @@ export function normalizeText(text: string): string {
 
 function stripOptionLabel(text: string): string {
   return text.replace(/^\s*[A-Ea-e][.)]\s*/, '').trim();
+}
+
+function normalizeOptionAlias(text: string): string {
+  return normalizeText(stripOptionLabel(text));
+}
+
+function singularizeToken(token: string): string {
+  if (token.endsWith('ies') && token.length > 4) return `${token.slice(0, -3)}y`;
+  if (token.endsWith('ses') && token.length > 4) return token.slice(0, -2);
+  if (token.endsWith('s') && !token.endsWith('ss') && token.length > 3) return token.slice(0, -1);
+  return token;
+}
+
+function buildOptionAliases(option: string): string[] {
+  const aliases = new Set<string>();
+  const cleaned = stripOptionLabel(option);
+  const normalized = normalizeOptionAlias(cleaned);
+  if (normalized) aliases.add(normalized);
+
+  const noParens = cleaned.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalizedNoParens = normalizeText(noParens);
+  if (normalizedNoParens) aliases.add(normalizedNoParens);
+
+  for (const match of cleaned.matchAll(/\(([^)]+)\)/g)) {
+    const inner = normalizeText(match[1] ?? '');
+    if (inner) aliases.add(inner);
+  }
+
+  for (const alias of Array.from(aliases)) {
+    const singular = alias
+      .split(' ')
+      .map(singularizeToken)
+      .join(' ')
+      .trim();
+    if (singular) aliases.add(singular);
+  }
+
+  return Array.from(aliases).filter(Boolean);
+}
+
+function explanationMentionsAlias(explanation: string, alias: string): boolean {
+  if (!alias) return false;
+  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+  return new RegExp(`\\b${escaped}\\b`, 'i').test(explanation);
+}
+
+export function detectExplanationAnswerMismatch(
+  options: string[],
+  answer: number,
+  explanation: string,
+): string | null {
+  const normalizedExplanation = normalizeText(explanation);
+  if (!normalizedExplanation) return null;
+
+  const firstSentence = explanation.split(/(?<=[.!?])\s+/)[0] ?? explanation;
+  const normalizedFirstSentence = normalizeText(firstSentence);
+  const positiveCue = /\b(is correct|correct because|best answer|primarily responsible|primarily explains|directly affects|defined as|refers to)\b/i;
+  const negativeCue = /\b(tempting|fails because|incorrect|wrong|whereas|however|unlike|in contrast|not because)\b/i;
+
+  const optionMatches = options.map((option, idx) => {
+    const aliases = buildOptionAliases(option);
+    const mentionedInExplanation = aliases.some(alias => explanationMentionsAlias(normalizedExplanation, alias));
+    const mentionedEarly = aliases.some(alias => explanationMentionsAlias(normalizedFirstSentence, alias));
+    const startsExplanation = aliases.some(alias => {
+      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      return new RegExp(`^${escaped}\\b`, 'i').test(normalizedFirstSentence);
+    });
+    return { idx, option, mentionedInExplanation, mentionedEarly, startsExplanation };
+  });
+
+  const correctMatch = optionMatches[answer];
+  if (!correctMatch) return null;
+
+  const incorrectLead = optionMatches.find(match =>
+    match.idx !== answer &&
+    (match.startsExplanation || (match.mentionedEarly && positiveCue.test(firstSentence))) &&
+    !negativeCue.test(firstSentence),
+  );
+
+  if (incorrectLead && !correctMatch.mentionedEarly) {
+    return `Explanation appears to justify a different answer choice than the keyed correct answer (${incorrectLead.option}).`;
+  }
+
+  return null;
 }
 
 export function compactIssue(text: string): string {
@@ -104,6 +209,13 @@ export function canonicalizeIssue(text: string): string {
     (normalized.includes('not clearly supported') || normalized.includes('does not support'))
   ) {
     return 'correct_answer_not_supported';
+  }
+
+  if (
+    normalized.includes('explanation') &&
+    (normalized.includes('different answer choice') || normalized.includes('keyed correct answer'))
+  ) {
+    return 'explanation_answer_mismatch';
   }
 
   if (normalized.includes('fabricated distractor')) {
@@ -326,12 +438,23 @@ export function buildDeterministicQuestionValidation(
     issues.push('Question is missing the required whyFails rationale.');
   }
 
-  if (!/key distinction:/i.test(question.explanation)) {
-    issues.push('Explanation is missing the required "Key distinction" teaching sentence.');
+  const explanation = String(question.explanation ?? '').trim();
+  if (!explanation) {
+    issues.push('Question is missing an explanation.');
+  } else {
+    const explanationWords = explanation.split(/\s+/).length;
+    if (explanationWords < 12) {
+      issues.push('Explanation is too short to teach why the correct answer is right and the top distractor is wrong.');
+    }
   }
 
-  if (!/\b(whereas|however|unlike|in contrast|but fails|not because)\b/i.test(question.explanation)) {
-    issues.push('Explanation does not clearly contrast the correct answer against distractors.');
+  const explanationAnswerMismatch = detectExplanationAnswerMismatch(
+    question.options,
+    question.answer,
+    question.explanation,
+  );
+  if (explanationAnswerMismatch) {
+    issues.push(explanationAnswerMismatch);
   }
 
   let evidenceResult: EvidenceVerifyResult = { ok: false, evidenceMatchType: 'none', reason: 'not_checked' };
@@ -342,6 +465,9 @@ export function buildDeterministicQuestionValidation(
   } else if (!evidenceCorpus.trim()) {
     issues.push('Could not load source PDF text needed to verify the evidence for this question.');
   } else {
+    const shapeIssue = validateSourceQuoteShape(sourceQuote);
+    if (shapeIssue) issues.push(shapeIssue);
+
     evidenceResult = verifyEvidenceSpan(
       sourceQuote,
       question.evidence_start ?? 0,
@@ -360,7 +486,9 @@ export function buildDeterministicQuestionValidation(
     const quote = normalizeText(evidenceAnchor);
     if (clue && !quote.includes(clue) && clue.split(' ').filter(Boolean).length >= 3) {
       const correctOption = question.options[question.answer] ?? '';
-      if (!hasEvidenceAnchorSupport(correctOption, evidenceAnchor)) {
+      const clueSupported = hasEvidenceAnchorSupport(question.deciding_clue, evidenceAnchor);
+      const answerSupported = hasEvidenceAnchorSupport(correctOption, evidenceAnchor);
+      if (!clueSupported && !answerSupported) {
         issues.push('Deciding clue is not clearly supported by the quoted PDF evidence.');
       }
     }
