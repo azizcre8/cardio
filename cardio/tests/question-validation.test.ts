@@ -141,7 +141,7 @@ describe('question validation', () => {
 
     expect(result.ok).toBe(false);
     expect(result.shouldRetry).toBe(true);
-    expect(result.issues).toContain('Explanation is missing the required "Key distinction" teaching sentence.');
+    expect(result.issues).toContain('Explanation is too short to teach why the correct answer is right and the top distractor is wrong.');
   });
 
   it('rejects weakly grounded evidence when neither clue nor keyed answer is anchored', () => {

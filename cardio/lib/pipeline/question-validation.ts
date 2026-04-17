@@ -60,6 +60,27 @@ export function getExpectedOptionCount(level: number): number {
   return level === 1 ? 5 : 4;
 }
 
+export function validateSourceQuoteShape(sourceQuote: string): string | null {
+  const trimmed = sourceQuote.trim();
+  if (!trimmed) return null;
+
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount < 10) {
+    return 'Source quote must be at least 10 words copied verbatim from the source passages.';
+  }
+
+  // Guard against multi-sentence stitching or a clause ripped out of the middle of a sentence.
+  const sentenceTerminators = trimmed.match(/[.!?](?=\s|$)/g) ?? [];
+  if (sentenceTerminators.length > 1) {
+    return 'Source quote must be a single sentence from the source passages — do not merge multiple sentences.';
+  }
+  if (sentenceTerminators.length === 0 && wordCount < 18) {
+    return 'Source quote must be a complete sentence ending in a period from the source passages.';
+  }
+
+  return null;
+}
+
 export function normalizeText(text: string): string {
   return text
     .toLowerCase()
@@ -417,12 +438,14 @@ export function buildDeterministicQuestionValidation(
     issues.push('Question is missing the required whyFails rationale.');
   }
 
-  if (!/key distinction:/i.test(question.explanation)) {
-    issues.push('Explanation is missing the required "Key distinction" teaching sentence.');
-  }
-
-  if (!/\b(whereas|however|unlike|in contrast|but fails|not because)\b/i.test(question.explanation)) {
-    issues.push('Explanation does not clearly contrast the correct answer against distractors.');
+  const explanation = String(question.explanation ?? '').trim();
+  if (!explanation) {
+    issues.push('Question is missing an explanation.');
+  } else {
+    const explanationWords = explanation.split(/\s+/).length;
+    if (explanationWords < 12) {
+      issues.push('Explanation is too short to teach why the correct answer is right and the top distractor is wrong.');
+    }
   }
 
   const explanationAnswerMismatch = detectExplanationAnswerMismatch(
@@ -442,6 +465,9 @@ export function buildDeterministicQuestionValidation(
   } else if (!evidenceCorpus.trim()) {
     issues.push('Could not load source PDF text needed to verify the evidence for this question.');
   } else {
+    const shapeIssue = validateSourceQuoteShape(sourceQuote);
+    if (shapeIssue) issues.push(shapeIssue);
+
     evidenceResult = verifyEvidenceSpan(
       sourceQuote,
       question.evidence_start ?? 0,

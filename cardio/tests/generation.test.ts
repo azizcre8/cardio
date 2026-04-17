@@ -16,7 +16,7 @@ describe('alignSourceQuoteToEvidence', () => {
     expect(aligned.sourceQuote).toBe('The sympathetic nervous system is critical for maintaining blood pressure during stress or blood loss.');
   });
 
-  it('repairs explanation contrast and key distinction when metadata is present', () => {
+  it('leaves explanation text unchanged when metadata is present', () => {
     const repaired = repairDraftForValidation(
       {
         explanation: 'Venous constriction preserves venous return during hemorrhage.',
@@ -35,8 +35,7 @@ describe('alignSourceQuoteToEvidence', () => {
       '',
     );
 
-    expect(String(repaired.explanation)).toContain('but fails because');
-    expect(String(repaired.explanation)).toContain('Key distinction: venous constriction preserves venous return');
+    expect(String(repaired.explanation)).toBe('Venous constriction preserves venous return during hemorrhage.');
   });
 
   it('maps a paraphrased mostTemptingDistractor onto the closest real wrong option', () => {

@@ -310,76 +310,16 @@ export function repairDraftForValidation(
   const correctOption = answer >= 0 && answer < options.length ? options[answer] ?? '' : '';
   const wrongOptions = options.filter((_, idx) => idx !== answer);
 
-  const currentMostTemptingSource = typeof repaired.mostTemptingDistractor === 'string'
-    ? repaired.mostTemptingDistractor
-    : (typeof repaired.most_tempting_distractor === 'string' ? repaired.most_tempting_distractor : '');
-  const currentMostTempting = currentMostTemptingSource
-    ? cleanOptions([currentMostTemptingSource])[0] ?? ''
-    : '';
-
-  if (wrongOptions.length) {
-    const matchedWrong = wrongOptions.find(option => option === currentMostTempting);
-    if (matchedWrong) {
-      repaired.mostTemptingDistractor = matchedWrong;
-      repaired.most_tempting_distractor = matchedWrong;
-    } else {
-      const closestWrong = [...wrongOptions]
-        .map(option => ({
-          option,
-          score: Math.max(
-            optionSimilarityScore(option, currentMostTempting),
-            optionSimilarityScore(option, correctOption),
-          ),
-        }))
-        .sort((a, b) => b.score - a.score)[0];
-
-      if (closestWrong && (closestWrong.score >= 0.34 || !currentMostTempting)) {
-        repaired.mostTemptingDistractor = closestWrong.option;
-        repaired.most_tempting_distractor = closestWrong.option;
-      }
-    }
-
-    if (!repaired.mostTemptingDistractor && !repaired.most_tempting_distractor) {
-      const fallback = [...wrongOptions]
-        .sort((a, b) => optionSimilarityScore(b, correctOption) - optionSimilarityScore(a, correctOption))[0];
-      if (fallback) {
-        repaired.mostTemptingDistractor = fallback;
-        repaired.most_tempting_distractor = fallback;
-      }
-    }
-  }
-
-  const decidingClueSource = typeof repaired.decidingClue === 'string'
-    ? repaired.decidingClue
-    : (typeof repaired.deciding_clue === 'string' ? repaired.deciding_clue : '');
-  const decidingClue = decidingClueSource ? decidingClueSource.trim() : '';
-  const mostTemptingDistractorSource = typeof repaired.mostTemptingDistractor === 'string'
-    ? repaired.mostTemptingDistractor
-    : (typeof repaired.most_tempting_distractor === 'string' ? repaired.most_tempting_distractor : '');
-  const mostTemptingDistractor = mostTemptingDistractorSource
-    ? mostTemptingDistractorSource.trim()
-    : '';
-  const whyTemptingSource = typeof repaired.whyTempting === 'string'
-    ? repaired.whyTempting
-    : (typeof repaired.why_tempting === 'string' ? repaired.why_tempting : '');
-  const whyFailsSource = typeof repaired.whyFails === 'string'
-    ? repaired.whyFails
-    : (typeof repaired.why_fails === 'string' ? repaired.why_fails : '');
-  const whyTempting = whyTemptingSource ? whyTemptingSource.trim() : '';
-  const whyFails = whyFailsSource ? whyFailsSource.trim() : '';
-  const explanation = typeof repaired.explanation === 'string' ? repaired.explanation.trim() : '';
-
-  let nextExplanation = explanation;
-  if (nextExplanation && mostTemptingDistractor && !/\b(whereas|however|unlike|in contrast|but fails|not because)\b/i.test(nextExplanation)) {
-    const temptingReason = whyTempting || 'it shares surface features with the keyed answer';
-    const failingReason = whyFails || (decidingClue ? `it does not match the deciding clue: ${decidingClue}` : 'it does not fit the stem-specific clue');
-    nextExplanation = `${nextExplanation.replace(/\s+$/, '')} ${mostTemptingDistractor} is tempting because ${temptingReason}, but fails because ${failingReason}.`.trim();
-  }
-  if (nextExplanation && decidingClue && !/key distinction:/i.test(nextExplanation)) {
-    nextExplanation = `${nextExplanation.replace(/\s+$/, '')} Key distinction: ${decidingClue}.`.trim();
-  }
-  if (nextExplanation && nextExplanation !== explanation) {
-    repaired.explanation = nextExplanation;
+  // mostTemptingDistractor is picked deterministically: the wrong option most similar to the
+  // correct answer. Any value the model returned is ignored — it was a frequent failure mode
+  // (paraphrased or fabricated) and this eliminates that whole class of rejections.
+  if (wrongOptions.length && correctOption) {
+    const ranked = [...wrongOptions]
+      .map(option => ({ option, score: optionSimilarityScore(option, correctOption) }))
+      .sort((a, b) => b.score - a.score);
+    const chosen = ranked[0]?.option ?? wrongOptions[0]!;
+    repaired.mostTemptingDistractor = chosen;
+    repaired.most_tempting_distractor = chosen;
   }
 
   return repaired;
@@ -1169,63 +1109,24 @@ SLOT IDENTITY:
 - conceptId: ${slot.conceptId}
 - conceptName: ${concept.name}
 - requiredLevel: ${level}
-- distractorPoolSize: ${distractorCandidates.length}
 
 CONCEPT: ${concept.name} [${concept.category}] [${concept.importance}-yield]
 Required level: ${levelLabel}
 Key information: ${facts}${sourceSection}${confusionSection}${candidatePoolSection}${neighborSection}${definitionSection}
 
-BOARD-STANDARD WRITING RULES (all mandatory):
-1. The correct answer must be directly defensible from the key information or source passages above — no speculation.
-2. All distractors must be from the SAME conceptual category as the correct answer (all drugs, all lab findings, all mechanisms, etc.).
-3. Every distractor must represent a genuine near-miss — something a partially-informed student would plausibly choose.
-4. The stem must be specific enough to answer BEFORE reading the options. Never write "Which is true about X" stems.
-5. L3 must open with a patient scenario (age, presentation, key finding) then ask a reasoning question.
-6. All options must be approximately the same length. The correct answer must NOT be longer or more detailed.
-7. Vary the correct answer position — do NOT default to A or B.
-8. The sourceQuote must be a single verbatim sentence copied from the source passages that directly proves the correct answer. Do not paraphrase or merge multiple clauses.
-9. L1 questions MUST have exactly 5 options (A-E). L2/L3 questions MUST have exactly 4 options (A-D). This slot requires exactly ${expectedOptionCount} options.
-10. Echo conceptId exactly as provided above. Do not change it.
-11. mostTemptingDistractor must exactly match one of the incorrect options.
-12. Prefer distractors from the provided candidate pool. Only invent a new distractor if the pool is insufficient, and keep it in the same comparison class and granularity.
-13. If the concept is a physiologic property, formula, or named definition, do NOT write all options as near-synonymous sentence definitions beginning with the same generic template. Use distinct named chapter concepts, measures, or effects as answer choices whenever the candidate pool supports that.
-
-TELL-SIGN RULES (strictly enforced — these allow guessing without medical knowledge):
-14. LENGTH PARITY: Count the words in each option before finalizing. If the correct answer is more than 3 words longer than any distractor, trim it or expand the distractors to match.
-15. STRUCTURAL PARITY: All options must use identical grammatical structure. If the correct answer is "[Mechanism] → [Effect]", every distractor must also be "[Mechanism] → [Effect]". Never mix bare noun phrases with full mechanistic phrases across options.
-16. NO KEYWORD MIRRORING: If your correct answer contains a rare or specific term from the stem, at least 2 distractors must also contain that same term (applied incorrectly) — otherwise remove it from the correct answer.
-17. SPECIFICITY MATCHING: If the correct answer names a specific pathway or receptor, distractors must also name specific (but wrong) pathways or receptors — not vague categories.
-18. THE BLINDFOLD TEST: Before finalizing, ask yourself: "Could a smart test-taker eliminate 2 distractors using only test-taking strategy and no medical knowledge?" If yes, rewrite until the answer is no.
-
-CONVERGENCE RULES (strictly enforced — these allow outlier elimination without medical knowledge):
-19. THEME DIVERSITY: Each distractor must represent a distinctly different mechanism, pathway, or clinical concept. Never write 2 or more distractors that are variations of the same theme.
-20. NO SHARED DOMINANT WORDS: Scan all options. If 3 or more options share a clinically significant word or root while the remaining option does not, rewrite.
-21. THE OUTLIER TEST: Before finalizing, ask: "Is one option the obvious odd-one-out based on theme alone?" If yes, rewrite.
-22. CROSS-CONCEPT DISTRACTORS: Prefer distractors drawn from related but distinct concepts covered elsewhere in the same chapter.
-23. NO DISTRACTOR CLUSTERING: Before finalizing, scan distractors for repeated keywords that make elimination easy.
-24. NO POLARITY CLUSTERING: Do not write distractors that all describe the same directional change unless the correct answer also fits that pattern.
-25. THE OUTLIER TEST (structural): Before finalizing, ask yourself: "Does the correct answer stand out as the odd one out among the options?" If yes, redesign the set.
-
-NEGATION STEM RULES (applies only to questions containing "NOT," "EXCEPT," or "LEAST likely"):
-26. AVOID negation stems at Level 1. Only use negation stems at Level 2 or Level 3.
-27. When writing a negation stem, ALL options except the correct answer must be definitively and unambiguously true statements about the concept.
-28. Never write a negation stem where the false option is false because of a minor technicality or ambiguous wording.
-29. The explanation for a negation stem must explicitly confirm why each true option IS correct, then explain why the keyed answer is the exception.
-
-EXPLANATION RULES:
-30. The "explanation" field MUST contain three parts in this order:
-    - WHY CORRECT: One sentence stating why the correct answer is right (key mechanism or fact).
-    - WHY WRONG: For each distractor, one clause explaining why it is wrong FOR THIS SPECIFIC QUESTION — not just that it is incorrect in general, but what specific feature of this question makes it wrong. Use contrast language: "whereas," "however," "unlike," "in contrast," "not because."
-    - DISTINCTION: One final sentence: "Key distinction: [decidingClue] — remember that [reusable rule]."
-    Example format: "[Correct answer] because [mechanism]. [MostTempting] is tempting because [shared feature], but fails because [specific reason]; [other distractor] applies only when [context]. Key distinction: [decidingClue] — remember that [reusable rule]."
-
-ITEM DESIGN PROCESS (required):
-1. Choose decisionTarget (diagnosis/mechanism/pathophysiology/distinguishing feature/next best step/adverse effect/contraindication/complication/interpretation/comparison)
-2. Identify decidingClue: the single clue separating correct from mostTemptingDistractor
-3. Identify mostTemptingDistractor: the best near-miss a partially-informed student would choose
+RULES (all mandatory):
+1. EVIDENCE. sourceQuote MUST be ONE complete sentence copied verbatim from SOURCE PASSAGES, from its capital letter to its period. No paraphrasing, no stitching clauses from different sentences, no deleting words. Minimum 10 words. The sentence must directly prove the keyed answer. If no single sentence in the passages proves the answer, pick a different angle on the same concept.
+2. STEM. The stem must be specific enough that an expert can answer it before seeing the options. Never write "Which is true about X" or "Which best describes X" stems. ${level === 3 ? 'L3: open with age, sex, and a short presentation, then ask the reasoning question.' : level === 2 ? 'L2: frame a mechanism or application, not a plain definition.' : 'L1: ask for a named concept that matches a specific clue from the source.'}
+3. OPTIONS. Exactly ${expectedOptionCount} options. All in the same comparison class (all mechanisms, or all named entities, or all lab findings — never mixed). All within 2 words of each other in length. All the same grammatical shape.
+4. DISTRACTORS. Each must be a genuine near-miss a partially-informed student would plausibly pick. Prefer entries from the DISTRACTOR CANDIDATE POOL. Do not reuse the same clinical word or root across 3+ options while the correct answer lacks it.
+5. NO TELLS. The correct answer must not stand out by length, specificity, grammar, or parenthetical detail. Never use "all of the above" or "none of the above".
+6. CONCEPT FIDELITY. Echo conceptId exactly as provided. The question must test ${concept.name}, not a neighboring concept.
+7. NEGATION. Avoid NOT/EXCEPT/LEAST stems at L1. At L2/L3, if you use one, every non-keyed option must be unambiguously true.
+8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source. Sentence two: why the single closest distractor is wrong for THIS question. Do not list all distractors. Do not include the phrase "Key distinction".
+9. METADATA. Populate decisionTarget (diagnosis / mechanism / distinguishing feature / next best step / comparison / definition), decidingClue (the specific clue that separates correct from the closest distractor), whyTempting (one short clause), whyFails (one short clause). These are stored as sidecar data — do not paste them into the explanation text.
 
 Return a single JSON object only — no markdown, no prose:
-{"conceptId":"${slot.conceptId}","conceptName":"${concept.name}","level":${level},"question":"...","options":[${Array.from({ length: expectedOptionCount }).map(() => '"..."').join(',')}],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}`;
+{"conceptId":"${slot.conceptId}","conceptName":"${concept.name}","level":${level},"question":"...","options":[${Array.from({ length: expectedOptionCount }).map(() => '"..."').join(',')}],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","whyTempting":"...","whyFails":"..."}`;
 
   const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL, onCost, {
     responseFormat: { type: 'json_object' },
@@ -1290,27 +1191,34 @@ export async function writerAgentRevise(
     ? `\nDEFINITION-STYLE REVISION GUIDANCE:\n- Do NOT keep a stem of the form "Which of the following best describes/defines ${concept.name}?" — this reliably produces option-template soup.\n- Instead, rewrite the stem as a clue-forward question: "The vascular property defined as [decidingClue] is:" or "A vessel characterized by [clue] is demonstrating:".\n- ALL options must be short named concepts or noun phrases (e.g. "Vascular Compliance", "Vascular Distensibility", "Vascular Elastance") drawn from the DISTRACTOR GUIDE — NOT sentence-definitions beginning with "The ability of..." or "The capacity of...".\n- If the DISTRACTOR GUIDE lacks enough named alternatives, invent plausible named chapter concepts at the same granularity.\n- Verify: no two options begin with the same 4 words.\n`
     : '';
 
-  const prompt = `You are a specialist USMLE/COMLEX Writer Agent. Revise the question below based on the auditor's feedback.
+  const prompt = `You are a specialist USMLE/COMLEX Writer Agent. Revise the question below to address one specific auditor flaw.
 
 CONCEPT: ${concept.name} [${concept.category}]
 Required level: ${levelLabel}
 Slot conceptId: ${prevQuestion.conceptId ?? concept.id}
 Key information: ${facts}${sourceSection}${metadataContext}${distractorSection}${definitionSection}
 
-PREVIOUS VERSION (do NOT repeat its flaws):
+PREVIOUS VERSION:
 Stem: ${prevQuestion.stem}
 Options: ${prevQuestion.options.map((o, j) => `${j === prevQuestion.answer ? '★' : ''}${['A', 'B', 'C', 'D', 'E'][j]}) ${o}`).join(' | ')}
 
-AUDITOR REJECTION — Criterion violated: ${criterion}
-Specific fix required: "${critique}"
+AUDITOR FEEDBACK — Criterion: ${criterion}
+Fix: "${critique}"
 
-Address ONLY the named criterion. Keep everything else correct (same concept, same level, same category constraints). Apply all standard board rules: same-category distractors, equal option lengths, no length tells, stem answerable before options.
-If the flaw is a LENGTH TELL: keep the correct answer exactly as-is and rewrite every distractor so it matches the correct answer's word count and grammatical structure (e.g. if correct answer is "Decreased preload due to venous pooling", each distractor must also be a full mechanistic phrase like "Increased afterload due to arterial vasoconstriction" — not bare noun phrases). Count words in the correct answer, then write each distractor to within 2 words of that count.
-If the flaw is option overlap, rewrite the entire option set so each distractor reflects a distinct misconception and prefer distinct named concepts from DISTRACTOR GUIDE instead of paraphrased synonyms of the keyed definition. For property/definition concepts, do not keep all options in the form "the ability/capacity of blood vessels to...". If the flaw is explanation quality, include explicit contrast clauses and a final "Key distinction:" sentence. If the flaw is evidence grounding, copy one verbatim proving sentence from SOURCE PASSAGES.
-Return exactly ${expectedOptionCount} options. Echo conceptId exactly. mostTemptingDistractor must exactly match one incorrect option.
+Address ONLY the named flaw. Preserve everything else that worked. Keep the same concept, level, and tested mechanism.
 
-Return a single JSON object only — no markdown, no prose (include metadata fields if you improved them):
-{"conceptId":"${prevQuestion.conceptId ?? concept.id}","conceptName":"${concept.name}","level":${level},"question":"...","options":[${Array.from({ length: expectedOptionCount }).map(() => '"..."').join(',')}],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","mostTemptingDistractor":"...","whyTempting":"...","whyFails":"..."}`;
+Writing rules that still apply:
+- sourceQuote is ONE complete verbatim sentence from SOURCE PASSAGES, ≥10 words, and directly proves the keyed answer. Do not paraphrase.
+- Exactly ${expectedOptionCount} options. Same comparison class. All options within 2 words of each other in length, same grammatical shape.
+- Explanation is two plain sentences: why correct, why the closest distractor fails. No "Key distinction" phrase, no scaffolding.
+- Echo conceptId exactly. Keep decisionTarget, decidingClue, whyTempting, whyFails populated as sidecar metadata — do not paste them into the explanation.
+
+If the flaw is a LENGTH TELL: keep the correct answer as-is and expand every distractor to match its word count and grammatical shape.
+If the flaw is OPTION OVERLAP: rewrite distractors so each reflects a distinct misconception; prefer distinct named concepts from DISTRACTOR GUIDE over paraphrased synonyms.
+If the flaw is EVIDENCE GROUNDING: find a different single sentence in SOURCE PASSAGES that proves the answer, and copy it verbatim.
+
+Return a single JSON object only — no markdown, no prose:
+{"conceptId":"${prevQuestion.conceptId ?? concept.id}","conceptName":"${concept.name}","level":${level},"question":"...","options":[${Array.from({ length: expectedOptionCount }).map(() => '"..."').join(',')}],"correctAnswer":2,"explanation":"...","sourceQuote":"...","pageEstimate":"${concept.pageEstimate || ''}","decisionTarget":"...","decidingClue":"...","whyTempting":"...","whyFails":"..."}`;
 
   const { text, costUSD } = await callOpenAI(prompt, 2048, WRITER_MODEL, onCost, {
     responseFormat: { type: 'json_object' },
