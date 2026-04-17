@@ -1122,7 +1122,7 @@ RULES (all mandatory):
 5. NO TELLS. The correct answer must not stand out by length, specificity, grammar, or parenthetical detail. Never use "all of the above" or "none of the above".
 6. CONCEPT FIDELITY. Echo conceptId exactly as provided. The question must test ${concept.name}, not a neighboring concept.
 7. NEGATION. Avoid NOT/EXCEPT/LEAST stems at L1. At L2/L3, if you use one, every non-keyed option must be unambiguously true.
-8. EXPLANATION. Two short sentences in plain prose. Sentence one: why the keyed answer is correct, citing the mechanism or clue from the source. Sentence two: why the single closest distractor is wrong for THIS question. Do not list all distractors.
+8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source. Sentence two: why the single closest distractor is wrong for THIS question. Do not list all distractors. Do not include the phrase "Key distinction".
 9. METADATA. Populate decisionTarget (diagnosis / mechanism / distinguishing feature / next best step / comparison / definition), decidingClue (the specific clue that separates correct from the closest distractor), whyTempting (one short clause), whyFails (one short clause). These are stored as sidecar data — do not paste them into the explanation text.
 
 Return a single JSON object only — no markdown, no prose:
@@ -1210,7 +1210,7 @@ Address ONLY the named flaw. Preserve everything else that worked. Keep the same
 Writing rules that still apply:
 - sourceQuote is ONE complete verbatim sentence from SOURCE PASSAGES, ≥10 words, and directly proves the keyed answer. Do not paraphrase.
 - Exactly ${expectedOptionCount} options. Same comparison class. All options within 2 words of each other in length, same grammatical shape.
-- Explanation is two short sentences: why correct, why the closest distractor fails. Plain prose, no listing of every option.
+- Explanation is two plain sentences: why correct, why the closest distractor fails. No "Key distinction" phrase, no scaffolding.
 - Echo conceptId exactly. Keep decisionTarget, decidingClue, whyTempting, whyFails populated as sidecar metadata — do not paste them into the explanation.
 
 If the flaw is a LENGTH TELL: keep the correct answer as-is and expand every distractor to match its word count and grammatical shape.
