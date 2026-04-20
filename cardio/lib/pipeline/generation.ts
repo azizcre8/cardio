@@ -19,10 +19,11 @@ import type {
 } from '@/types';
 import { env } from '@/lib/env';
 import { buildDistractorCandidatePool, formatDistractorCandidatePool } from './distractors';
+import { balanceOptionLengths } from './distractors';
 import { embedTexts } from './embeddings';
 import { retrieveTopChunks } from './retrieval';
 import { calculateOpenAIUsageCostUSD, type OpenAICostTracker } from '@/lib/openai-cost';
-import { getExpectedOptionCount, runOptionSetAudit, validateQuestionDraft } from './question-validation';
+import { getExpectedOptionCount, runOptionSetAudit, validateQuestionDraft, validateSourceQuoteShape } from './question-validation';
 
 // ─── Constants (verbatim from HTML) ──────────────────────────────────────────
 
@@ -284,6 +285,40 @@ export function alignSourceQuoteToEvidence(
   return raw;
 }
 
+function alignDecidingClueToSourceQuote(repaired: Record<string, unknown>): void {
+  const sourceQuote = typeof repaired.sourceQuote === 'string' ? repaired.sourceQuote.trim() : '';
+  const writerClue = typeof repaired.decidingClue === 'string' ? repaired.decidingClue.trim() : '';
+  if (!sourceQuote || !writerClue) return;
+
+  const sourceLower = sourceQuote.toLowerCase();
+  const clueLower = writerClue.toLowerCase().replace(/[.,;:!?]+$/, '').trim();
+  if (!clueLower || sourceLower.includes(clueLower)) return;
+
+  const clueTokens = clueLower.split(/\s+/).filter(Boolean);
+  if (clueTokens.length < 2) return;
+
+  let bestSpan = '';
+  for (let start = 0; start < clueTokens.length; start++) {
+    for (let end = clueTokens.length; end > start; end--) {
+      const candidate = clueTokens.slice(start, end).join(' ');
+      const wordCount = end - start;
+      if (wordCount < 2 || wordCount > 14) continue;
+      if (sourceLower.includes(candidate) && candidate.length > bestSpan.length) {
+        bestSpan = candidate;
+      }
+    }
+  }
+
+  if (!bestSpan) return;
+
+  const matchIdx = sourceLower.indexOf(bestSpan);
+  if (matchIdx < 0) return;
+
+  const verbatim = sourceQuote.slice(matchIdx, matchIdx + bestSpan.length).trim();
+  repaired.decidingClue = verbatim;
+  repaired.deciding_clue = verbatim;
+}
+
 export function repairDraftForValidation(
   raw: Record<string, unknown>,
   evidenceCorpus: string,
@@ -327,52 +362,14 @@ export function repairDraftForValidation(
     repaired.most_tempting_distractor = chosen;
   }
 
-  // Auto-repair decidingClue so it is a verbatim span of sourceQuote. The dominant
-  // failure mode (44% of all flags in the latest run) was the writer paraphrasing
-  // the clue. If the writer's clue is already a substring, leave it; otherwise pick
-  // the longest contiguous run of writer-clue tokens that DOES appear verbatim
-  // in the sourceQuote.
-  const sourceQuote = typeof repaired.sourceQuote === 'string' ? repaired.sourceQuote.trim() : '';
-  const writerClue = typeof repaired.decidingClue === 'string' ? repaired.decidingClue.trim() : '';
-  if (sourceQuote && writerClue) {
-    const sourceLower = sourceQuote.toLowerCase();
-    const clueLower = writerClue.toLowerCase().replace(/[.,;:!?]+$/, '').trim();
-    if (clueLower && !sourceLower.includes(clueLower)) {
-      const clueTokens = clueLower.split(/\s+/).filter(Boolean);
-      if (clueTokens.length >= 2) {
-        // Find the longest contiguous slice of writer-clue tokens that appears
-        // verbatim inside sourceQuote, preferring 4-12 word spans.
-        let bestSpan = '';
-        for (let start = 0; start < clueTokens.length; start++) {
-          for (let end = clueTokens.length; end > start; end--) {
-            const candidate = clueTokens.slice(start, end).join(' ');
-            const wordCount = end - start;
-            if (wordCount < 2 || wordCount > 14) continue;
-            if (sourceLower.includes(candidate) && candidate.length > bestSpan.length) {
-              bestSpan = candidate;
-            }
-          }
-        }
-        if (bestSpan) {
-          // Recover the original casing/punctuation from the source quote.
-          const matchIdx = sourceLower.indexOf(bestSpan);
-          if (matchIdx >= 0) {
-            const verbatim = sourceQuote.slice(matchIdx, matchIdx + bestSpan.length).trim();
-            repaired.decidingClue = verbatim;
-            repaired.deciding_clue = verbatim;
-          }
-        }
-      }
-    }
-  }
+  // Keep decidingClue verbatim with respect to the currently selected sourceQuote.
+  alignDecidingClueToSourceQuote(repaired);
 
   const explanation = typeof repaired.explanation === 'string' ? repaired.explanation : '';
-  const decisionTarget = typeof repaired.decisionTarget === 'string' ? repaired.decisionTarget.toLowerCase() : '';
   const conceptName = typeof repaired.conceptName === 'string' ? repaired.conceptName.trim() : '';
   if (
     options.length
     && conceptName
-    && ['definition', 'diagnosis'].includes(decisionTarget)
     && explanationStartsWithConcept(explanation, conceptName)
   ) {
     const conceptOptionIndex = options.findIndex(option =>
@@ -406,6 +403,7 @@ export function repairDraftForValidation(
       }
     }
   }
+  alignDecidingClueToSourceQuote(repaired);
 
   if (typeof repaired.explanation === 'string') {
     repaired.explanation = normalizeGeneratedExplanation(
@@ -470,6 +468,7 @@ function explanationStartsWithConcept(explanation: string, conceptName: string):
 function scoreEvidenceSentence(sentence: string, keywords: string[]): number {
   const normalizedSentence = normalizeEvidenceText(sentence);
   if (!normalizedSentence) return 0;
+  if (validateSourceQuoteShape(sentence)) return 0;
 
   let score = 0;
   for (const keyword of keywords.map(keyword => normalizeEvidenceText(keyword)).filter(Boolean)) {
@@ -487,6 +486,9 @@ function scoreEvidenceSentence(sentence: string, keywords: string[]): number {
 
   if (sentence.split(/\s+/).filter(Boolean).length >= 10) {
     score += 1;
+  }
+  if (/^[A-Z][A-Za-z0-9 ,:/()-]{0,90}$/.test(sentence) && !/[.!?]$/.test(sentence)) {
+    score -= 2;
   }
   return score;
 }
@@ -852,7 +854,45 @@ function buildDefinitionStemFromClue(clue: string): string {
   return `In the source passage, which named concept is described by "${trimmedClue}"?`;
 }
 
-function rewriteDefinitionStyleDraft(
+function countMeaningfulOptionTokens(text: string): number {
+  return normalizeOptionComparisonText(text).split(' ').filter(token => token.length >= 3).length;
+}
+
+function hasParenthetical(text: string): boolean {
+  return /\([^)]+\)/.test(text);
+}
+
+function optionsAreTooSimilar(a: string, b: string): boolean {
+  const normalizedA = normalizeOptionComparisonText(a);
+  const normalizedB = normalizeOptionComparisonText(b);
+  if (!normalizedA || !normalizedB) return false;
+  if (normalizedA === normalizedB) return true;
+  if (normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA)) return true;
+
+  const tokensA = normalizedA.split(' ').filter(token => token.length >= 4);
+  const tokensB = normalizedB.split(' ').filter(token => token.length >= 4);
+  if (!tokensA.length || !tokensB.length) return false;
+
+  const shared = tokensA.filter(token => tokensB.includes(token)).length;
+  return shared / Math.max(1, Math.min(tokensA.length, tokensB.length)) > 0.65;
+}
+
+function scoreDefinitionDistractor(candidate: string, conceptName: string): number {
+  const candidateTokens = countMeaningfulOptionTokens(candidate);
+  const conceptTokens = countMeaningfulOptionTokens(conceptName);
+  let score = 10 - Math.min(Math.abs(candidateTokens - conceptTokens), 6);
+
+  if (hasParenthetical(candidate) !== hasParenthetical(conceptName)) {
+    score -= 3;
+  }
+  if (candidate.includes('/') !== conceptName.includes('/')) {
+    score -= 2;
+  }
+
+  return score;
+}
+
+export function rewriteDefinitionStyleDraft(
   raw: Record<string, unknown>,
   slot: GenerationSlot,
   allConceptSpecs: ConceptSpec[],
@@ -879,23 +919,41 @@ function rewriteDefinitionStyleDraft(
     : Math.min(2, expectedOptionCount - 1);
 
   const distractors: string[] = [];
+  const candidateDistractors: string[] = [];
   const pushDistractor = (text: string) => {
     const cleaned = text.trim();
     const key = normalizeOptionComparisonText(cleaned);
     if (
       !cleaned
       || key === normalizeOptionComparisonText(slot.conceptName)
-      || distractors.some(existing => normalizeOptionComparisonText(existing) === key)
+      || candidateDistractors.some(existing => normalizeOptionComparisonText(existing) === key)
     ) return;
-    distractors.push(cleaned);
+    candidateDistractors.push(cleaned);
   };
 
   if (currentMostTempting && !/^(the\s+(ability|capacity|increase|resistance|pressure|rate)|ability\s+of|capacity\s+of)/i.test(currentMostTempting)) {
     pushDistractor(currentMostTempting);
   }
   choicePool.forEach(pushDistractor);
-  if (distractors.length < expectedOptionCount - 1) {
+  if (candidateDistractors.length < expectedOptionCount - 1) {
     return raw;
+  }
+
+  const rankedDistractors = candidateDistractors
+    .sort((a, b) => scoreDefinitionDistractor(b, slot.conceptName) - scoreDefinitionDistractor(a, slot.conceptName));
+
+  for (const candidate of rankedDistractors) {
+    if (distractors.some(existing => optionsAreTooSimilar(existing, candidate))) continue;
+    distractors.push(candidate);
+    if (distractors.length >= expectedOptionCount - 1) break;
+  }
+
+  if (distractors.length < expectedOptionCount - 1) {
+    for (const candidate of rankedDistractors) {
+      if (distractors.some(existing => normalizeOptionComparisonText(existing) === normalizeOptionComparisonText(candidate))) continue;
+      distractors.push(candidate);
+      if (distractors.length >= expectedOptionCount - 1) break;
+    }
   }
 
   const options = Array.from({ length: expectedOptionCount }, (_, idx) =>
@@ -1084,6 +1142,7 @@ async function generateQuestionsBySlot(
       let lastRaw: Record<string, unknown> | null = null;
       let lastCritique = 'Return a fully valid board-style item that obeys all option-set, explanation, and evidence rules.';
       let lastCriterion = 'INITIAL_GENERATION';
+      let attemptedOptionBalanceRevise = false;
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -1121,8 +1180,20 @@ async function generateQuestionsBySlot(
             expectedLevel: slot.level,
             evidenceCorpus,
           });
+          const optionBalanceSignal = balanceOptionLengths(optionsFromRaw(repairedRaw), answerFromRaw(repairedRaw));
 
           if (env.flags.strictQuestionValidation && (!validation.ok || !validation.evidenceOk)) {
+            const hasOptionLengthTell = validation.issues.includes(
+              'Option lengths create a test-taking tell rather than requiring medical knowledge.',
+            );
+            if (hasOptionLengthTell && optionBalanceSignal && !attemptedOptionBalanceRevise) {
+              attemptedOptionBalanceRevise = true;
+              lastCriterion = 'OPTION_SET_HOMOGENEITY';
+              lastCritique = 'Rewrite distractors so all four options are within ±25% of the correct answer\'s length. Do not change the keyed option or the stem.';
+              lastReason = validation.issues[0] ?? 'Option lengths create a test-taking tell rather than requiring medical knowledge.';
+              continue;
+            }
+
             lastCriterion = validation.evidenceOk ? 'STRICT_VALIDATION' : 'EVIDENCE_GROUNDING';
             const issueList = validation.issues.length
               ? validation.issues.map((issue, i) => `${i + 1}. ${issue}`).join('\n')
@@ -1203,6 +1274,16 @@ async function generateQuestionsBySlot(
   }
 
   return { questions, rejectedSlots, costUSD: totalCost };
+}
+
+function optionsFromRaw(raw: Record<string, unknown>): string[] {
+  return Array.isArray(raw.options)
+    ? raw.options.filter((option): option is string => typeof option === 'string')
+    : [];
+}
+
+function answerFromRaw(raw: Record<string, unknown>): number {
+  return typeof raw.correctAnswer === 'number' ? raw.correctAnswer : -1;
 }
 
 export async function generateCoverageQuestions(

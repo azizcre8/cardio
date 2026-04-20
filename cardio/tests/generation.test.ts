@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alignSourceQuoteToEvidence, buildPressureVolumePropertyDraft, inferEvidenceProvenance, repairDraftForValidation } from '@/lib/pipeline/generation';
+import { alignSourceQuoteToEvidence, buildPressureVolumePropertyDraft, inferEvidenceProvenance, repairDraftForValidation, rewriteDefinitionStyleDraft } from '@/lib/pipeline/generation';
 
 describe('alignSourceQuoteToEvidence', () => {
   it('replaces a paraphrased sourceQuote with the closest evidence sentence', () => {
@@ -55,6 +55,80 @@ describe('alignSourceQuoteToEvidence', () => {
     );
 
     expect(repaired.mostTemptingDistractor).toBe('Compliance');
+  });
+
+  it('re-aligns decidingClue after replacing the source quote and fixes obvious concept answer drift', () => {
+    const repaired = repairDraftForValidation(
+      {
+        conceptName: 'Thrombotic Microangiopathies',
+        explanation: 'Thrombotic microangiopathies are characterized by microangiopathic hemolytic anemia and thrombocytopenia. Acute Tubular Injury/Necrosis does not typically present with these hematological findings.',
+        options: [
+          'Acute Tubular Injury/Necrosis',
+          'Thrombotic Microangiopathies',
+          'Anti-GBM Nephritis',
+          'Chronic Glomerulonephritis',
+        ],
+        correctAnswer: 2,
+        sourceQuote: 'Clinical manifestations of renal disease can be grouped into reasonably well-defined syndromes.',
+        decidingClue: 'microangiopathic hemolytic anemia and thrombocytopenia',
+      },
+      [
+        'Clinical manifestations of renal disease can be grouped into reasonably well-defined syndromes.',
+        'Thrombotic microangiopathies are characterized by microangiopathic hemolytic anemia, thrombocytopenia, and acute kidney injury.',
+      ].join(' '),
+    );
+
+    expect(repaired.correctAnswer).toBe(1);
+    expect(repaired.sourceQuote).toBe('Thrombotic microangiopathies are characterized by microangiopathic hemolytic anemia, thrombocytopenia, and acute kidney injury.');
+    expect(repaired.decidingClue).toBe('microangiopathic hemolytic anemia');
+  });
+
+  it('rewrites definition-style drafts with length-parity distractors before long parenthetical options', () => {
+    const rewritten = rewriteDefinitionStyleDraft(
+      {
+        question: 'Which of the following best describes podocin?',
+        options: [
+          'The slit diaphragm protein mutated in steroid-resistant nephrotic syndrome',
+          'The filtration barrier layer mutated in Alport syndrome',
+          'The actin-binding podocyte protein linked to FSGS',
+          'The supporting mesangial cell population in the glomerulus',
+          'The risk gene associated with collapsing glomerulopathy',
+        ],
+        correctAnswer: 2,
+        decisionTarget: 'definition',
+        decidingClue: 'localized to the slit diaphragm',
+        mostTemptingDistractor: 'Glomerular Basement Membrane (GBM)',
+      },
+      {
+        conceptId: 'concept-1',
+        conceptName: 'Podocin',
+        category: 'Protein',
+        importance: 'high',
+        level: 1,
+        coverageDomain: 'definition_recall',
+        chunkIds: [],
+        pageEstimate: '12',
+        keyFacts: ['localized to the slit diaphragm'],
+        clinicalRelevance: '',
+        associations: [],
+      },
+      [
+        { id: 'concept-1', name: 'Podocin', category: 'Protein', importance: 'high', keyFacts: [], clinicalRelevance: '', associations: [], pageEstimate: '12', coverageDomain: 'definition_recall', chunk_ids: [] },
+        { id: 'concept-2', name: 'Podocytes', category: 'Cell', importance: 'high', keyFacts: [], clinicalRelevance: '', associations: [], pageEstimate: '12', coverageDomain: 'definition_recall', chunk_ids: [] },
+        { id: 'concept-3', name: 'Mesangial Cells', category: 'Cell', importance: 'medium', keyFacts: [], clinicalRelevance: '', associations: [], pageEstimate: '12', coverageDomain: 'definition_recall', chunk_ids: [] },
+        { id: 'concept-4', name: 'APOL1 Gene', category: 'Gene', importance: 'medium', keyFacts: [], clinicalRelevance: '', associations: [], pageEstimate: '12', coverageDomain: 'definition_recall', chunk_ids: [] },
+        { id: 'concept-5', name: 'Glomerular Basement Membrane (GBM)', category: 'Structure', importance: 'medium', keyFacts: [], clinicalRelevance: '', associations: [], pageEstimate: '12', coverageDomain: 'definition_recall', chunk_ids: [] },
+      ],
+      [],
+    );
+
+    expect(rewritten.options).toEqual([
+      'Podocytes',
+      'Mesangial Cells',
+      'Podocin',
+      'APOL1 Gene',
+      'Glomerular Basement Membrane (GBM)',
+    ]);
   });
 
   it('builds a deterministic distensibility draft with named concept options', () => {

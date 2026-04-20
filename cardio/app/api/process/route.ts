@@ -15,6 +15,7 @@ import { mergeInventory, canonicalizeConcepts, generateConfusionMap, toConceptRo
 import { generateCoverageQuestions } from '@/lib/pipeline/generation';
 import { auditQuestions } from '@/lib/pipeline/audit';
 import { buildDistractorCandidatePool, formatDistractorCandidatePool } from '@/lib/pipeline/distractors';
+import { dedupQuestions } from '@/lib/pipeline/dedup';
 import {
   buildGenerationBatchFailureFlags,
   extractInventoriesResilient,
@@ -296,6 +297,7 @@ export async function POST(req: NextRequest) {
 
         let totalQuestions = 0;
         let totalRejected  = 0;
+        let totalDeduped   = 0;
         const allPassedQuestions: any[] = [];
         const rejectionBreakdown: Record<string, number> = {};
         /* map concept_id → importance for quality sorting */
@@ -488,9 +490,20 @@ export async function POST(req: NextRequest) {
           return bImp - aImp;
         });
 
+        const dedupResult = await dedupQuestions(allPassedQuestions, conceptImportance, recordCost);
+        totalDeduped = dedupResult.dropped.length;
+        if (totalDeduped > 0) {
+          emit({
+            phase: 6,
+            message: `Phase 6: Removed ${totalDeduped} near-duplicate question${totalDeduped === 1 ? '' : 's'}`,
+            pct: 95,
+            data: { deduped: totalDeduped },
+          });
+        }
+
         const finalQuestions = env.flags.slotBasedGeneration
-          ? allPassedQuestions
-          : allPassedQuestions.slice(0, effectiveMax);
+          ? dedupResult.kept
+          : dedupResult.kept.slice(0, effectiveMax);
 
         const savedQuestions = await insertQuestions(finalQuestions);
 
@@ -523,6 +536,7 @@ export async function POST(req: NextRequest) {
             questionsGenerated: totalQuestions + totalRejected,
             questionsAccepted: savedQuestions.length,
             questionsRejected: totalRejected,
+            deduped: totalDeduped,
             costUSD: runningOpenAICostUSD,
           },
         });

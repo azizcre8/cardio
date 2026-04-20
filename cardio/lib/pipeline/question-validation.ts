@@ -1,5 +1,10 @@
 import type { Question } from '@/types';
 import { hasEvidenceAnchorSupport, verifyEvidenceSpan, type EvidenceVerifyResult } from './validation';
+import {
+  detectExplanationAnswerMismatch,
+  normalizeText,
+  stripOptionLabel,
+} from './answer-key-check';
 
 type ValidationQuestion = Pick<
   Question,
@@ -87,125 +92,6 @@ export function validateSourceQuoteShape(sourceQuote: string): string | null {
   return null;
 }
 
-export function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function stripOptionLabel(text: string): string {
-  return text.replace(/^\s*[A-Ea-e][.)]\s*/, '').trim();
-}
-
-function normalizeOptionAlias(text: string): string {
-  return normalizeText(stripOptionLabel(text));
-}
-
-function singularizeToken(token: string): string {
-  if (token.endsWith('ies') && token.length > 4) return `${token.slice(0, -3)}y`;
-  if (token.endsWith('ses') && token.length > 4) return token.slice(0, -2);
-  if (token.endsWith('s') && !token.endsWith('ss') && token.length > 3) return token.slice(0, -1);
-  return token;
-}
-
-function buildOptionAliases(option: string): string[] {
-  const aliases = new Set<string>();
-  const cleaned = stripOptionLabel(option);
-  const normalized = normalizeOptionAlias(cleaned);
-  if (normalized) aliases.add(normalized);
-
-  const noParens = cleaned.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
-  const normalizedNoParens = normalizeText(noParens);
-  if (normalizedNoParens) aliases.add(normalizedNoParens);
-
-  for (const match of cleaned.matchAll(/\(([^)]+)\)/g)) {
-    const inner = normalizeText(match[1] ?? '');
-    if (inner) aliases.add(inner);
-  }
-
-  for (const alias of Array.from(aliases)) {
-    const singular = alias
-      .split(' ')
-      .map(singularizeToken)
-      .join(' ')
-      .trim();
-    if (singular) aliases.add(singular);
-  }
-
-  return Array.from(aliases).filter(Boolean);
-}
-
-function explanationMentionsAlias(explanation: string, alias: string): boolean {
-  if (!alias) return false;
-  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-  return new RegExp(`\\b${escaped}\\b`, 'i').test(explanation);
-}
-
-export function detectExplanationAnswerMismatch(
-  options: string[],
-  answer: number,
-  explanation: string,
-): string | null {
-  const normalizedExplanation = normalizeText(explanation);
-  if (!normalizedExplanation) return null;
-
-  const firstSentence = explanation.split(/(?<=[.!?])\s+/)[0] ?? explanation;
-  const normalizedFirstSentence = normalizeText(firstSentence);
-  const positiveCue = /\b(is correct|correct because|best answer|primarily responsible|primarily explains|directly affects|defined as|refers to)\b/i;
-  const negativeCue = /\b(tempting|fails because|incorrect|wrong|whereas|however|unlike|in contrast|not because)\b/i;
-
-  const optionMatches = options.map((option, idx) => {
-    const aliases = buildOptionAliases(option);
-    const mentionedInExplanation = aliases.some(alias => explanationMentionsAlias(normalizedExplanation, alias));
-    const mentionedEarly = aliases.some(alias => explanationMentionsAlias(normalizedFirstSentence, alias));
-    const startsExplanation = aliases.some(alias => {
-      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      return new RegExp(`^${escaped}\\b`, 'i').test(normalizedFirstSentence);
-    });
-    return { idx, option, mentionedInExplanation, mentionedEarly, startsExplanation };
-  });
-
-  const correctMatch = optionMatches[answer];
-  if (!correctMatch) return null;
-
-  const incorrectLead = optionMatches.find(match =>
-    match.idx !== answer &&
-    (match.startsExplanation || (match.mentionedEarly && positiveCue.test(firstSentence))) &&
-    !negativeCue.test(firstSentence),
-  );
-
-  if (incorrectLead && !correctMatch.mentionedEarly) {
-    return `Explanation appears to justify a different answer choice than the keyed correct answer (${incorrectLead.option}).`;
-  }
-
-  // Second prong: keyed answer is never mentioned anywhere in the explanation,
-  // but at least one distractor is — flag as a probable key error.
-  const correctAliases = buildOptionAliases(options[answer] ?? '');
-  const correctMentioned = correctAliases.some(alias =>
-    explanationMentionsAlias(normalizedExplanation, alias),
-  );
-  if (!correctMentioned && normalizedExplanation.length > 20) {
-    const incorrectTokenCounts = options
-      .map((opt, idx) => {
-        if (idx === answer) return { idx, count: 0 };
-        const aliases = buildOptionAliases(opt);
-        const count = aliases.filter(a => explanationMentionsAlias(normalizedExplanation, a)).length;
-        return { idx, count };
-      })
-      .sort((a, b) => b.count - a.count);
-    if ((incorrectTokenCounts[0]?.count ?? 0) > 0) {
-      const dominantIdx = incorrectTokenCounts[0]!.idx;
-      return `Explanation appears to justify a different answer choice than the keyed correct answer (${options[dominantIdx]}).`;
-    }
-  }
-
-  return null;
-}
-
 export function compactIssue(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
@@ -271,6 +157,18 @@ export function isNegationStem(stem: string): boolean {
 
 export function isLevel3Stem(stem: string): boolean {
   return /^\s*A\s+\d{1,3}-year-old\s+(male|female)\s+present/i.test(stem);
+}
+
+export function stemIsInterrogative(stem: string): boolean {
+  const trimmed = stem.trim();
+  if (!trimmed) return false;
+
+  const citationStripped = trimmed.replace(/(?:\s*\([^)]*\)\s*)+$/, '').trim();
+  if (/\?\s*$/.test(citationStripped)) return true;
+
+  const sentences = citationStripped.split(/(?<=[.!?])\s+/);
+  const lastSentence = (sentences[sentences.length - 1] ?? citationStripped).trim();
+  return /^(which|what|how|why|when|where|identify|select the|choose the)\b/i.test(lastSentence);
 }
 
 export function runLengthAudit(
@@ -464,6 +362,10 @@ export function buildDeterministicQuestionValidation(
 
   if (question.level === 3 && !isLevel3Stem(question.stem)) {
     issues.push('Level 3 questions must open with an age, sex, and presentation vignette.');
+  }
+
+  if (!stemIsInterrogative(question.stem)) {
+    issues.push('Stem is not phrased as a question.');
   }
 
   if (!question.decision_target) {

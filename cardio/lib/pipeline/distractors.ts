@@ -15,6 +15,53 @@ export interface ConceptLike {
   aliases?: string[];
 }
 
+export interface OptionLengthBalanceSignal {
+  maxMinRatio: number;
+  correctMedianRatio: number;
+  correctLength: number;
+  medianLength: number;
+  isCorrectLongest: boolean;
+  isCorrectShortest: boolean;
+}
+
+export function balanceOptionLengths(
+  options: string[],
+  correctIdx: number,
+): OptionLengthBalanceSignal | null {
+  if (!options.length || correctIdx < 0 || correctIdx >= options.length) return null;
+
+  const lengths = options.map(option => option.trim().length);
+  const nonZeroLengths = lengths.filter(length => length > 0);
+  if (nonZeroLengths.length !== options.length) return null;
+
+  const sortedLengths = [...lengths].sort((a, b) => a - b);
+  const medianLength = sortedLengths[Math.floor(sortedLengths.length / 2)] ?? 0;
+  const correctLength = lengths[correctIdx] ?? 0;
+  const maxLength = sortedLengths[sortedLengths.length - 1] ?? 0;
+  const minLength = sortedLengths[0] ?? 0;
+  const maxMinRatio = minLength > 0 ? maxLength / minLength : Infinity;
+  const correctMedianRatio = medianLength > 0 ? correctLength / medianLength : 1;
+  const isCorrectLongest = correctLength === maxLength;
+  const isCorrectShortest = correctLength === minLength;
+
+  const correctOutlier =
+    (isCorrectLongest && correctMedianRatio > 1.3) ||
+    (isCorrectShortest && correctMedianRatio < 0.7);
+
+  if (maxMinRatio > 1.6 || correctOutlier) {
+    return {
+      maxMinRatio,
+      correctMedianRatio,
+      correctLength,
+      medianLength,
+      isCorrectLongest,
+      isCorrectShortest,
+    };
+  }
+
+  return null;
+}
+
 /** Returns up to 6 distractor candidates based on known medical confusion patterns. */
 export function buildConfusionCandidates(concept: ConceptLike): string[] {
   const enableConfusion = env.flags.confusionDistractors;

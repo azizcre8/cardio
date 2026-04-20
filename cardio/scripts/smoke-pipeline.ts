@@ -11,6 +11,7 @@ import { chunkText } from '@/lib/pipeline/chunking';
 import { extractInventoriesResilient, sortConceptsByImportanceAndName } from '@/lib/pipeline/process-helpers';
 import { buildBM25Index } from '@/lib/pipeline/retrieval';
 import { buildDistractorCandidatePool, formatDistractorCandidatePool } from '@/lib/pipeline/distractors';
+import { dedupQuestions } from '@/lib/pipeline/dedup';
 import { DENSITY_CONFIG, type ChunkRecord } from '@/types';
 
 async function main() {
@@ -129,10 +130,12 @@ async function main() {
     distractorGuides,
     recordCost,
   );
+  const conceptImportance = Object.fromEntries(conceptSpecs.map(concept => [concept.id, concept.importance]));
+  const dedupResult = await dedupQuestions(audit.passed, conceptImportance, recordCost);
 
   const totalGenerated = generation.questions.length + generation.rejectedSlots.length;
   const totalRejected = generation.rejectedSlots.length + audit.hardRejected.length;
-  const acceptanceRate = totalGenerated ? audit.passed.length / totalGenerated : 0;
+  const acceptanceRate = totalGenerated ? dedupResult.kept.length / totalGenerated : 0;
 
   const rejectionBreakdown = audit.hardRejected.reduce<Record<string, number>>((acc, rejection) => {
     const key = rejection.criterion || 'UNKNOWN';
@@ -158,19 +161,21 @@ async function main() {
     testedConcepts: conceptSpecs.map(concept => concept.name),
     generatedQuestions: generation.questions.length,
     slotFailures: generation.rejectedSlots.length,
-    acceptedQuestions: audit.passed.length,
+    acceptedQuestions: dedupResult.kept.length,
     hardRejectedQuestions: audit.hardRejected.length,
+    dedupedQuestions: dedupResult.dropped.length,
     totalRejected,
     totalGenerated,
     acceptanceRate,
     rejectionBreakdown,
     slotFailureBreakdown,
     openaiCostUSD: Number(totalCostUSD.toFixed(4)),
-    acceptedStems: audit.passed.map(question => ({
+    acceptedStems: dedupResult.kept.map(question => ({
       concept: question.concept_name ?? question.concept_id,
       level: question.level,
       stem: question.stem,
     })),
+    deduped: dedupResult.dropped,
     slotFailuresDetail: generation.rejectedSlots.map(rejection => ({
       concept: rejection.conceptName,
       level: rejection.level,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDeterministicQuestionValidation, runLengthAudit, validateQuestionDraft } from '@/lib/pipeline/question-validation';
+import { buildDeterministicQuestionValidation, runLengthAudit, stemIsInterrogative, validateQuestionDraft } from '@/lib/pipeline/question-validation';
 import { hasEvidenceAnchorSupport, verifyEvidenceSpan } from '@/lib/pipeline/validation';
 
 describe('question validation', () => {
@@ -341,5 +341,29 @@ describe('question validation', () => {
     expect(result.issues).toContain(
       'Explanation appears to justify a different answer choice than the keyed correct answer (Matrix Metalloproteinases (MMPs)).',
     );
+  });
+
+  it('rejects declarative stems that are not phrased as questions', () => {
+    expect(
+      stemIsInterrogative('Understanding his daily water intake is crucial for managing his hydration status.'),
+    ).toBe(false);
+  });
+
+  it('accepts question-mark terminated stems', () => {
+    expect(
+      stemIsInterrogative('Which hormone is most responsible for increasing water reabsorption?'),
+    ).toBe(true);
+  });
+
+  it('accepts interrogative leads even without a trailing question mark', () => {
+    expect(
+      stemIsInterrogative('Which of the following best explains the rise in ADH secretion'),
+    ).toBe(true);
+  });
+
+  it('accepts trailing citations after the question mark', () => {
+    expect(
+      stemIsInterrogative('Which hormone most directly increases collecting duct water permeability via ADH? (Chapter 25)'),
+    ).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import { detectExplanationAnswerMismatch } from '@/lib/pipeline/answer-key-check';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.join(__dirname, '..', '.env.local');
@@ -50,102 +51,6 @@ type QuestionRow = {
 type FlaggedQuestionRow = {
   question_id: string | null;
 };
-
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function stripOptionLabel(text: string): string {
-  return text.replace(/^\s*[A-Ea-e][.)]\s*/, '').trim();
-}
-
-function normalizeOptionAlias(text: string): string {
-  return normalizeText(stripOptionLabel(text));
-}
-
-function singularizeToken(token: string): string {
-  if (token.endsWith('ies') && token.length > 4) return `${token.slice(0, -3)}y`;
-  if (token.endsWith('ses') && token.length > 4) return token.slice(0, -2);
-  if (token.endsWith('s') && !token.endsWith('ss') && token.length > 3) return token.slice(0, -1);
-  return token;
-}
-
-function buildOptionAliases(option: string): string[] {
-  const aliases = new Set<string>();
-  const cleaned = stripOptionLabel(option);
-  const normalized = normalizeOptionAlias(cleaned);
-  if (normalized) aliases.add(normalized);
-
-  const noParens = cleaned.replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s+/g, ' ').trim();
-  const normalizedNoParens = normalizeText(noParens);
-  if (normalizedNoParens) aliases.add(normalizedNoParens);
-
-  for (const match of cleaned.matchAll(/\(([^)]+)\)/g)) {
-    const inner = normalizeText(match[1] ?? '');
-    if (inner) aliases.add(inner);
-  }
-
-  for (const alias of Array.from(aliases)) {
-    const singular = alias
-      .split(' ')
-      .map(singularizeToken)
-      .join(' ')
-      .trim();
-    if (singular) aliases.add(singular);
-  }
-
-  return Array.from(aliases).filter(Boolean);
-}
-
-function explanationMentionsAlias(explanation: string, alias: string): boolean {
-  if (!alias) return false;
-  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-  return new RegExp(`\\b${escaped}\\b`, 'i').test(explanation);
-}
-
-function detectExplanationAnswerMismatch(
-  options: string[],
-  answer: number,
-  explanation: string,
-): string | null {
-  const normalizedExplanation = normalizeText(explanation);
-  if (!normalizedExplanation) return null;
-
-  const firstSentence = explanation.split(/(?<=[.!?])\s+/)[0] ?? explanation;
-  const positiveCue = /\b(is correct|correct because|best answer|primarily responsible|primarily explains|directly affects|defined as|refers to)\b/i;
-  const negativeCue = /\b(tempting|fails because|incorrect|wrong|whereas|however|unlike|in contrast|not because)\b/i;
-
-  const optionMatches = options.map((option, idx) => {
-    const aliases = buildOptionAliases(option);
-    const mentionedEarly = aliases.some(alias => explanationMentionsAlias(firstSentence, alias));
-    const startsExplanation = aliases.some(alias => {
-      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-      return new RegExp(`^${escaped}\\b`, 'i').test(firstSentence);
-    });
-    return { idx, option, mentionedEarly, startsExplanation };
-  });
-
-  const correctMatch = optionMatches[answer];
-  if (!correctMatch) return null;
-
-  const incorrectLead = optionMatches.find(match =>
-    match.idx !== answer &&
-    (match.startsExplanation || (match.mentionedEarly && positiveCue.test(firstSentence))) &&
-    !negativeCue.test(firstSentence),
-  );
-
-  if (incorrectLead && !correctMatch.mentionedEarly) {
-    return `Explanation appears to justify a different answer choice than the keyed correct answer (${incorrectLead.option}).`;
-  }
-
-  return null;
-}
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

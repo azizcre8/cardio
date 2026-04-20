@@ -14,6 +14,7 @@ import { callOpenAI, inferEvidenceProvenance, parseJSON, normaliseQuestion, repa
 import type { ChunkRecord, Question } from '@/types';
 import type { OpenAICostTracker } from '@/lib/openai-cost';
 import { buildDeterministicQuestionValidation } from './question-validation';
+import { detectConceptMismatch, detectExplanationAnswerMismatch } from './answer-key-check';
 
 const MAX_REVISE_ITERATIONS = 2;
 
@@ -36,6 +37,11 @@ interface HardRejected {
   critique:     string;
   attempts:     number;
   lastQuestion: Omit<Question, 'id' | 'created_at'>;
+}
+
+interface InlineAuditFailure {
+  criterion: string;
+  critique: string;
 }
 
 export function deterministicVerdict(
@@ -275,6 +281,39 @@ function extractEvidenceMatchedText(
   return validation.evidenceResult.evidenceMatchedText;
 }
 
+function runInlineAnswerKeyChecks(
+  question: Omit<Question, 'id' | 'created_at'>,
+  concept: ConceptSpec | undefined,
+): InlineAuditFailure | null {
+  const answerMismatch = detectExplanationAnswerMismatch(
+    question.options,
+    question.answer,
+    question.explanation,
+  );
+  if (answerMismatch) {
+    return {
+      criterion: 'ANSWER_KEY_MISMATCH',
+      critique: answerMismatch,
+    };
+  }
+
+  if (!concept) return null;
+  const conceptMismatch = detectConceptMismatch(
+    question.stem,
+    question.options[question.answer] ?? '',
+    concept.name,
+    concept.keyFacts ?? [],
+  );
+  if (conceptMismatch) {
+    return {
+      criterion: 'CONCEPT_MISMATCH',
+      critique: conceptMismatch,
+    };
+  }
+
+  return null;
+}
+
 // ─── auditQuestions — main orchestrator, verbatim from HTML ──────────────────
 
 interface ConceptSpec {
@@ -385,11 +424,37 @@ export async function auditQuestions(
       const entry = inFlight[i]!;
       const { iteration } = entry;
       const q = repairedInFlight[i]!.q;
-      const v = verdicts[i]!;
+      let v = verdicts[i]!;
+      const concept = conceptBatch.find(item => item.id === q.concept_id);
+
+      if (v.status === 'PASS') {
+        const inlineFailure = runInlineAnswerKeyChecks(q, concept);
+        if (inlineFailure) {
+          if (iteration >= MAX_REVISE_ITERATIONS) {
+            hardRejected.push({
+              conceptId: q.concept_id,
+              conceptName: concept?.name ?? q.concept_id,
+              level: q.level,
+              criterion: inlineFailure.criterion,
+              critique: inlineFailure.critique,
+              attempts: iteration + 1,
+              lastQuestion: q,
+            });
+            continue;
+          }
+
+          v = {
+            idx: i,
+            status: 'REVISE',
+            criterion: inlineFailure.criterion,
+            critique: inlineFailure.critique,
+          };
+        }
+      }
 
       if (v.status === 'PASS') {
         const evidenceMatchedText = extractEvidenceMatchedText(
-          conceptBatch.find(item => item.id === q.concept_id)?.name ?? null,
+          concept?.name ?? null,
           q,
           ragPassages[q.concept_id] ?? '',
         );
@@ -413,10 +478,8 @@ export async function auditQuestions(
 
       // REVISE: send back to Writer Agent with specific critique
       try {
-        const concept =
-          conceptBatch.find(c => c.id === q.concept_id) ??
-          conceptBatch[0];
-        if (!concept) {
+        const revisionConcept = concept ?? conceptBatch[0];
+        if (!revisionConcept) {
           hardRejected.push({
             conceptId: q.concept_id, conceptName: q.concept_id,
             level: q.level, criterion: 'CONCEPT_MISSING',
@@ -426,13 +489,13 @@ export async function auditQuestions(
           continue;
         }
 
-        const passages = ragPassages[concept.id] ?? '';
-        const distractorGuide = distractorGuides[concept.id] ?? '';
+        const passages = ragPassages[revisionConcept.id] ?? '';
+        const distractorGuide = distractorGuides[revisionConcept.id] ?? '';
         const { raw: revised, costUSD } = await writerAgentRevise(
-          concept,
+          revisionConcept,
           {
             stem: q.stem, options: q.options, answer: q.answer, level: q.level,
-            pageEstimate: concept.pageEstimate,
+            pageEstimate: revisionConcept.pageEstimate,
             decidingClue: q.deciding_clue ?? undefined,
             decisionTarget: q.decision_target ?? undefined,
             mostTemptingDistractor: q.most_tempting_distractor ?? undefined,
@@ -446,17 +509,17 @@ export async function auditQuestions(
         );
         totalCost += costUSD;
 
-        const normed = normaliseQuestion(revised, concept, q.level, pdfId, userId);
+        const normed = normaliseQuestion(revised, revisionConcept, q.level, pdfId, userId);
         if (normed) {
-          const evidenceCorpus = ragPassages[concept.id] ?? '';
-          const evidenceMatchedText = extractEvidenceMatchedText(concept.name, normed, evidenceCorpus);
+          const evidenceCorpus = ragPassages[revisionConcept.id] ?? '';
+          const evidenceMatchedText = extractEvidenceMatchedText(revisionConcept.name, normed, evidenceCorpus);
           nextRound.push({
-            q: withEvidenceProvenance(normed, chunkMapByConcept[concept.id] ?? [], evidenceMatchedText),
+            q: withEvidenceProvenance(normed, chunkMapByConcept[revisionConcept.id] ?? [], evidenceMatchedText),
             iteration: iteration + 1,
           });
         } else {
           hardRejected.push({
-            conceptId: q.concept_id, conceptName: concept.name, level: q.level,
+            conceptId: q.concept_id, conceptName: revisionConcept.name, level: q.level,
             criterion: v.criterion ?? 'PARSE_ERROR', critique: 'Revision returned invalid JSON',
             attempts: iteration + 1, lastQuestion: q,
           });
