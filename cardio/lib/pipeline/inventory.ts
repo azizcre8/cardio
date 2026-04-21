@@ -62,7 +62,7 @@ function assignCoverageDomain(
     cpt.includes('therapy') || cpt.includes('treatment')
   ) return 'clinical_application';
 
-  return 'definition_recall';
+  return 'entity_recall';
 }
 
 // ─── extractInventory — verbatim port ────────────────────────────────────────

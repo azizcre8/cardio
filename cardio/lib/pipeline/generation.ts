@@ -836,9 +836,13 @@ function shouldRewriteAsNamedConceptDefinition(raw: Record<string, unknown>, slo
     return wordCount >= 6 && /^(the\s+(ability|capacity|increase|resistance|pressure|rate|property)|ability\s+of|capacity\s+of|increase\s+in)/i.test(trimmed);
   }).length;
 
-  return slot.coverageDomain === 'definition_recall'
-    || decisionTarget === 'definition'
-    || definitionLikeCount >= Math.max(3, options.length - 1);
+  // Only rewrite when options are genuinely definition-soup sentences AND we are
+  // in a physiology definition-recall domain (e.g. vascular compliance/distensibility).
+  // Excluding `decisionTarget === 'definition'` alone prevents the writer's label from
+  // triggering this for pathology concepts, which all received 'entity_recall' domain
+  // and should produce real clinical/mechanistic questions instead of named-concept templates.
+  return (slot.coverageDomain === 'definition_recall' || slot.coverageDomain === 'pressure_volume_quantitative')
+    && definitionLikeCount >= Math.max(3, options.length - 1);
 }
 
 function buildDefinitionStemFromClue(clue: string): string {
