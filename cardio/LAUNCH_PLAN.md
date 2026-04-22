@@ -125,4 +125,8 @@ You want me to keep working when you're asleep / when this window closes. Plan:
 
 ## Progress log
 
-(Cron agent appends here.)
+### 2026-04-22 02:30 UTC (bootstrap, Opus, manual)
+- Did: Phase 0 baseline synthesis from existing eval (`reports/eval-2026-04-21.json`, 47-q physiology) + audit (`reports/20a-audit.md`, 79-q pathology).
+- Changed: added `cardio/reports/pre-launch-eval-2026-04-21.md`.
+- Findings: physiology good (Distractor 3.89/5, Evidence 4.45/5). Pathology bad — 65% weak items, 5 repetitive pairs (highest 0.82). Root causes ranked: long evidence quotes, generic L2 vignettes, L1 template still firing on pathology, missing `evidence_match_type`, off-chapter drift, dedup threshold too loose.
+- Next (for cron, in order): (1) hard-reject long evidence quotes in `lib/pipeline/question-validation.ts`; (2) lower L1 entity-recall dedup threshold in `lib/pipeline/dedup.ts`; (3) fail-fast on null `evidence_match_type`; (4) verify L1 template default in `lib/pipeline/generation.ts` is `entity_recall` for non-physio; (5) re-run audit script on `pathology-ch11a.pdf` and append numbers to the baseline report. DO NOT edit LLM prompt bodies or inventory off-chapter filter without user sign-off.
