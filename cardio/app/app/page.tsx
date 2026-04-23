@@ -84,6 +84,8 @@ export default function AppPage() {
         view={view}
         isJobRunning={isJobRunning}
         darkMode={darkMode}
+        totalPdfs={pdfs.length}
+        totalQuestions={pdfs.reduce((s, p) => s + (p.question_count ?? 0), 0)}
         onSetView={setView}
         onToggleDark={toggleDark}
         onOpenPalette={() => setPaletteOpen(true)}

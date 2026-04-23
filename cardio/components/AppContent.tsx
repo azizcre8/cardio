@@ -2,8 +2,8 @@
 
 import AddView from '@/components/AddView';
 import BankSelectView from '@/components/BankSelectView';
+import BanksView from '@/components/BanksView';
 import ConceptMapView from '@/components/ConceptMapView';
-import LibraryView from '@/components/LibraryView';
 import ProcessingView, { type ActiveJob } from '@/components/ProcessingView';
 import QuizView from '@/components/QuizView';
 import SettingsView from '@/components/SettingsView';
@@ -63,14 +63,12 @@ export default function AppContent({
       }}
     >
       {view === 'library' && (
-        <LibraryView
+        <BanksView
           pdfs={pdfs}
           decks={decks}
-          examDate={examDate}
+          onStartQuiz={onStartQuiz}
           onOpenConceptMap={onOpenConceptMap}
-          onPdfsChange={onPdfsChange}
-          onDecksChange={onDecksChange}
-          onProcessingComplete={onOpenConceptMap}
+          onSetView={() => onSetView('add')}
         />
       )}
 

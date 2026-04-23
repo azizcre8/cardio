@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Question } from '@/types';
+import { applySRS } from '@/lib/srs';
 import { Icon, Kbd } from './ui';
+
+function fmtInterval(days: number): string {
+  if (days < 1) return `${Math.round(days * 24)}h`;
+  if (days === 1) return '1d';
+  return `${Math.round(days)}d`;
+}
 
 interface Props {
   pdfId:  string;
@@ -120,6 +127,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const [answers,    setAnswers]    = useState<AnswerState[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [rated,      setRated]      = useState<Record<number, boolean>>({});
+  const [ratedIntervals, setRatedIntervals] = useState<Record<number, number>>({});
   const [submittingQuality, setSubmittingQuality] = useState<number | null>(null);
   const [qualityError, setQualityError] = useState<string | null>(null);
   const [highlights, setHighlights] = useState<Map<number, HighlightRange[]>>(new Map());
@@ -268,7 +276,9 @@ export default function QuizView({ pdfId, onDone }: Props) {
       }
 
       setRated(prev => ({ ...prev, [idx]: true }));
-      goForward();
+      if (typeof data?.interval === 'number') {
+        setRatedIntervals(prev => ({ ...prev, [idx]: data.interval as number }));
+      }
     } catch (err) {
       setQualityError(err instanceof Error ? err.message : 'Failed to save SRS review.');
     } finally {
@@ -870,20 +880,28 @@ export default function QuizView({ pdfId, onDone }: Props) {
             {qualityError && (
               <span style={{ fontSize: 11, color: 'var(--red)', position: 'absolute', left: 24 }}>{qualityError}</span>
             )}
-            {[1, 2, 3, 4].map(quality => (
-              <QualityBtn
-                key={quality}
-                quality={quality}
-                disabled={submittingQuality !== null}
-                active={submittingQuality === quality}
-                onClick={() => void submitQuality(quality)}
-              />
-            ))}
+            {[1, 2, 3, 4].map(quality => {
+              const predicted = current ? applySRS(current, quality, null) : null;
+              const intervalLabel = predicted ? fmtInterval(predicted.interval ?? 0.17) : undefined;
+              return (
+                <QualityBtn
+                  key={quality}
+                  quality={quality}
+                  intervalLabel={intervalLabel}
+                  disabled={submittingQuality !== null}
+                  active={submittingQuality === quality}
+                  onClick={() => void submitQuality(quality)}
+                />
+              );
+            })}
           </>
         ) : (
           <>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--green)', position: 'absolute', left: 24 }}>
-              <Icon name="check" size={12} color="var(--green)" /> Scheduled
+              <Icon name="check" size={12} color="var(--green)" />
+              {ratedIntervals[idx] !== undefined
+                ? `Next in ${fmtInterval(ratedIntervals[idx]!)}`
+                : 'Scheduled'}
             </span>
             <button
               onClick={goForward}
@@ -917,40 +935,56 @@ function QuizStat({ label, val, color }: { label: string; val: string; color?: s
 
 function QualityBtn({
   quality,
+  intervalLabel,
   disabled,
   active,
   onClick,
 }: {
   quality: number;
+  intervalLabel?: string;
   disabled: boolean;
   active: boolean;
   onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const { label, color } = QUALITY[quality]!;
+  const lit = hovered || active;
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       style={{
-        display: 'flex', alignItems: 'center', gap: 8,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
         padding: '8px 14px',
         borderRadius: 'var(--r2)',
         fontSize: 13,
         fontWeight: 600,
         border: `1px solid ${color}`,
-        background: hovered || active ? color : 'var(--bg-raised)',
-        color: hovered || active ? '#fff' : color,
+        background: lit ? color : 'var(--bg-raised)',
+        color: lit ? '#fff' : color,
         cursor: disabled ? 'default' : 'pointer',
         opacity: disabled && !active ? 0.6 : 1,
         fontFamily: 'var(--font-sans)',
+        minWidth: 64,
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Kbd dim={hovered || active}>{quality}</Kbd>
-      {label}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Kbd dim={lit}>{quality}</Kbd>
+        {label}
+      </div>
+      {intervalLabel && (
+        <span style={{
+          fontSize: 10,
+          fontFamily: 'var(--font-mono)',
+          fontWeight: 500,
+          opacity: 0.75,
+        }}>
+          {intervalLabel}
+        </span>
+      )}
     </button>
   );
 }
