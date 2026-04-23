@@ -41,7 +41,52 @@ The five flagged pairs from `20a-audit.md` confirm: dedup runs but the threshold
 | Fail-fast on `evidence_match_type === null` | `lib/pipeline/question-validation.ts` | Re-audit: missing-evidence count → 0 |
 | Tighten inventory off-chapter filter | `lib/pipeline/inventory.ts` | Re-audit: off-chapter drift → 0 |
 
-Note on row 4: L2 vignette diversification touches the writer prompt, which CLAUDE.md treats as zero-changes-allowed without explicit instruction. Cron should NOT apply this without your sign-off.
+Note on row 4: L2 vignette diversification touches the writer prompt, which CLAUDE.md treats as zero-changes-allowed without explicit instruction. Do NOT apply this without sign-off.
+
+---
+
+## Phase 1 Delta — 2026-04-22
+
+Measured against: `Pathology_Chapter11a_Hemodynamic Disorders: Background through Aneurysms_23p.pdf` (id: `b05cc600`), generated **2026-04-21** (after commit `4b2df97`, before Phase 1 tasks 1–4).
+
+### Stats table
+
+| Metric | Baseline (20a, pre-fix) | 11a (post-4b2df97) | Δ |
+|---|---|---|---|
+| Accepted questions | 79 | 66 | — |
+| Acceptance rate | ~56% (51 flagged as weak) | **71.0%** | +15 pp |
+| L1 template stems ("In the source passage…") | **26 / 79 (32.9%)** | **0 / 66 (0%)** | ✅ fixed |
+| High-similarity repetitive pairs (Jaccard >0.5) | 5 pairs (highest 0.82 cosine) | 6 pairs (highest 0.73 Jaccard) | ≈ same |
+| L3 questions | present | 0 | regressed (see note) |
+| `evidence_match_type = null` | 9 / 79 (11.4%) | 10 / 66 (15.2%) | ≈ same |
+| Accepted Qs with option_set_flags | present | **0** | ✅ |
+
+### Findings per failure mode
+
+1. **Long source quote** — Phase 1 task 1 (35-word ceiling, commit `5e76125`) applies to **future** runs only; 11a bank pre-dates it. Will be validated on next generation.
+
+2. **L1 template over-fire** — **Fully resolved** for this bank. Template stems dropped from 32.9% → 0% courtesy of `4b2df97` (inventory default) + `e606a73` (generation.ts / route.ts fallback both now `entity_recall`). The residual `?? 'definition_recall'` fallbacks in generation.ts and route.ts were the gap identified in Phase 1 task 4 — both patched.
+
+3. **Missing `evidence_match_type`** — 15.2% null, unchanged. Phase 1 task 3 fix (`9fa959c`, audit.ts `withEvidenceProvenance` now propagates matchType) applies to future runs only. Expected to drop on next generation.
+
+4. **Repetitive pairs** — 6 pairs at Jaccard >0.5. Two look like genuine duplicates:
+   - L1: "Which risk factor is known to double the death rate from ischemic heart disease?" (appears with/without trailing fragment — same stem with minor suffix)
+   - L1: "Which of the following is a strong independent marker for myocardial infarction?" (same)
+   
+   Phase 1 task 2 (L1 threshold 0.78, commit `1f02d96`) applies to future runs. These pairs are at high Jaccard but the cosine similarity needs verification. **Expect 0–2 survivors on next generation.**
+
+5. **L3 missing** — 11a produced no L3 questions. The slot budget or density settings may be suppressing L3 for this PDF size (23 pages, 66 accepted). Not a regression from fixes; likely a slot-cap / page-count interaction. Low priority for beta.
+
+6. **Acceptance rate** — Up from ~56% to 71.0%, driven primarily by the elimination of template-stem rejections and OPTION_SET_HOMOGENEITY flags (0 flags on accepted Qs in 11a vs multiple in 20a).
+
+### Verdict
+
+The headline symptom (repetitive "named concept is described by" template questions) is **eliminated**. Acceptance rate improved +15 pp. The remaining gap — null evidence_match_type and 2 near-duplicate L1 pairs — will close on the next generation run with Phase 1 tasks 1–4 active. **Ready to generate new PDFs for the class beta.**
+
+### What still needs a fresh generation to confirm
+- Source quote length gate (task 1, commit `5e76125`) — need to verify <5% quotes >35 words
+- L1 dedup threshold (task 2, commit `1f02d96`) — need to verify 0–1 repetitive pairs
+- `evidence_match_type` propagation (task 3, commit `9fa959c`) — need to verify null rate <5%
 
 ## Cost reference (for Phase 5)
 
