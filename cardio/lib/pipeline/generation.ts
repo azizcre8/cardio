@@ -927,6 +927,16 @@ function hasParenthetical(text: string): boolean {
   return /\([^)]+\)/.test(text);
 }
 
+// Generic noun suffixes that are meaningless for distinguishing options.
+// "LDL particles" vs "HDL particles" — stripping "particles" leaves the
+// discriminating token. Same for "cells", "disease", "syndrome", etc.
+const OPTION_SUFFIX_NOISE = new Set([
+  'particles', 'cells', 'cell', 'disease', 'diseases', 'syndrome', 'syndromes',
+  'disorder', 'disorders', 'condition', 'conditions', 'type', 'types',
+  'formation', 'occurrence', 'incident', 'event', 'process', 'mechanism',
+  'therapy', 'treatment',
+]);
+
 function optionsAreTooSimilar(a: string, b: string): boolean {
   const normalizedA = normalizeOptionComparisonText(a);
   const normalizedB = normalizeOptionComparisonText(b);
@@ -934,8 +944,15 @@ function optionsAreTooSimilar(a: string, b: string): boolean {
   if (normalizedA === normalizedB) return true;
   if (normalizedA.includes(normalizedB) || normalizedB.includes(normalizedA)) return true;
 
-  const tokensA = normalizedA.split(' ').filter(token => token.length >= 4);
-  const tokensB = normalizedB.split(' ').filter(token => token.length >= 4);
+  // Keep tokens ≥3 chars (captures abbreviations like LDL, HDL, CRP) but
+  // strip generic suffixes that are shared by all options in a category set
+  // (e.g. "particles", "cells") — they would otherwise overwhelm the overlap
+  // ratio and flag perfectly valid same-category distractor sets.
+  const filterTokens = (text: string) =>
+    text.split(' ').filter(token => token.length >= 3 && !OPTION_SUFFIX_NOISE.has(token));
+
+  const tokensA = filterTokens(normalizedA);
+  const tokensB = filterTokens(normalizedB);
   if (!tokensA.length || !tokensB.length) return false;
 
   const shared = tokensA.filter(token => tokensB.includes(token)).length;
