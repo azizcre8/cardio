@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
             clinicalRelevance: can?.clinicalRelevance ?? '',
             associations:      can?.associations ?? [],
             pageEstimate:      can?.pageEstimate ?? '',
-            coverageDomain:    can?.coverageDomain ?? 'definition_recall',
+            coverageDomain:    can?.coverageDomain ?? 'entity_recall',
             chunk_ids:         can?.sourceChunkIds ?? [],
           };
         });

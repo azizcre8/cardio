@@ -836,7 +836,13 @@ function buildSlotFromContext(context: ConceptGenerationContext, level: number):
     category: context.concept.category,
     importance: context.concept.importance as GenerationSlot['importance'],
     level: level as GenerationSlot['level'],
-    coverageDomain: context.concept.coverageDomain ?? 'definition_recall',
+    // Mirror inventory.ts default: unmatched concepts are entity_recall (named entities,
+    // diseases, syndromes), NOT definition_recall. The old default here would still
+    // route any concept missing coverageDomain into the physiology definition-soup
+    // path, which fires shouldRewriteAsNamedConceptDefinition() and produces the
+    // "In the source passage, which named concept is described by..." template.
+    // See commit 4b2df97 (inventory side) — this is the matching generation-side fix.
+    coverageDomain: context.concept.coverageDomain ?? 'entity_recall',
     chunkIds: context.concept.chunk_ids ?? [],
     pageEstimate: context.concept.pageEstimate ?? '',
     keyFacts: context.concept.keyFacts ?? [],
