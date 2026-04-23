@@ -73,6 +73,14 @@ export function validateSourceQuoteShape(sourceQuote: string): string | null {
   if (wordCount < 10) {
     return 'Source quote must be at least 10 words copied verbatim from the source passages.';
   }
+  // Hard cap: quotes longer than ~35 words are almost always a paragraph or
+  // multi-clause stitch, even when sentence-terminator regex misses it
+  // (em-dashes, semicolons, abbreviations like "i.e.", "Dr.", etc.).
+  // Audit on pathology-ch11a flagged 35+ items as "long source quote" — this
+  // gate is the deterministic fix.
+  if (wordCount > 35) {
+    return `Source quote is too long (${wordCount} words). Pick a single body-text sentence under 35 words that directly proves the keyed answer.`;
+  }
 
   // Guard against multi-sentence stitching or a clause ripped out of the middle of a sentence.
   const sentenceTerminators = trimmed.match(/[.!?](?=\s|$)/g) ?? [];

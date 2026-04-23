@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDeterministicQuestionValidation, runLengthAudit, stemIsInterrogative, validateQuestionDraft } from '@/lib/pipeline/question-validation';
+import { buildDeterministicQuestionValidation, runLengthAudit, stemIsInterrogative, validateQuestionDraft, validateSourceQuoteShape } from '@/lib/pipeline/question-validation';
 import { hasEvidenceAnchorSupport, verifyEvidenceSpan } from '@/lib/pipeline/validation';
 
 describe('question validation', () => {
@@ -365,5 +365,23 @@ describe('question validation', () => {
     expect(
       stemIsInterrogative('Which hormone most directly increases collecting duct water permeability via ADH? (Chapter 25)'),
     ).toBe(true);
+  });
+
+  it('rejects source quotes longer than 35 words as a paragraph stitch', () => {
+    // 38-word run-on quote with semicolons and abbreviations that the
+    // sentence-terminator regex (looking for .!? followed by whitespace)
+    // would otherwise let through.
+    const longQuote =
+      'Membranous nephropathy is characterized by diffuse thickening of the glomerular capillary wall, with subepithelial deposits of IgG and complement, often associated with circulating autoantibodies directed against the M-type phospholipase A2 receptor expressed on the surface of podocytes throughout the renal cortex';
+    const issue = validateSourceQuoteShape(longQuote);
+    expect(issue).toBeTruthy();
+    expect(issue).toMatch(/too long/i);
+  });
+
+  it('accepts source quotes at the 35-word ceiling', () => {
+    // A 30-word, single-sentence body-text quote — should pass.
+    const okQuote =
+      'In acute glomerulonephritis the glomerular tuft becomes hypercellular due to infiltrating leukocytes and proliferating endothelial and mesangial cells, producing the characteristic hematuria and red-cell casts seen on urinalysis.';
+    expect(validateSourceQuoteShape(okQuote)).toBeNull();
   });
 });
