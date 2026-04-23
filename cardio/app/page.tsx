@@ -1,247 +1,220 @@
 import Link from 'next/link';
-import type { CSSProperties } from 'react';
 
-const shell: CSSProperties = {
-  minHeight: '100vh',
-  background:
-    'radial-gradient(circle at top left, rgba(13,154,170,0.16), transparent 32%), radial-gradient(circle at 85% 15%, rgba(34,197,94,0.10), transparent 26%), linear-gradient(180deg, var(--bg) 0%, color-mix(in srgb, var(--bg) 92%, white 8%) 100%)',
-  color: 'var(--text-primary)',
-};
+const metrics = [
+  { value: '1 bank', label: 'Shared across a cohort' },
+  { value: 'Private', label: 'Uploads stay isolated per user' },
+  { value: 'Exam-led', label: 'Scheduling adapts to deadlines' },
+];
 
-const section: CSSProperties = {
-  maxWidth: '1100px',
-  margin: '0 auto',
-  padding: '0 24px',
-};
+const workflow = [
+  {
+    eyebrow: '01',
+    title: 'Publish a canonical deck once.',
+    body: 'A class, study group, or tutor can maintain one shared question bank so everyone studies the same source material without duplicating setup.',
+  },
+  {
+    eyebrow: '02',
+    title: 'Track progress independently.',
+    body: 'Each learner keeps separate quiz history, ratings, and spaced repetition state, even when the underlying bank is shared.',
+  },
+  {
+    eyebrow: '03',
+    title: 'Monetize private generation separately.',
+    body: 'Uploading personal PDFs and generating a private library stays on the paid path, which keeps launch scope and pricing clean.',
+  },
+];
 
-const card: CSSProperties = {
-  background: 'rgba(255,255,255,0.72)',
-  backdropFilter: 'blur(16px)',
-  border: '1px solid var(--border)',
-  borderRadius: '18px',
-  boxShadow: 'var(--shadow-md)',
-};
-
-const darkCard: CSSProperties = {
-  ...card,
-  background: 'rgba(20, 24, 30, 0.88)',
-  color: '#F3F4F6',
-  border: '1px solid rgba(255,255,255,0.08)',
-};
-
-const primaryButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '12px 18px',
-  borderRadius: '12px',
-  background: 'var(--accent)',
-  color: '#fff',
-  textDecoration: 'none',
-  fontWeight: 700,
-  boxShadow: '0 10px 24px rgba(13,154,170,0.22)',
-};
-
-const secondaryButton: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '12px 18px',
-  borderRadius: '12px',
-  border: '1px solid var(--border-med)',
-  color: 'var(--text-primary)',
-  textDecoration: 'none',
-  fontWeight: 600,
-  background: 'rgba(255,255,255,0.7)',
-};
-
-const footerLink: CSSProperties = {
-  color: 'var(--accent)',
-  textDecoration: 'none',
-  fontWeight: 600,
-};
+const capabilities = [
+  'Shared banks for cohorts, labs, and tutoring groups',
+  'Private PDF-to-question generation for paid users',
+  'Concept maps, study queues, and spaced repetition review',
+  'Supabase-backed auth and persistent learner progress',
+];
 
 export default function RootPage() {
   return (
-    <main style={shell}>
-      <header style={{ ...section, paddingTop: '24px', paddingBottom: '20px' }}>
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '20px',
-            padding: '16px 20px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' }}>
-            <span
-              style={{
-                fontSize: '1rem',
-                fontWeight: 800,
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--accent)',
-              }}
-            >
-              Cardio
-            </span>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Shared study banks and private PDF generation for medical exam prep
-            </span>
+    <main className="marketing-shell">
+      <section className="marketing-hero">
+        <div className="marketing-nav">
+          <Link href="/" className="marketing-logo">
+            Cardio
+          </Link>
+          <div className="marketing-nav-links">
+            <a href="#workflow">Workflow</a>
+            <a href="#access">Access model</a>
+            <a href="#product">Product shape</a>
           </div>
-
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <Link href="/login" style={secondaryButton}>
+          <div className="marketing-nav-actions">
+            <Link href="/login" className="button button-ghost">
               Sign in
             </Link>
-            <Link href="/app" style={primaryButton}>
+            <Link href="/app" className="button button-primary">
               Open app
             </Link>
           </div>
         </div>
-      </header>
 
-      <section style={{ ...section, paddingTop: '44px', paddingBottom: '64px' }}>
-        <div style={{ display: 'grid', gap: '28px', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(280px, 0.9fr)' }}>
-          <div>
-            <div
-              style={{
-                display: 'inline-flex',
-                padding: '6px 12px',
-                borderRadius: '999px',
-                background: 'var(--accent-dim)',
-                color: 'var(--accent)',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                marginBottom: '18px',
-              }}
-            >
-              Launch mode: shared banks are free, personal generation is paid
+        <div className="marketing-hero-grid">
+          <div className="marketing-hero-copy">
+            <div className="marketing-pill">
+              <span className="marketing-pill-dot" />
+              Shared study banks are free. Private generation is paid.
             </div>
-
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 'clamp(2.8rem, 8vw, 5.6rem)',
-                lineHeight: 0.95,
-                letterSpacing: '-0.06em',
-                fontWeight: 800,
-              }}
-            >
-              Turn assigned readings into
-              <span style={{ color: 'var(--accent)', display: 'block' }}>usable question banks.</span>
+            <p className="marketing-kicker">Clinical spaced repetition for assigned reading</p>
+            <h1>
+              One question bank for the cohort,
+              <span> separate mastery for every learner.</span>
             </h1>
-
-            <p
-              style={{
-                marginTop: '20px',
-                maxWidth: '720px',
-                fontSize: '1.05rem',
-                lineHeight: 1.7,
-                color: 'var(--text-secondary)',
-              }}
-            >
-              Cardio lets your group study one shared bank with independent progress, ratings, and SRS scheduling.
-              When someone wants to upload their own PDFs and generate a private library, that becomes the paid path.
+            <p className="marketing-lead">
+              Cardio turns medical source material into a study system that works in two modes: a free shared bank that
+              many learners can join, and a paid private workflow for users who want to upload their own PDFs and
+              generate a personal library.
             </p>
-
-            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '26px' }}>
-              <Link href="/login" style={primaryButton}>
+            <div className="marketing-cta-row">
+              <Link href="/login" className="button button-primary">
                 Create account
               </Link>
-              <Link href="/app" style={secondaryButton}>
+              <Link href="/app" className="button button-secondary">
                 Go to study app
               </Link>
             </div>
-
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginTop: '28px' }}>
-              {[
-                ['Free shared study', 'Users can join a published bank and keep their own progress.'],
-                ['Paid personal generation', 'Uploading private PDFs is the monetized workflow.'],
-                ['Feedback-ready', 'Collect flags, ratings, and study behavior from real learners.'],
-              ].map(([title, body]) => (
-                <div key={title} style={{ maxWidth: '220px' }}>
-                  <div style={{ fontWeight: 700, marginBottom: '6px' }}>{title}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.5 }}>{body}</div>
+            <div className="marketing-metrics">
+              {metrics.map(metric => (
+                <div key={metric.label} className="marketing-metric-card">
+                  <div className="marketing-metric-value">{metric.value}</div>
+                  <div className="marketing-metric-label">{metric.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div style={{ ...darkCard, padding: '24px' }}>
-            <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.14em', color: '#7DD3FC' }}>
-              First deploy checklist
+          <div className="marketing-stage" aria-label="Cardio product preview">
+            <div className="marketing-stage-grid" />
+            <div className="marketing-stage-orb" />
+            <div className="marketing-stage-ring marketing-stage-ring-a" />
+            <div className="marketing-stage-ring marketing-stage-ring-b" />
+
+            <div className="marketing-floating-card marketing-floating-card-left">
+              <div className="eyebrow">Shared deck</div>
+              <div className="floating-title">Cardiology Board Review</div>
+              <div className="floating-copy">211 evidence-grounded questions shared across a cohort.</div>
             </div>
-            <div style={{ marginTop: '18px', display: 'grid', gap: '14px' }}>
-              {[
-                'Deploy the Next app in /cardio as the site root.',
-                'Configure Supabase auth, database migrations, and production redirect URLs.',
-                'Set OpenAI and Stripe environment variables before enabling generation or billing.',
-                'Use /app as the authenticated experience and / as the public website.',
-              ].map(item => (
-                <div key={item} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                  <span style={{ color: '#34D399', fontWeight: 700 }}>+</span>
-                  <span style={{ color: '#D1D5DB', lineHeight: 1.5 }}>{item}</span>
+
+            <div className="marketing-heart-panel">
+              <div className="heart-panel-glow" />
+              <div className="heart-panel-mark">Cardio</div>
+              <div className="ekg-line" aria-hidden="true">
+                <span />
+              </div>
+              <div className="heart-panel-core">
+                <div className="heart-chip">Exam countdown synced</div>
+                <div className="heart-title">Review intensity rises as the deadline approaches.</div>
+                <div className="heart-copy">
+                  Shared content stays consistent. Scheduling, flags, and recall strength remain personal.
                 </div>
-              ))}
+              </div>
+            </div>
+
+            <div className="marketing-floating-card marketing-floating-card-right">
+              <div className="eyebrow">Private library</div>
+              <div className="floating-title">Upload your own PDFs</div>
+              <div className="floating-copy">Paid path for users who need isolated content generation.</div>
             </div>
           </div>
         </div>
       </section>
 
-      <section style={{ ...section, paddingBottom: '64px' }}>
-        <div style={{ display: 'grid', gap: '18px', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
-          <FeatureCard
-            title="Shared bank workflow"
-            body="Publish one canonical question bank for a cohort. Each learner signs in, studies the same content, and keeps separate progress."
-          />
-          <FeatureCard
-            title="Personal PDF workflow"
-            body="Users who want their own private library can upload PDFs and generate a separate bank under a paid plan."
-          />
-          <FeatureCard
-            title="Deployment shape"
-            body="One Next.js app serves the website at /, auth at /login, and the product under /app."
-          />
+      <section className="marketing-band" id="product">
+        <div className="marketing-band-inner">
+          <p>The same Next.js app serves the public site at `/`, authentication at `/login`, and the signed-in product at `/app`.</p>
         </div>
       </section>
 
-      <footer style={{ ...section, paddingBottom: '36px' }}>
-        <div
-          style={{
-            ...card,
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '16px',
-            padding: '18px 20px',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ color: 'var(--text-secondary)', fontSize: '0.92rem' }}>
-            Cardio now uses the Next app as the public site entrypoint.
+      <section className="marketing-section" id="workflow">
+        <div className="section-heading">
+          <p className="section-label">Workflow</p>
+          <h2>A launch shape that keeps the product legible.</h2>
+          <p>
+            The core design decision is simple: shared banks reduce friction for group adoption, while private generation
+            remains the premium workflow.
+          </p>
+        </div>
+        <div className="workflow-grid">
+          {workflow.map(item => (
+            <article key={item.eyebrow} className="workflow-card">
+              <p className="workflow-number">{item.eyebrow}</p>
+              <h3>{item.title}</h3>
+              <p>{item.body}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="marketing-section">
+        <div className="access-grid" id="access">
+          <article className="access-card access-card-light">
+            <p className="section-label">Free path</p>
+            <h3>Join a published bank and study immediately.</h3>
+            <p>
+              Best for classes and shared cohorts. Learners sign in, join one bank, and keep their own progress without
+              paying to regenerate the same material.
+            </p>
+            <ul className="marketing-list">
+              <li>Shared source content</li>
+              <li>Personal study history</li>
+              <li>Independent spaced repetition state</li>
+            </ul>
+          </article>
+
+          <article className="access-card access-card-dark">
+            <p className="section-label section-label-dark">Paid path</p>
+            <h3>Generate a private library from personal PDFs.</h3>
+            <p>
+              Best for individual learners who need isolated uploads, custom source sets, and their own bank generation
+              pipeline.
+            </p>
+            <ul className="marketing-list marketing-list-dark">
+              <li>Private uploads and processing</li>
+              <li>Separate PDF libraries per user</li>
+              <li>Billing only where generation adds cost</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section className="marketing-section marketing-section-tight">
+        <div className="platform-card">
+          <div className="section-heading section-heading-compact">
+            <p className="section-label">Platform</p>
+            <h2>Relevant product capabilities already fit this design direction.</h2>
           </div>
-          <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-            <Link href="/login" style={footerLink}>
-              Login
+          <div className="platform-grid">
+            {capabilities.map(item => (
+              <div key={item} className="platform-item">
+                <span className="platform-dot" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="marketing-footer-cta">
+        <div className="marketing-footer-card">
+          <div>
+            <p className="section-label">Ready to ship</p>
+            <h2>Deploy the Next app in `cardio` and use this page as the public front door.</h2>
+          </div>
+          <div className="marketing-cta-row">
+            <Link href="/login" className="button button-primary">
+              Start with login
             </Link>
-            <Link href="/app" style={footerLink}>
-              App
+            <Link href="/app" className="button button-secondary on-dark">
+              Open product
             </Link>
           </div>
         </div>
-      </footer>
+      </section>
     </main>
-  );
-}
-
-function FeatureCard({ title, body }: { title: string; body: string }) {
-  return (
-    <div style={{ ...card, padding: '22px' }}>
-      <div style={{ fontWeight: 700, fontSize: '1rem' }}>{title}</div>
-      <div style={{ marginTop: '10px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>{body}</div>
-    </div>
   );
 }

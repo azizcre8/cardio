@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test": "vitest",
     "test:run": "vitest run",
+    "compare:generation": "tsx scripts/compare-generation.ts",
     "cost:estimate": "tsx scripts/estimate-pdf-cost.ts",
     "margin:project": "tsx scripts/project-margins.ts",
     "db:migrate": "tsx scripts/apply-migrations.ts",

@@ -1,0 +1,538 @@
+{
+  "timestamp": "2026-04-21T22:28:31.372Z",
+  "goldenSetSize": 47,
+  "results": [
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__29",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__29",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 3,
+        "explanationDepth": 4,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and appropriately tests the concept of A-V nodal rhythm heart rates. However, the distractors include one plausible option (50/min) and several that are outside the expected range, which may not be as competitive. The explanation effectively summarizes the correct answer and provides relevant information, but could further clarify why the other options are incorrect. The evidence grounding is strong, as it directly quotes the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__32",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__32",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of ECG lead placement. The distractors are plausible, though some may be less competitive than others. The explanation is solid, providing the correct answer and reinforcing the concept, but could be slightly more detailed in addressing misconceptions. The evidence grounding is strong, but it lacks a direct quote from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__41",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__41",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept at an appropriate Bloom's level. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why the correct answer is right and addressing misconceptions. The evidence grounding is strong, as it directly quotes the source material to justify the correct answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__89",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__89",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 5,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The generated question closely mirrors the reference question in clarity and intent, effectively testing the concept of coronary blood flow regulation. The distractors are plausible and competitive, likely to confuse students who are not fully confident in the material. The explanation is thorough, providing a clear rationale for the correct answer while addressing the role of the distractors. Additionally, the grounding in evidence is strong, as the explanation directly reflects the source material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__62",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__62",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of turbulent flow in blood vessels. The distractors are plausible, though some may be less competitive than others. The explanation is thorough and directly addresses the reasoning behind the correct answer, while also aligning well with the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__64",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__64",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and directly tests the intended concept, making it strong. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, providing a clear rationale for the correct answer and addressing the source material effectively."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__22",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__22",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and directly tests the concept of membrane potential at the S-A node, making it appropriate for the intended audience. The distractors are plausible, though some may be less competitive than others. The explanation effectively clarifies the correct answer and addresses the reasoning behind it, while the evidence grounding is strong, directly quoting the source material to support the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__44",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__44",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept of blood volume distribution in the circulatory system. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, providing both the correct answer and relevant information about the misconception. The evidence grounding is strong, as it directly supports the correct answer with a specific percentage from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__132",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__132",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of the third heart sound. The distractors are mostly plausible, with one being slightly less competitive due to its specificity. The explanation is thorough, addressing both the correct answer and the reasoning behind the distractors, while the evidence grounding is strong, directly quoting the source material to justify the correct answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__36",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__36",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 3,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and directly tests the concept of the normal QT interval, making it strong. The distractors, while plausible, are not as competitive since they are significantly lower than the correct answer, which may not reflect common misconceptions. The explanation is thorough and directly references the source material, enhancing its educational value."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__31",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__31",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and directly tests the concept of identifying the positive electrode for lead aVL on an ECG. The distractors are plausible, with one being a common misconception (left leg), but could be slightly improved for competitiveness. The explanation is thorough, teaching why the left arm is correct and reinforcing the concept effectively. The evidence grounding is strong, as it directly quotes the source material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__12",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__12",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of the first heart sound. The distractors are mostly plausible, with one being slightly less relevant, but they are competitive enough to challenge students. The explanation is thorough, providing a clear rationale for the correct answer and addressing the source material effectively."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__131",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__131",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of heart murmurs during diastole. The distractors are plausible, though some may be less competitive than others. The explanation provides a good depth of understanding, but could be slightly improved by explicitly addressing why the other options are incorrect. The grounding in evidence is strong, but could benefit from a direct quote from the reference material to enhance clarity."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__5",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__5",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of changes in blood pressure due to aortic regurgitation, aligning well with the intended learning outcomes. The distractors are competitive, as they reflect plausible variations in understanding the condition, though some may be less common misconceptions. The explanation is thorough, providing a solid rationale for the correct answer while addressing the underlying concepts. However, the evidence grounding could be improved with a direct quote from the reference material to strengthen the justification for the correct answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__41",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__41",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and directly tests the concept of mean electrical axis, matching the reference question perfectly. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why the correct answer is right and why the distractors are incorrect, and it is well-grounded in the source material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__30",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__30",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of factors affecting heart rate at the A-V node. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why the correct answer is right and why the distractors are incorrect, and it is well-grounded in the source material, providing a strong justification for the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__1",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__1",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of calculating cardiac output, which is appropriate for the intended audience. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why the correct answer is right and why the distractors are incorrect. The evidence grounding is strong, as it directly references the source material to justify the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__43",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__43",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of autoregulation in response to increased arterial pressure. The distractors are plausible, though one may be slightly less competitive than the others. The explanation is thorough, providing a clear rationale for the correct answer and aligning well with the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__2",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__2",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept of the timing of the first heart sound in the ventricular pressure-volume relationship. The distractors are plausible and competitive, though some may be less tempting than others. The explanation is well-structured, providing a solid rationale for the correct answer, but could benefit from addressing common misconceptions. The evidence grounding is strong, as it closely aligns with the reference material, though it could be improved by quoting directly from the source."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__43",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__43",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and appropriately tests the concept of diagnosing a cardiac condition. The distractors are plausible, though some may be less relevant to the specific context of bundle branch blocks. The explanation effectively identifies the key clue regarding QRS width and provides a solid rationale for the correct answer, while also addressing the incorrect options. The evidence grounding is strong, as it directly references the source material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__82",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__82",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept of decreased resistance to venous return. The correct answer and distractors are plausible, with the distractors being common misconceptions. The explanation is thorough, teaching why the correct answer is right and why the distractors are incorrect, and it is well-grounded in the source material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__35",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__35",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of Einthoven's law. The distractors are plausible, though some may be less competitive than others. The explanation provides a solid understanding of the correct answer and the reasoning behind it, but could benefit from addressing common misconceptions more explicitly. The grounding in evidence is strong, though not a verbatim quote, it accurately reflects the source material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__23",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__23",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept of microcirculation changes due to arteriolar diameter decrease. The distractors are plausible, though some may be less competitive than others. The explanation is informative, but could benefit from more detail on why the distractors are incorrect. The grounding in evidence is strong, but not verbatim, which slightly reduces its impact."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__114",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__114",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and directly tests the concept of mean systemic filling pressure. The distractors are plausible, with one being a common misconception, though they could be slightly more competitive. The explanation is thorough, teaching why the correct answer is right and why the distractors are incorrect, and it effectively uses evidence from the reference material to support the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__53",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__53",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of mean electrical axis determination in an ECG context. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why the correct answer is right and addressing the reasoning behind the distractors. The evidence grounding is strong, as it directly quotes the reasoning from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__11",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__11",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of arteriolar resistance in relation to diameter changes. The distractors are plausible, though some may be less competitive than others. The explanation is solid, providing a good rationale for the correct answer while addressing the concept well, but could be slightly more detailed in addressing misconceptions. The grounding in evidence is strong, though not verbatim, which slightly affects its score."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__83",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__83",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of factors affecting cardiac output. The distractors are plausible, though some may be less competitive than others. The explanation provides a good understanding of why the correct answer is right and why the distractors are incorrect, but could be slightly more detailed. The grounding in evidence is strong, but not verbatim, which slightly affects its score."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__51",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__51",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 3
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept at an appropriate level. The distractors are mostly plausible, though some may be less competitive than others. The explanation is informative but could be improved by addressing why the incorrect options are wrong. The evidence grounding is somewhat lacking as it does not provide a verbatim quote from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__8",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__8",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 3,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of microcirculatory changes due to histamine infusion. However, the distractors could be more competitive, as they do not present common misconceptions that students might have. The explanation is well-structured, providing a solid understanding of why the correct answer is right, but it could benefit from addressing potential misconceptions related to the distractors. The grounding in evidence is strong, though not verbatim, which slightly affects its score."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__61",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__61",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 5,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The generated question closely mirrors the reference question in clarity and focus, effectively testing the concept of factors affecting capillary filtration rate. The distractors are well-crafted and plausible, making them competitive for students who may be uncertain. The explanation is thorough, addressing both the correct answer and the reasoning behind the distractors, while the grounding in evidence is strong, directly supporting the correct answer with relevant information from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__13",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__13",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of heart conditions related to ion levels. The distractors are plausible, with one being the correct answer, making them competitive. The explanation is thorough, addressing why the correct answer is right and why the others are not, and it is well-grounded in the source material, providing a strong justification for the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__22",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__22",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of angiogenesis in tumors, aligning well with the intended learning outcome. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why VEGF is the correct answer and reinforcing the underlying concepts. The evidence grounding is strong, as it directly quotes the source material, justifying the correct answer effectively."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__100",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__100",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 3,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of causes of death after myocardial infarction. The distractors are plausible, though some may be more tempting than others. The explanation provides a good overview but could be improved by addressing why the distractors are incorrect. The evidence grounding is strong, as it closely aligns with the reference material, but could benefit from a direct quote to enhance justification."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__24",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__24",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of primary hyperaldosteronism, matching the reference question well. The distractors are plausible and could confuse students who are not fully confident in the material, though they could be slightly more varied in their appeal. The explanation is solid, providing a good rationale for the correct answer while addressing the underlying mechanisms, but could benefit from a bit more detail on why the distractors are incorrect. The evidence grounding is strong, but not a direct quote from the reference material, which slightly weakens its impact."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__139",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__139",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of appropriate therapy for a trauma patient with significant blood loss. The distractors are plausible, though some may be less competitive than others. The explanation is well-articulated, providing a rationale for the correct answer while addressing the context of the question. However, it could benefit from a more explicit discussion of why the distractors are less appropriate. The evidence grounding is strong, but it could be improved with a direct quote from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__52",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__52",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and appropriately tests the concept of ECG interpretation related to the diagnosis of hypertension. The distractors are plausible, though some may be less relevant to the specific ECG findings. The explanation effectively identifies the key clue from the ECG and provides a solid rationale for the correct answer while addressing the context of the distractors. The evidence grounding is strong, as it directly references the source material to justify the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__12",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__12",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of renovascular hypertension, matching the reference question well. The distractors are plausible and could confuse students who are not fully confident in the material, though they could be improved for competitiveness. The explanation is solid, providing a good rationale for the correct answer, but could delve deeper into why the distractors are incorrect. The evidence grounding is strong, but not a direct quote from the source material, which slightly weakens its impact."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__30",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__30",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of baroreceptor response to arterial pressure changes. The distractors are plausible and could confuse students who are not fully confident in the material, though some may be more straightforward than others. The explanation is thorough, providing a solid rationale for the correct answer while addressing the context of the question. However, it could benefit from a more explicit discussion of why the other options are incorrect. The evidence grounding is strong, but the quote could be more directly tied to the specific answer choice."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__14",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__14",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 3,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and appropriately tests the concept of patent ductus arteriosus, making it effective for assessing understanding. However, the distractors could be more competitive, as they may not all represent common misconceptions. The explanation is strong, providing a good rationale for the correct answer, but could benefit from addressing why the distractors are incorrect. The evidence grounding is solid, as it references the source material effectively, though it could be improved with a direct quote."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__60",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__60",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of arrhythmias, matching the reference question well. The distractors are plausible, though some may be less competitive than others. The explanation is informative and addresses the reasoning behind the correct answer, but could be slightly more detailed in addressing misconceptions. The grounding in evidence is strong, but not a direct quote from the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__69",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__69",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 3
+      },
+      "rationale": "The stem is clear and effectively tests the concept of decompensated heart failure. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, addressing why the correct answer is right and providing context, but it could benefit from a more explicit discussion of why the distractors are incorrect. The evidence grounding is somewhat lacking as it does not include a verbatim quote from the reference material, which would strengthen the justification for the correct answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__130",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__130",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 2,
+        "explanationDepth": 3,
+        "evidenceGrounding": 2
+      },
+      "rationale": "The stem is clear and well-structured, effectively testing the concept of tetralogy of Fallot. However, the distractors are not competitive, as they do not relate to the physiological aspects of the condition, making them less tempting for students. The explanation provides some context but lacks depth in addressing why the correct answer is right and why the distractors are incorrect. Additionally, the evidence grounding is weak, as it does not directly quote the source material to justify the answer."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__79",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__79",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The generated question effectively mirrors the reference question in clarity and focus, testing the same concept of diagnosing A-V block types. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, addressing both the correct answer and the reasoning behind the distractors, while the grounding in evidence is strong, directly quoting the reference material."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_III_The_Heart__40",
+      "referenceId": "physiology-cardio-bank__Unit_III_The_Heart__40",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 3,
+        "explanationDepth": 3,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the intended concept regarding ECG lead axes. However, the distractors are not well-defined and lack competitiveness, as they are generic options without specific content related to the question. The explanation provides some context but could be more detailed in addressing misconceptions. The evidence grounding is strong, as it closely follows the reference material, but it could benefit from a direct quote."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__120",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__120",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 5
+      },
+      "rationale": "The stem is clear and effectively tests the concept of heart murmurs and their associated conditions. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, teaching why the correct answer is right and addressing common misconceptions. The evidence grounding is strong, as it directly quotes the source material that supports the diagnosis."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__20",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__20",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 4,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of baroreceptor response to carotid artery constriction. The distractors are plausible and could confuse students who are uncertain about the physiological responses. The explanation is thorough, identifying key concepts and addressing potential misconceptions, though it could be slightly more detailed in differentiating between the distractors. The evidence grounding is strong, but the quote could be more directly tied to the specific answer choice."
+    },
+    {
+      "generatedId": "golden_physiology-cardio-bank__Unit_IV_The_Circulation__136",
+      "referenceId": "physiology-cardio-bank__Unit_IV_The_Circulation__136",
+      "scores": {
+        "stemQuality": 5,
+        "distractorCompetitiveness": 4,
+        "explanationDepth": 5,
+        "evidenceGrounding": 4
+      },
+      "rationale": "The stem is clear and effectively tests the concept of managing anaphylactic shock, which is appropriate for the intended audience. The distractors are plausible, though some may be less competitive than others. The explanation is thorough, addressing why the correct answer is appropriate and why the distractors are not, while also identifying the key concept of anaphylactic shock. The evidence grounding is strong but could be improved with a direct quote from the reference material."
+    }
+  ],
+  "aggregate": {
+    "avg": {
+      "stemQuality": 5,
+      "distractorCompetitiveness": 3.893617021276596,
+      "explanationDepth": 4.468085106382978,
+      "evidenceGrounding": 4.446808510638298
+    },
+    "perAxis": {
+      "Stem Quality": 5,
+      "Distractor Competitiveness": 3.893617021276596,
+      "Explanation Depth": 4.468085106382978,
+      "Evidence Grounding": 4.446808510638298
+    }
+  },
+  "costUSD": 0.0082
+}

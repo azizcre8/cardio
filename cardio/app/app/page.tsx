@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AppContent from '@/components/AppContent';
 import AppNav from '@/components/AppNav';
+import CommandPalette from '@/components/CommandPalette';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
 
 export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'stats' | 'settings';
@@ -16,6 +17,19 @@ export default function AppPage() {
   const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId } = useUserLibraryData();
   const { darkMode, toggleDark } = useThemePreference();
   const { activeJob, isJobRunning, startProcessing } = useProcessingJob(setView, setPdfs);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  /* ── Cmd+K keyboard shortcut ── */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setPaletteOpen(p => !p);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   /* ── Navigation helpers ── */
   function openConceptMap(pdfId: string) {
@@ -23,6 +37,12 @@ export default function AppPage() {
     setView('conceptmap');
   }
   function startQuiz(pdfId: string) { setQuizPdfId(pdfId); setView('quiz'); }
+
+  const handlePaletteNavigate = useCallback((navView: string, pdfId?: string) => {
+    if (pdfId) { startQuiz(pdfId); }
+    else { setView(navView as AppView); }
+    setPaletteOpen(false);
+  }, []);
   function quizDone() {
     if (quizPdfId) setConceptMapPdfId(quizPdfId);
     setView('conceptmap');
@@ -66,6 +86,14 @@ export default function AppPage() {
         darkMode={darkMode}
         onSetView={setView}
         onToggleDark={toggleDark}
+        onOpenPalette={() => setPaletteOpen(true)}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        pdfs={pdfs}
+        decks={decks}
+        onNavigate={handlePaletteNavigate}
       />
       <AppContent
         view={view}

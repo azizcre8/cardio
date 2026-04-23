@@ -24,6 +24,61 @@ import { embedTexts } from './embeddings';
 import { retrieveTopChunks } from './retrieval';
 import { calculateOpenAIUsageCostUSD, type OpenAICostTracker } from '@/lib/openai-cost';
 import { getExpectedOptionCount, runOptionSetAudit, validateQuestionDraft, validateSourceQuoteShape } from './question-validation';
+import fs from 'node:fs';
+import path from 'node:path';
+
+type ReferenceQuestion = {
+  id: string;
+  topic: string;
+  level: string;
+  stem: string;
+  options: Array<{ letter: string; text: string }>;
+  correctLetter: string;
+  explanation: string;
+  citation: string;
+};
+
+let referenceBankCache: ReferenceQuestion[] | null = null;
+
+function loadReferenceBank(): ReferenceQuestion[] {
+  if (referenceBankCache) return referenceBankCache;
+  try {
+    const dataPath = path.join(process.cwd(), 'data', 'reference-bank.json');
+    if (fs.existsSync(dataPath)) {
+      const raw = fs.readFileSync(dataPath, 'utf8');
+      referenceBankCache = JSON.parse(raw);
+      return referenceBankCache;
+    }
+  } catch (err) {
+    console.warn(`Failed to load reference-bank.json: ${(err as Error).message}`);
+  }
+  return [];
+}
+
+function findSimilarExemplars(conceptName: string, level: number, count: number = 2): ReferenceQuestion[] {
+  const bank = loadReferenceBank();
+  const examples: ReferenceQuestion[] = [];
+
+  // Simple heuristic: match by topic substring, prefer same level
+  const lowerConcept = conceptName.toLowerCase();
+  const sameLevelMatches = bank.filter(
+    q => q.level === String(level) && lowerConcept.split(/\s+/).some(word => q.topic.toLowerCase().includes(word))
+  );
+
+  if (sameLevelMatches.length > 0) {
+    examples.push(...sameLevelMatches.slice(0, count));
+  }
+
+  // Fallback: any level, topic match
+  if (examples.length < count) {
+    const anyLevelMatches = bank.filter(
+      q => !examples.some(e => e.id === q.id) && lowerConcept.split(/\s+/).some(word => q.topic.toLowerCase().includes(word))
+    );
+    examples.push(...anyLevelMatches.slice(0, count - examples.length));
+  }
+
+  return examples.slice(0, count);
+}
 
 // ─── Constants (verbatim from HTML) ──────────────────────────────────────────
 
@@ -1341,6 +1396,20 @@ export async function writerAgentGenerate(
     ...(concept.associations ?? []).slice(0, 3),
   ].filter(Boolean).join('; ');
 
+  const exemplars = findSimilarExemplars(concept.name, level, 2);
+  const exemplarSection = exemplars.length > 0
+    ? `\nFEW-SHOT EXEMPLARS — Study these ${level === 1 ? 'definition-style' : level === 2 ? 'mechanism-based' : 'clinical vignette'} questions and adopt their structure:\n${exemplars
+        .map((ex, i) => {
+          const correctIdx = ex.options.findIndex(o => o.letter === ex.correctLetter);
+          return `\nEXAMPLE ${i + 1} [${ex.topic}]:\n` +
+            `Stem: "${ex.stem}"\n` +
+            `Options: ${ex.options.map((o, j) => `${j === correctIdx ? '★' : ' '} ${o.letter}) ${o.text}`).join(' | ')}\n` +
+            `Explanation: "${ex.explanation}"\n` +
+            `Citation: ${ex.citation}`;
+        })
+        .join('\n')}\n`
+    : '';
+
   const sourceSection = ragPassages
     ? `\nSOURCE PASSAGES FROM PDF (use to ground the question and sourceQuote):\n${ragPassages}\n`
     : '';
@@ -1366,7 +1435,7 @@ SLOT IDENTITY:
 
 CONCEPT: ${concept.name} [${concept.category}] [${concept.importance}-yield]
 Required level: ${levelLabel}
-Key information: ${facts}${sourceSection}${confusionSection}${candidatePoolSection}${neighborSection}${definitionSection}
+Key information: ${facts}${exemplarSection}${sourceSection}${confusionSection}${candidatePoolSection}${neighborSection}${definitionSection}
 
 RULES (all mandatory):
 1. EVIDENCE. sourceQuote MUST be ONE complete sentence copied verbatim from SOURCE PASSAGES, from its capital letter to its period. No paraphrasing, no stitching clauses from different sentences, no deleting words. Minimum 10 words. The sentence must directly prove the keyed answer. Do NOT pick a sentence from a chapter outline, table of contents, index, list of figures, or page header — pick a body-text sentence. If no single body-text sentence in the passages proves the answer, pick a different angle on the same concept.

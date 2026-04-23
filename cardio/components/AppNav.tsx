@@ -11,9 +11,10 @@ interface Props {
   darkMode: boolean;
   onSetView: (view: AppView) => void;
   onToggleDark: () => void;
+  onOpenPalette?: () => void;
 }
 
-export default function AppNav({ view, isJobRunning, darkMode, onSetView, onToggleDark }: Props) {
+export default function AppNav({ view, isJobRunning, darkMode, onSetView, onToggleDark, onOpenPalette }: Props) {
   const handleSignOut = () => {
     if (isDevAuthBypassEnabled()) {
       window.location.href = '/';
@@ -110,6 +111,21 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
       </NavButton>
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+        {onOpenPalette && (
+          <button
+            onClick={onOpenPalette}
+            title="Command palette (⌘K)"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '4px 8px', borderRadius: 'var(--r2)',
+              background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+              cursor: 'pointer', fontSize: 11, color: 'var(--text-dim)',
+              fontFamily: 'var(--font-mono)', fontWeight: 600,
+            }}
+          >
+            ⌘K
+          </button>
+        )}
         <button
           onClick={onToggleDark}
           title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}

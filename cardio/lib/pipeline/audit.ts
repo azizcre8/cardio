@@ -219,10 +219,22 @@ Return compact JSON array:
   {"idx":2,"status":"REJECT","criterion":"HOMOGENEITY","critique":"Options mix drug mechanisms with anatomical structures — fundamentally broken option set"}
 ]
 
+PASS ANCHORS — Questions like these earn PASS. Use as calibration:
+
+ANCHOR 1 [L1 recall, 5 options]:
+Stem: "Which property of a vessel is defined as the increase in volume per unit rise in pressure?"
+Options: ★A) Vascular compliance | B) Vascular distensibility | C) Vascular resistance | D) Pulse pressure | E) Stroke volume
+Why PASS: single concept, 5 near-miss options from the same comparison class, no length tell, source text directly defines compliance this way.
+
+ANCHOR 2 [L2 mechanism, 4 options]:
+Stem: "A decrease in arteriolar radius by 50% would increase resistance by what factor?"
+Options: A) 2-fold | B) 4-fold | ★C) 16-fold | D) 8-fold
+Why PASS: quantitative mechanism question, all options in same unit class, no option is instantly eliminable without knowing Poiseuille's law.
+
 Be strict but fair. REVISE for one fixable flaw. REJECT only when fundamentally broken.`;
 
   try {
-    const { text } = await callOpenAI(prompt, 1500, AUDITOR_MODEL, onCost);
+    const { text } = await callOpenAI(prompt, 1500, AUDITOR_MODEL, onCost, { temperature: 0 });
     const results = parseJSON(text);
     if (!Array.isArray(results)) {
       return questions.map((_, i) => ({

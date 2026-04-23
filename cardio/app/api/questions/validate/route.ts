@@ -149,6 +149,24 @@ function selectRelevantChunks(
     .map(entry => entry.chunk);
 }
 
+// Issues from the deterministic validator that are structural/metadata,
+// not factual — suppress these from the user-facing fact-check result.
+const STRUCTURAL_ISSUE_PATTERNS = [
+  /whyTempting/i,
+  /whyFails/i,
+  /why_tempting/i,
+  /why_fails/i,
+  /missing.*rationale/i,
+  /rationale.*missing/i,
+  /item.design/i,
+  /option.count/i,
+  /exactly \d+ choice/i,
+];
+
+function isStructuralIssue(issue: string): boolean {
+  return STRUCTURAL_ISSUE_PATTERNS.some(re => re.test(issue));
+}
+
 function buildProgrammaticIssues(
   question: QuestionRow,
   conceptName: string | null,
@@ -167,7 +185,8 @@ function buildProgrammaticIssues(
     conceptName,
     evidenceCorpus,
   );
-  return { issues: takeUnique(result.issues), evidenceOk: result.evidenceOk };
+  const factualIssues = takeUnique(result.issues.filter(i => !isStructuralIssue(i)));
+  return { issues: factualIssues, evidenceOk: result.evidenceOk };
 }
 
 function buildFallbackResponse(programmaticIssues: string[], evidenceOk: boolean): ValidatorResponse {
@@ -270,8 +289,7 @@ export async function POST(req: NextRequest) {
   }
 
   const prompt = `
-You are a strict medical MCQ validation agent.
-Judge whether this stored question follows the app's PDF-grounding, question-generation, and answer-choice rules.
+You are a medical fact-checker. Your job is to fact-check a multiple-choice question and all its answer choices against the provided source text from the original PDF.
 
 Return valid JSON only in this exact shape:
 {
@@ -281,41 +299,37 @@ Return valid JSON only in this exact shape:
   "confidence": "high" | "medium" | "low"
 }
 
-Validation priorities:
-1. The correct answer must be directly supportable from the source PDF evidence.
-2. The source quote must align with the deciding clue and explanation.
-3. Answer choices must obey board-style rules: same comparison class, plausible near-misses, no length tell, no odd-one-out structure, no fabricated distractors.
-4. Stem must fit the level:
-   - L1 = recall/discrimination, avoid NOT/EXCEPT stems, exactly 5 choices.
-   - L2/L3 = exactly 4 choices.
-5. Explanation must teach the distinction and contrast distractors, not just restate the answer.
+Fact-check each part of this question against the source text from the PDF.
 
-Known programmatic findings:
+Check in order:
+1. Is the correct answer directly supported by the source text?
+2. Are all factual claims in the question stem accurate per the source text?
+3. Is each wrong answer choice clearly incorrect — not ambiguously correct, and not containing false medical facts that aren't grounded in the source?
+4. Does the source quote actually support the correct answer?
+
+Known source-grounding findings:
 ${programmatic.issues.length ? programmatic.issues.map(issue => `- ${issue}`).join('\n') : '- none'}
 
 Question:
-- Concept: ${JSON.stringify(concept?.name ?? null)}
-- Category: ${JSON.stringify(concept?.category ?? null)}
-- Level: ${question.level}
-- Stem: ${JSON.stringify(question.stem)}
-- Options: ${JSON.stringify(question.options)}
-- Correct answer index (0-based): ${question.answer}
-- Explanation: ${JSON.stringify(question.explanation)}
-- Source quote: ${JSON.stringify(question.source_quote)}
-- Decision target: ${JSON.stringify(question.decision_target)}
-- Deciding clue: ${JSON.stringify(question.deciding_clue)}
-- Most tempting distractor: ${JSON.stringify(question.most_tempting_distractor)}
+Concept: ${concept?.name ?? 'unknown'}
+Stem: ${question.stem}
+Answer choices:
+${question.options.map((opt, i) => `  ${String.fromCharCode(65 + i)}. ${opt}${i === question.answer ? ' ← CORRECT' : ''}`).join('\n')}
+Explanation: ${question.explanation}
+Source quote: ${question.source_quote ?? 'none'}
 
-Relevant PDF excerpts:
+Source text from PDF:
 ${relevantChunks.length
-  ? relevantChunks.map((chunk, i) => `Excerpt ${i + 1} (pages ${chunk.start_page}-${chunk.end_page}): ${JSON.stringify(chunk.text.slice(0, 1800))}`).join('\n')
-  : 'No excerpt available.'}
+  ? relevantChunks.map((chunk, i) => `[Excerpt ${i + 1}, pages ${chunk.start_page}–${chunk.end_page}]\n${chunk.text.slice(0, 1800)}`).join('\n\n')
+  : 'No source text available.'}
 
-Rules for output:
-- Be strict.
-- If PDF evidence does not actually support the keyed answer, mark invalid.
-- Keep issues concise, concrete, and specific to this question. Max 6.
-- suggestedFix must be one short sentence that names the highest-priority repair.
+Output rules:
+- issues must be an array of strings. Each string must be a complete sentence describing a specific factual problem, e.g. "Choice B states X but the source text says Y." or "The stem claims X which is not supported by the source."
+- Do NOT put bare labels like "stem" or "A" as issue strings — every issue must be a complete sentence.
+- isValid = true only if the correct answer and stem are fully supported and no wrong choice is ambiguously correct.
+- suggestedFix: one complete sentence naming the single most important factual correction.
+- confidence: "high" if source text directly addresses the question, "medium" if partial, "low" if insufficient.
+- Max 4 issues.
 `.trim();
 
   try {
@@ -324,7 +338,7 @@ Rules for output:
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
-      max_tokens: 320,
+      max_tokens: 480,
       response_format: { type: 'json_object' },
     });
 
@@ -332,10 +346,18 @@ Rules for output:
     if (!content) return jsonOk(fallback);
 
     const parsed = JSON.parse(content) as Partial<ValidatorResponse>;
-    const mergedIssues = takeUnique([
-      ...programmatic.issues,
-      ...(Array.isArray(parsed.issues) ? parsed.issues.map(item => String(item)) : []),
-    ]);
+
+    // Guard: LLM sometimes returns issues as an object {stem: "...", A: "..."} instead of array
+    let llmIssues: string[] = [];
+    if (Array.isArray(parsed.issues)) {
+      llmIssues = parsed.issues.map(item => String(item)).filter(s => s.length > 10);
+    } else if (parsed.issues && typeof parsed.issues === 'object') {
+      llmIssues = Object.values(parsed.issues as Record<string, unknown>)
+        .map(v => String(v))
+        .filter(s => s.length > 10);
+    }
+
+    const mergedIssues = takeUnique([...programmatic.issues, ...llmIssues]);
 
     const isValid =
       Boolean(parsed.isValid) &&

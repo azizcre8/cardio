@@ -56,7 +56,7 @@ export default function AppContent({
     <main
       style={{
         flex: 1,
-        padding: (view === 'processing' || view === 'library') ? '0' : '24px 16px',
+        padding: (view === 'processing' || view === 'library' || view === 'quiz') ? '0' : '24px 16px',
         overflow: 'auto',
         display: 'flex',
         flexDirection: 'column',

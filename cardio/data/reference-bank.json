@@ -1,0 +1,2926 @@
+[
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__1",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 1,
+    "stem": "What is her cardiac output in milliliters per minute?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "2000"
+      },
+      {
+        "letter": "B",
+        "text": "3000"
+      },
+      {
+        "letter": "C",
+        "text": "4000"
+      },
+      {
+        "letter": "D",
+        "text": "6000"
+      },
+      {
+        "letter": "E",
+        "text": "7000"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "This patient has a heart rate of 70 beats per minute. The cardiac output can be determined by using the following formula: cardiac output = heart rate × stroke volume. The stroke volume can be determined from the figure, which is the volume change during the C-D segment, or 100 milliliters. By using this formula, you can determine that the cardiac output is 7000 milliliters per minute.",
+    "citation": "TMP13 p. 118",
+    "level": "L2",
+    "levelRationale": "It requires applying a formula to calculate cardiac output.",
+    "topic": "cardiac output"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__2",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 2,
+    "stem": "When does the first heart sound occur in the ventricular pressure–volume relationship?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "At point B"
+      },
+      {
+        "letter": "B",
+        "text": "Between point A and point B"
+      },
+      {
+        "letter": "C",
+        "text": "Between point B and point C"
+      },
+      {
+        "letter": "D",
+        "text": "Between point C and point D"
+      },
+      {
+        "letter": "E",
+        "text": "Between point D and point A"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "During the diastolic filling phase, the mitral and tricuspid valves open and blood flows into the ventricles. At point B the isovolumic contraction phase begins, which closes the A-V valves. The closing of these valves causes the first heart sound.",
+    "citation": "TMP13 p. 114",
+    "level": "L2",
+    "levelRationale": "It involves understanding the phases of the cardiac cycle.",
+    "topic": "heart sounds"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__3",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 3,
+    "stem": "When does the fourth heart sound occur in the ventricular pressure–volume relationship?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "At point D"
+      },
+      {
+        "letter": "B",
+        "text": "Between point A and point B"
+      },
+      {
+        "letter": "C",
+        "text": "Between point B and point C"
+      },
+      {
+        "letter": "D",
+        "text": "Between point C and point D"
+      },
+      {
+        "letter": "E",
+        "text": "Between point D and point A"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Between points A and B is the period of ventricular filling. The vibration of the ventricular walls makes this sound after atrial contraction forces more blood into the ventricles.",
+    "citation": "TMP13 p. 114",
+    "level": "L2",
+    "levelRationale": "It requires understanding the timing of heart sounds in relation to the cardiac cycle.",
+    "topic": "heart sounds"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__4",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 4,
+    "stem": "What is her ventricular ejection fraction?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "33%"
+      },
+      {
+        "letter": "B",
+        "text": "50%"
+      },
+      {
+        "letter": "C",
+        "text": "60%"
+      },
+      {
+        "letter": "D",
+        "text": "67%"
+      },
+      {
+        "letter": "E",
+        "text": "80%"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "The ejection fraction is the stroke volume/end-diastolic volume. Stroke volume is 100 milliliters, and the end-systolic volume at point D is 150 milliliters. Thus, the ejection fraction is 0.667, or in terms of percentage, 67%.",
+    "citation": "TMP13 p. 118",
+    "level": "L2",
+    "levelRationale": "It involves calculating the ejection fraction using stroke volume and end-diastolic volume.",
+    "topic": "ejection fraction"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__11",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 11,
+    "stem": "What happens at the end of ventricular isovolumic relaxation?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "The A-V valves close"
+      },
+      {
+        "letter": "B",
+        "text": "The aortic valve opens"
+      },
+      {
+        "letter": "C",
+        "text": "The aortic valve closes"
+      },
+      {
+        "letter": "D",
+        "text": "The mitral valve opens"
+      },
+      {
+        "letter": "E",
+        "text": "The pulmonary valve closes"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "At the end of isovolumic relaxation, the mitral and tricuspid valves open, which is followed by the period of diastolic filling.",
+    "citation": "TMP13 pp. 117-118",
+    "level": "L2",
+    "levelRationale": "It requires understanding the sequence of cardiac events during the cardiac cycle.",
+    "topic": "ventricular relaxation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__12",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 12,
+    "stem": "Which event is associated with the first heart sound?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Closing of the aortic valve"
+      },
+      {
+        "letter": "B",
+        "text": "Inrushing of blood into the ventricles during diastole"
+      },
+      {
+        "letter": "C",
+        "text": "Beginning of diastole"
+      },
+      {
+        "letter": "D",
+        "text": "Opening of the A-V valves"
+      },
+      {
+        "letter": "E",
+        "text": "Closing of the A-V valves"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "As seen in Chapter 9, the first heart sound by definition occurs just after the ventricular pressure exceeds the atrial pressure, which causes the A-V valves to mechanically close. The second heart sound occurs when the aortic and pulmonary valves close.",
+    "citation": "TMP13 p. 114",
+    "level": "L1",
+    "levelRationale": "It asks for a specific fact about the first heart sound.",
+    "topic": "first heart sound"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__13",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 13,
+    "stem": "Which condition will result in a dilated, flaccid heart?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Excess calcium ions in the blood"
+      },
+      {
+        "letter": "B",
+        "text": "Excess potassium ions in the blood"
+      },
+      {
+        "letter": "C",
+        "text": "Excess sodium ions in the blood"
+      },
+      {
+        "letter": "D",
+        "text": "Increased sympathetic stimulation"
+      },
+      {
+        "letter": "E",
+        "text": "Increased norepinephrine concentration in the blood"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Having excess potassium ions in the blood and extracellular fluid causes the heart to become dilated and flaccid and also slows the heart. This effect is important because of a decrease in the resting membrane potential in the cardiac muscle fibers. As the membrane potential decreases, the intensity of the action potential decreases, which makes the contraction of the heart progressively weaker. Excess calcium ions in the blood and sympathetic stimulation and increased norepinephrine concentration of the blood all cause the heart to contract vigorously.",
+    "citation": "TMP13 p. 121",
+    "level": "L3",
+    "levelRationale": "It requires understanding the physiological effects of electrolyte imbalances on heart function.",
+    "topic": "dilated heart"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__20",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 20,
+    "stem": "What effect does increased potassium permeability have on the A-V node?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "It increases heart rate"
+      },
+      {
+        "letter": "B",
+        "text": "It decreases heart rate"
+      },
+      {
+        "letter": "C",
+        "text": "It has no effect"
+      },
+      {
+        "letter": "D",
+        "text": "It causes depolarization"
+      },
+      {
+        "letter": "E",
+        "text": "It causes hyperpolarization"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "The increase in potassium permeability causes a hyperpolarization of the A-V node, which will decrease the heart rate. Increases in sodium permeability will actually partially depolarize the A-V node, and an increase in norepinephrine levels increases the heart rate.",
+    "citation": "TMP13 p. 110",
+    "level": "L2",
+    "levelRationale": "It requires understanding the effects of ion permeability on cardiac conduction.",
+    "topic": "A-V node"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__21",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 21,
+    "stem": "Which statement best explains how sympathetic stimulation affects the heart?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "The permeability of the S-A node to sodium decreases"
+      },
+      {
+        "letter": "B",
+        "text": "The permeability of the A-V node to sodium decreases"
+      },
+      {
+        "letter": "C",
+        "text": "The permeability of the S-A node to potassium increases"
+      },
+      {
+        "letter": "D",
+        "text": "There is an increased rate of upward drift of the resting membrane potential of the S-A node"
+      },
+      {
+        "letter": "E",
+        "text": "The permeability of the cardiac muscle to calcium decreases"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "During sympathetic stimulation, the permeabilities of the S-A node and the A-V node increase. In addition, the permeability of cardiac muscle to calcium increases, resulting in an increased contractile strength. Furthermore, an upward drift of the resting membrane potential of the S-A node occurs. Increased permeability of the S-A node to potassium does not occur during sympathetic stimulation.",
+    "citation": "TMP13 p. 128",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the effects of sympathetic stimulation on cardiac physiology.",
+    "topic": "sympathetic stimulation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__22",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 22,
+    "stem": "What is the membrane potential (threshold level) at which the S-A node discharges?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "−40 millivolt"
+      },
+      {
+        "letter": "B",
+        "text": "−55 millivolt"
+      },
+      {
+        "letter": "C",
+        "text": "−65 millivolt"
+      },
+      {
+        "letter": "D",
+        "text": "−85 millivolt"
+      },
+      {
+        "letter": "E",
+        "text": "−105 millivolt"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "The normal resting membrane potential of the S-A node is −55 millivolts. As the sodium leaks into the membrane, an upward drift of the membrane potential occurs until it reaches −40 millivolts. This is the threshold level that initiates the action potential at the S-A node.",
+    "citation": "TMP13 p. 124",
+    "level": "L1",
+    "levelRationale": "This question asks for a specific value related to the S-A node's membrane potential.",
+    "topic": "S-A node potential"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__23",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 23,
+    "stem": "Which condition at the S-A node will cause heart rate to decrease?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased norepinephrine level"
+      },
+      {
+        "letter": "B",
+        "text": "Increased sodium permeability"
+      },
+      {
+        "letter": "C",
+        "text": "Increased calcium permeability"
+      },
+      {
+        "letter": "D",
+        "text": "Increased potassium permeability"
+      },
+      {
+        "letter": "E",
+        "text": "Decreased acetylcholine level"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Increases in sodium and calcium permeability at the S-A node result in an increase in heart rate. An increased potassium permeability causes a hyperpolarization of the S-A node, which causes the heart rate to decrease.",
+    "citation": "TMP13 p. 128",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the physiological effects of ion permeability on heart rate.",
+    "topic": "heart rate regulation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__29",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 29,
+    "stem": "A patient had an ECG at the local emergency department. The attending physician stated that the patient had an A-V nodal rhythm. What is the likely heart rate?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "30/min"
+      },
+      {
+        "letter": "B",
+        "text": "50/min"
+      },
+      {
+        "letter": "C",
+        "text": "65/min"
+      },
+      {
+        "letter": "D",
+        "text": "75/min"
+      },
+      {
+        "letter": "E",
+        "text": "85/min"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "The normal rhythm of the A-V node is 40 to 60 beats per minute. Purkinje fibers have a rhythm of 15 to 40 beats per minute.",
+    "citation": "TMP13 p. 127",
+    "level": "L1",
+    "levelRationale": "This question asks for a specific heart rate associated with A-V nodal rhythm.",
+    "topic": "A-V nodal rhythm"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__30",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 30,
+    "stem": "Which condition at the A-V node will cause a decrease in heart rate?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased sodium permeability"
+      },
+      {
+        "letter": "B",
+        "text": "Decreased acetylcholine level"
+      },
+      {
+        "letter": "C",
+        "text": "Increased norepinephrine level"
+      },
+      {
+        "letter": "D",
+        "text": "Increased potassium permeability"
+      },
+      {
+        "letter": "E",
+        "text": "Increased calcium permeability"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "An increase in potassium permeability causes a decrease in the membrane potential of the A-V node. Thus, it will be extremely hyperpolarized, making it much more difficult for the membrane potential to reach its threshold level for conduction, resulting in a decrease in heart rate. Increases in sodium and calcium permeability and norepinephrine levels increase the membrane potential, causing a tendency to increase the heart rate.",
+    "citation": "TMP13 p. 128",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the effects of ion permeability on heart rate.",
+    "topic": "A-V node regulation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__31",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 31,
+    "stem": "When recording lead aVL on an ECG, which is the positive electrode?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Left arm"
+      },
+      {
+        "letter": "B",
+        "text": "Left leg"
+      },
+      {
+        "letter": "C",
+        "text": "Right leg"
+      },
+      {
+        "letter": "D",
+        "text": "Left arm + left leg"
+      },
+      {
+        "letter": "E",
+        "text": "Right arm + left leg"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "By convention, the left arm is the positive electrode for lead aVL of an ECG.",
+    "citation": "TMP13 p. 136",
+    "level": "L1",
+    "levelRationale": "It asks for a definition of the positive electrode in lead aVL.",
+    "topic": "ECG leads"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__32",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 32,
+    "stem": "When recording lead II on an ECG, the right arm is the negative electrode and the positive electrode is the",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Left arm"
+      },
+      {
+        "letter": "B",
+        "text": "Left leg"
+      },
+      {
+        "letter": "C",
+        "text": "Right leg"
+      },
+      {
+        "letter": "D",
+        "text": "Left arm + left leg"
+      },
+      {
+        "letter": "E",
+        "text": "Right arm + left leg"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "By convention, the left leg is the positive electrode for lead II of an ECG.",
+    "citation": "TMP13 pp. 134-135",
+    "level": "L1",
+    "levelRationale": "It asks for a definition of the positive electrode in lead II.",
+    "topic": "ECG leads"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__33",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 33,
+    "stem": "Sympathetic stimulation of the heart normally causes which condition?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Acetylcholine release at the sympathetic endings"
+      },
+      {
+        "letter": "B",
+        "text": "Decreased heart rate"
+      },
+      {
+        "letter": "C",
+        "text": "Decreased rate of conduction of the cardiac impulse"
+      },
+      {
+        "letter": "D",
+        "text": "Decreased force of contraction of the atria"
+      },
+      {
+        "letter": "E",
+        "text": "Increased force of contraction of the ventricles"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "Sympathetic stimulation of the heart normally causes an increased heart rate, increased rate of conduction of the cardiac impulse, and increased force of contraction in the atria and ventricles. However, it does not cause acetylcholine release at the sympathetic endings because they contain norepinephrine. Parasympathetic stimulation causes acetylcholine release. The sympathetic nervous system firing increases in the permeability of the cardiac muscle fibers, the S-A node, and the A-V node to sodium and calcium.",
+    "citation": "TMP13 p. 128",
+    "level": "L2",
+    "levelRationale": "It requires understanding the effects of sympathetic stimulation on heart function.",
+    "topic": "sympathetic stimulation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__34",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 34,
+    "stem": "What is her heart rate in beats per minute?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "70"
+      },
+      {
+        "letter": "B",
+        "text": "78"
+      },
+      {
+        "letter": "C",
+        "text": "84"
+      },
+      {
+        "letter": "D",
+        "text": "94"
+      },
+      {
+        "letter": "E",
+        "text": "104"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "The heart rate can be calculated by 60 divided by the R-R interval, which is 0.86 second. This results in a heart rate of 70 beats/min.",
+    "citation": "TMP13 p. 133",
+    "level": "L2",
+    "levelRationale": "It involves calculating heart rate from the R-R interval.",
+    "topic": "heart rate calculation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__35",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 35,
+    "stem": "According to Einthoven’s law, if the QRS voltage in lead III is 0.4 millivolt, what is the QRS voltage in lead I?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "0.05 millivolt"
+      },
+      {
+        "letter": "B",
+        "text": "0.50 millivolt"
+      },
+      {
+        "letter": "C",
+        "text": "1.05 millivolts"
+      },
+      {
+        "letter": "D",
+        "text": "1.25 millivolts"
+      },
+      {
+        "letter": "E",
+        "text": "2.05 millivolts"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Einthoven’s law states that the voltage in lead I plus the voltage in lead III is equal to the voltage in lead II. In this case the voltage in lead II is 0.9 millivolt and the voltage in lead III is 0.4 millivolt. The lead I voltage is thus 0.5 (0.9 − 0.4 millivolt = 0.5 millivolt).",
+    "citation": "TMP13 p. 135",
+    "level": "L2",
+    "levelRationale": "It requires applying Einthoven's law to calculate voltage.",
+    "topic": "Einthoven's law"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__36",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 36,
+    "stem": "What is the normal QT interval?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "0.03 second"
+      },
+      {
+        "letter": "B",
+        "text": "0.13 second"
+      },
+      {
+        "letter": "C",
+        "text": "0.16 second"
+      },
+      {
+        "letter": "D",
+        "text": "0.20 second"
+      },
+      {
+        "letter": "E",
+        "text": "0.35 second"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "The contraction of the ventricles lasts almost from the beginning of the Q wave and continues to the end of the T wave. This interval is called the Q-T interval and ordinarily lasts about 0.35 second.",
+    "citation": "TMP13 p. 133",
+    "level": "L1",
+    "levelRationale": "It asks for a definition of the normal QT interval.",
+    "topic": "QT interval"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__40",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 40,
+    "stem": "Different ECG lead axes are shown in the figure. Lead III has a positive portion at 120 degrees and a negative portion at −60 degrees. Therefore, lead III has correct axes for this question.",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Option A"
+      },
+      {
+        "letter": "B",
+        "text": "Option B"
+      },
+      {
+        "letter": "C",
+        "text": "Option C"
+      },
+      {
+        "letter": "D",
+        "text": "Option D"
+      },
+      {
+        "letter": "E",
+        "text": "Option E"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Different ECG lead axes are shown in the figure. Lead III has a positive portion at 120 degrees and a negative portion at −60 degrees. Therefore, lead III has correct axes for this question.",
+    "citation": "TMP13 p. 140",
+    "level": "L3",
+    "levelRationale": "It involves understanding ECG lead axes and their clinical implications.",
+    "topic": "ECG lead axes"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__41",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 41,
+    "stem": "What is the mean electrical axis calculated from standard leads I, II, and III shown in the woman’s ECG?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "−90 degrees"
+      },
+      {
+        "letter": "B",
+        "text": "−50 degrees"
+      },
+      {
+        "letter": "C",
+        "text": "−12 degrees"
+      },
+      {
+        "letter": "D",
+        "text": "+100 degrees"
+      },
+      {
+        "letter": "E",
+        "text": "+170 degrees"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "The mean electrical axis can be determined by plotting the resultant voltage of the QRS for leads I, II, and III. The result is shown below and has a value of −50 degrees.",
+    "citation": "TMP13 pp. 144-145",
+    "level": "L2",
+    "levelRationale": "This question requires understanding how to calculate the mean electrical axis from ECG leads.",
+    "topic": "mean electrical axis"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__42",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 42,
+    "stem": "What is the heart rate using lead I for the calculation?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "70"
+      },
+      {
+        "letter": "B",
+        "text": "88"
+      },
+      {
+        "letter": "C",
+        "text": "100"
+      },
+      {
+        "letter": "D",
+        "text": "112"
+      },
+      {
+        "letter": "E",
+        "text": "148"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "The heart rate can be calculated by 60 divided by the R-R interval, which is 0.68 second. This calculation results in a heart rate of 88 beats/min.",
+    "citation": "TMP13 p. 133",
+    "level": "L2",
+    "levelRationale": "This question involves applying a formula to calculate heart rate from the R-R interval.",
+    "topic": "heart rate calculation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__43",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 43,
+    "stem": "What is her likely diagnosis?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Tricuspid valve stenosis"
+      },
+      {
+        "letter": "B",
+        "text": "Left bundle branch block"
+      },
+      {
+        "letter": "C",
+        "text": "Pulmonary valve stenosis"
+      },
+      {
+        "letter": "D",
+        "text": "Pulmonary valve insufficiency"
+      },
+      {
+        "letter": "E",
+        "text": "Aortic insufficiency"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "In the figure, the QRS width is greater than 0.12 second, which indicates a bundle branch block. Right bundle branch block is not a listed answer. The correct answer is therefore left bundle branch block.",
+    "citation": "TMP13 p. 146",
+    "level": "L2",
+    "levelRationale": "This question requires understanding of ECG interpretation to diagnose a specific condition.",
+    "topic": "bundle branch block"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__44",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 44,
+    "stem": "Which condition will usually result in left axis deviation in an ECG?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Systemic hypertension"
+      },
+      {
+        "letter": "B",
+        "text": "Pulmonary valve stenosis"
+      },
+      {
+        "letter": "C",
+        "text": "Pulmonary valve regurgitation"
+      },
+      {
+        "letter": "D",
+        "text": "Rightward angulation of the heart"
+      },
+      {
+        "letter": "E",
+        "text": "Pulmonary hypertension"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Systemic hypertension results in a left axis deviation because of the enlargement of the left ventricle. Pulmonary valve stenosis and pulmonary valve regurgitation result in an enlarged right ventricle and right axis deviation. A rightward angulation of the heart will cause a rightward shift in the mean electrical axis. Pulmonary hypertension causes enlargement of the right heart and thus causes right axis deviation.",
+    "citation": "TMP13 p. 145",
+    "level": "L2",
+    "levelRationale": "This question requires knowledge of how different conditions affect ECG axis deviation.",
+    "topic": "axis deviation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__50",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 50,
+    "stem": "What is the mean electrical axis calculated from the QRS wave plotted on lead I and lead II?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "−1.2 millivolts"
+      },
+      {
+        "letter": "B",
+        "text": "+1.2 millivolts"
+      },
+      {
+        "letter": "C",
+        "text": "0 degrees"
+      },
+      {
+        "letter": "D",
+        "text": "halfway between lead I and lead II"
+      },
+      {
+        "letter": "E",
+        "text": "exactly halfway between lead I and lead II"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "The QRS wave plotted on lead I was −1.2 millivolts, and lead II was +1.2 millivolts, so the absolute value of the deflections was the same. Therefore, the mean electrical axis must be exactly halfway in between these two leads.",
+    "citation": "TMP13 p. 150",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the relationship between lead deflections and mean electrical axis.",
+    "topic": "mean electrical axis"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__51",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 51,
+    "stem": "During the T-P interval in an ECG of a patient with a damaged cardiac muscle, which of the following is true?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "The entire ventricle is depolarized"
+      },
+      {
+        "letter": "B",
+        "text": "The entire ventricle is depolarized except for the damaged cardiac muscle"
+      },
+      {
+        "letter": "C",
+        "text": "About half the ventricle is depolarized"
+      },
+      {
+        "letter": "D",
+        "text": "The entire ventricle is repolarized"
+      },
+      {
+        "letter": "E",
+        "text": "The entire ventricle is repolarized except for the damaged cardiac muscle"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "During the T-P interval in a patient with a damaged ventricle, the only area depolarized is the damaged muscle. Therefore, the remainder of the ventricle is repolarized. At the J point the entire ventricle is depolarized in a patient with a damaged cardiac muscle or in a patient with a normal cardiac muscle. The area of the heart that is damaged will not repolarize but remains depolarized at all times.",
+    "citation": "TMP13 p. 150",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the physiological state of the heart during the T-P interval.",
+    "topic": "cardiac muscle damage"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__52",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 52,
+    "stem": "A 50-year-old man is a new employee at ABC Software. The above ECG was recorded during a routine physical examination. What is his likely diagnosis?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Chronic systemic hypertension"
+      },
+      {
+        "letter": "B",
+        "text": "Chronic pulmonary hypertension"
+      },
+      {
+        "letter": "C",
+        "text": "Second-degree heart block"
+      },
+      {
+        "letter": "D",
+        "text": "Paroxysmal tachycardia"
+      },
+      {
+        "letter": "E",
+        "text": "Tricuspid valve stenosis"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Note in the figure below that the QRS complex has a positive deflection in lead I and a negative in lead III, which indicates that there is a leftward axis deviation, which occurs during chronic systemic hypertension. Pulmonary hypertension increases the ventricular mass on the right side of the heart, which gives a right axis deviation.",
+    "citation": "TMP13 p. 145",
+    "level": "L3",
+    "levelRationale": "This question involves interpreting an ECG to diagnose a condition.",
+    "topic": "hypertension diagnosis"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__53",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 53,
+    "stem": "A 30-year-old man had an ECG at his physician’s office, but his records were lost. The ECG technician remembered that the QRS deflection was large and positive in lead aVF and 0 in lead I. What is the mean electrical axis in the frontal plane?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "90 degrees"
+      },
+      {
+        "letter": "B",
+        "text": "60 degrees"
+      },
+      {
+        "letter": "C",
+        "text": "0 degree"
+      },
+      {
+        "letter": "D",
+        "text": "−60 degrees"
+      },
+      {
+        "letter": "E",
+        "text": "−90 degrees"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Because the deflection in this ECG is 0 in lead I, the axis has to be 90 degrees away from this lead. Therefore, the mean electrical axis must be +90 degrees or −90 degrees. Because the aVF lead has a positive deflection, the mean electrical axis must be at +90 degrees.",
+    "citation": "TMP13 p. 140",
+    "level": "L2",
+    "levelRationale": "This question requires understanding of ECG axis determination.",
+    "topic": "mean electrical axis"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__60",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 60,
+    "stem": "A 50-year-old man has a blood pressure of 140/85 mm Hg and weighs 90.7 kilograms (200 pounds). He reports that he is not feeling well, his ECG has no P waves, he has a heart rate of 46 beats/min, and the QRS complexes occur regularly. What is his likely condition?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "First-degree heart block"
+      },
+      {
+        "letter": "B",
+        "text": "Second-degree heart block"
+      },
+      {
+        "letter": "C",
+        "text": "Third-degree heart block"
+      },
+      {
+        "letter": "D",
+        "text": "Sinoatrial heart block"
+      },
+      {
+        "letter": "E",
+        "text": "Sinus bradycardia"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "When a patient has no P waves and a low heart rate, it is likely that the impulse leaving the sinus node is totally blocked before entering the atrial muscle, which is called sinoatrial block. The ventricles pick up the new rhythm, usually initiated in the A-V node at this point, which results in a heart rate of 40 to 60 per minute. In contrast, during sinus bradycardia, P waves are still associated with each QRS complex. In first-, second-, and third-degree heart block, P waves are present in each of these instances, although some are not associated with QRS complex.",
+    "citation": "TMP13 p. 156",
+    "level": "L3",
+    "levelRationale": "This question presents a clinical scenario requiring diagnosis based on ECG findings.",
+    "topic": "sinoatrial block"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__71",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 71,
+    "stem": "A 55-year-old man has been diagnosed with Stokes-Adams syndrome. Two minutes after the syndrome starts to cause active blockade of the cardiac impulse, which of the following is the pacemaker of the heart?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Sinus node"
+      },
+      {
+        "letter": "B",
+        "text": "A-V node"
+      },
+      {
+        "letter": "C",
+        "text": "Purkinje fibers"
+      },
+      {
+        "letter": "D",
+        "text": "Cardiac septum"
+      },
+      {
+        "letter": "E",
+        "text": "Left atrium"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "During a Stokes-Adams syndrome attack, total A-V block suddenly begins, and the duration of the block may be a few seconds or even several weeks. The new pacemaker of the heart is distal to the point of blockade but is usually deep in the A-V node or the A-V bundle.",
+    "citation": "TMP13 p. 157",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the mechanism of pacemaker activity during A-V block.",
+    "topic": "Stokes-Adams syndrome"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__78",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 78,
+    "stem": "An 80-year-old man went to his family physician for his annual checkup. Use the ECG tracing shown below to answer Questions 78 and 79. What is his heart rate?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "105"
+      },
+      {
+        "letter": "B",
+        "text": "95"
+      },
+      {
+        "letter": "C",
+        "text": "85"
+      },
+      {
+        "letter": "D",
+        "text": "75"
+      },
+      {
+        "letter": "E",
+        "text": "37"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "This patient’s heart rate is 37 beats/min, which can be determined by dividing 60 by the R-R interval. This is characteristic of some types of A-V block.",
+    "citation": "TMP13 p. 133",
+    "level": "L2",
+    "levelRationale": "This question involves calculating heart rate from an ECG tracing.",
+    "topic": "heart rate calculation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_III_The_Heart__79",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit III The Heart",
+    "number": 79,
+    "stem": "What is the likely diagnosis?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Left bundle branch block"
+      },
+      {
+        "letter": "B",
+        "text": "First-degree A-V block"
+      },
+      {
+        "letter": "C",
+        "text": "Second-degree A-V block"
+      },
+      {
+        "letter": "D",
+        "text": "Electrical alternans"
+      },
+      {
+        "letter": "E",
+        "text": "Complete A-V block"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "This ECG is characteristic of complete A-V block, which is also called third-degree A-V block. The P waves seem to be totally dissociated from the QRS complexes, because sometimes there are three P waves and sometimes two P waves between QRS complexes. First-degree A-V block causes a lengthened P-R interval, and second-degree A-V block has long P-R intervals with dropped beats. However, this does not seem to be occurring in this ECG, because there is no relationship between the ORS waves and the P waves.",
+    "citation": "TMP13 p. 157",
+    "level": "L3",
+    "levelRationale": "This question requires differential diagnosis based on ECG interpretation.",
+    "topic": "A-V block"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__5",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 5,
+    "stem": "A 35-year-old woman visits her family practitioner for an examination. She has a blood pressure of 160/75 mm Hg and a heart rate of 74 beats/min. Further tests by a cardiologist reveal that the patient has moderate aortic regurgitation. Which set of changes would be expected in this patient?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↑ ↓"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↓ ↑"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "The difference between systolic pressure and diastolic pressure is the pulse pressure. The two major factors that affect pulse pressure are the stroke volume output of the heart and the compliance of the arterial tree. In patients with moderate aortic regurgitation (due to incomplete closure of aortic valve), the blood that is pumped into the aorta immediately flows back into the left ventricle. The backflow of blood into the left ventricle increases stroke volume and systolic pressure. The rapid backflow of blood also results in a decrease in diastolic pressure. Thus, patients with moderate aortic regurgitation have high systolic pressure, low diastolic pressure, and high pulse pressure.",
+    "citation": "TMP13 pp. 180-181",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the physiological changes associated with a specific cardiac condition.",
+    "topic": "aortic regurgitation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__6",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 6,
+    "stem": "A healthy 27-year-old female medical student runs a 5K race. Which set of physiological changes is most likely to occur in this woman’s skeletal muscles during the race?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↓ ↑"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↑ ↓"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "The increase in local metabolism during exercise increases oxygen utilization and decreases tissue oxygen concentration. The decrease in tissue oxygen concentration increases arteriolar diameter and increases vascular conductance and blood flow to skeletal muscles.",
+    "citation": "TMP13 pp. 204-206",
+    "level": "L2",
+    "levelRationale": "This question involves understanding the physiological adaptations during exercise.",
+    "topic": "exercise physiology"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__7",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 7,
+    "stem": "Cognitive stimuli such as reading, problem solving, and talking all result in significant increases in cerebral blood flow. Which set of changes in cerebral tissue concentrations is the most likely explanation for the increase in cerebral blood flow?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↑ ↓"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↓ ↑"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Cognitive stimuli increase cerebral blood flow by decreasing cerebral vascular resistance. The diameter of cerebral vessels is decreased by various metabolic factors in response to cognitive stimuli. Metabolic factors that enhance cerebral blood flow include increases in carbon dioxide, hydrogen ion (decreased pH), and adenosine.",
+    "citation": "TMP13 pp. 203-206",
+    "level": "L2",
+    "levelRationale": "This question requires linking cognitive activity to physiological changes in blood flow.",
+    "topic": "cerebral blood flow"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__8",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 8,
+    "stem": "Histamine is infused into the brachial artery. Which set of microcirculatory changes would be expected in the infused arm?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↓ ↑"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↑ ↓"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Histamine is a vasodilator that is typically released by mast cells and basophils. Infusion of histamine into a brachial artery would decrease arteriolar resistance and increase water permeability of the capillary wall. The decrease in arteriolar resistance would also increase capillary hydrostatic pressure. The increase in capillary hydrostatic pressure and water permeability leads to an increase in capillary filtration rate.",
+    "citation": "TMP13 pp. 175 and 194",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the effects of a specific substance on microcirculation.",
+    "topic": "microcirculation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__10",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 10,
+    "stem": "A 65-year-old man with a 10-year history of essential hypertension is being treated with an angiotensin-converting enzyme (ACE) inhibitor. Which set of changes would be expected to occur in response to the ACE inhibitor drug therapy?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↓ ↑"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↑ ↓"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Angiotensin I is formed by an enzyme (renin) acting on a substrate called angiotensinogen. Angiotensin I is converted to angiotensin II by a converting enzyme. Angiotensin II also has a negative feedback effect on juxtaglomerular cells to inhibit renin secretion. Angiotensin II is a powerful vasoconstrictor and sodium-retaining hormone that increases arterial pressure. Administration of an ACE inhibitor would increase plasma renin concentration, decrease angiotensin II formation, enhance renal sodium excretory function, and decrease total peripheral resistance and arterial pressure.",
+    "citation": "TMP13 pp. 234-235",
+    "level": "L2",
+    "levelRationale": "This question involves understanding the pharmacological effects of a drug on cardiovascular physiology.",
+    "topic": "ACE inhibitors"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__11",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 11,
+    "stem": "The diameter of a precapillary arteriole is increased in a muscle vascular bed. A decrease in which of the following would be expected?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Capillary filtration rate"
+      },
+      {
+        "letter": "B",
+        "text": "Vascular conductance"
+      },
+      {
+        "letter": "C",
+        "text": "Capillary blood flow"
+      },
+      {
+        "letter": "D",
+        "text": "Capillary hydrostatic pressure"
+      },
+      {
+        "letter": "E",
+        "text": "Arteriolar resistance"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "An increase in the diameter of a precapillary arteriole would decrease arteriolar resistance. The decrease in arteriolar resistance would lead to an increase in vascular conductance and capillary blood flow, hydrostatic pressure, and filtration rate.",
+    "citation": "TMP13 pp. 175 and 194",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the relationship between arteriolar diameter and resistance.",
+    "topic": "arteriolar resistance"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__12",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 12,
+    "stem": "A 55-year-old man with a history of normal health visits his physician for a checkup. The physical examination reveals that his blood pressure is 170/98 mm Hg. Further tests indicate that he has renovascular hypertension as a result of stenosis in the left kidney. Which set of findings would be expected in this man with renovascular hypertension?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↑ ↓"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↓ ↑"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Stenosis of one kidney results in the release of renin and the formation of angiotensin II from the affected kidney. Angiotensin II stimulates aldosterone production and increases total peripheral resistance by constricting most of the blood vessels in the body.",
+    "citation": "TMP13 p. 236",
+    "level": "L3",
+    "levelRationale": "This question involves understanding the clinical implications of renovascular hypertension.",
+    "topic": "renovascular hypertension"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__13",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 13,
+    "stem": "Under control conditions, flow through a blood vessel is 100 ml/min with a pressure gradient of 50 mm Hg. What would be the approximate flow through the vessel after increasing the vessel diameter by 50%, assuming that the pressure gradient is maintained at 100 mm Hg?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "100 ml/min"
+      },
+      {
+        "letter": "B",
+        "text": "150 ml/min"
+      },
+      {
+        "letter": "C",
+        "text": "300 ml/min"
+      },
+      {
+        "letter": "D",
+        "text": "500 ml/min"
+      },
+      {
+        "letter": "E",
+        "text": "700 ml/min"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Blood flow in a vessel is directly proportional to the fourth power of the vessel radius. Increasing vessel diameter by 50% (1.5 × control) would increase blood flow 1.5 to the fourth power × normal blood flow (100 ml/min). Thus, blood flow would increase to 100 ml/min × 5.06, or approximately 500 ml/min.",
+    "citation": "TMP13 p. 175",
+    "level": "L2",
+    "levelRationale": "This question requires applying the principles of fluid dynamics to calculate flow changes.",
+    "topic": "blood flow dynamics"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__14",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 14,
+    "stem": "A 24-year-old woman delivers a 6-pound, 8-ounce baby girl. The newborn is diagnosed as having patent ductus arteriosus. Which set of changes would be expected in this baby?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↑ ↓"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↓ ↑"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "In patent ductus arteriosus, a large quantity of the blood pumped into the aorta by the left ventricle immediately flows backward into the pulmonary artery and then into the lung and left atrium. The shunting of blood from the aorta results in a low diastolic pressure, while the increased inflow of blood into the left atrium and ventricle increases stroke volume and systolic pressure. The combined increase in systolic pressure and decrease in diastolic pressure results in an increase in pulse pressure.",
+    "citation": "TMP13 p. 181",
+    "level": "L3",
+    "levelRationale": "This question requires understanding the clinical consequences of a congenital heart defect.",
+    "topic": "patent ductus arteriosus"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__20",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 20,
+    "stem": "Constriction of the carotid artery reduces blood pressure at the carotid bifurcation where the arterial baroreceptors are located. The decrease in arterial pressure activates baroreceptors, which in turn leads to an increase in sympathetic activity and a decrease in parasympathetic activity (or vagal tone). The enhanced sympathetic activity results in constriction of peripheral blood vessels, including the kidneys. The enhanced sympathetic activity leads to an increase in total peripheral resistance and a decrease in renal blood flow. The combination of enhanced sympathetic activity and decreased vagal tone also leads to an increase in heart rate.",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↓ ↑"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↑ ↓"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Constriction of the carotid artery reduces blood pressure at the carotid bifurcation where the arterial baroreceptors are located. The decrease in arterial pressure activates baroreceptors, which in turn leads to an increase in sympathetic activity and a decrease in parasympathetic activity (or vagal tone). The enhanced sympathetic activity results in constriction of peripheral blood vessels, including the kidneys. The enhanced sympathetic activity leads to an increase in total peripheral resistance and a decrease in renal blood flow. The combination of enhanced sympathetic activity and decreased vagal tone also leads to an increase in heart rate.",
+    "citation": "TMP13 pp. 219-222",
+    "level": "L3",
+    "levelRationale": "This question involves understanding the physiological response to carotid artery constriction.",
+    "topic": "carotid artery constriction"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__21",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 21,
+    "stem": "Which mechanism would tend to decrease capillary filtration rate?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased capillary hydrostatic pressure"
+      },
+      {
+        "letter": "B",
+        "text": "Decreased plasma colloid osmotic pressure"
+      },
+      {
+        "letter": "C",
+        "text": "Increased interstitial colloid osmotic pressure"
+      },
+      {
+        "letter": "D",
+        "text": "Decreased capillary water permeability"
+      },
+      {
+        "letter": "E",
+        "text": "Decreased arteriolar resistance"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Filtration rate is the product of the filtration coefficient (K f ) and the net pressure across the capillary wall. The net pressure for fluid movement across a capillary wall is promoted by increases in capillary hydrostatic pressure and positive interstitial colloid osmotic pressure, whereas negative plasma colloid osmotic pressure and a positive interstitial hydrostatic pressure oppose filtration. Thus, increased capillary hydrostatic pressure, decreased plasma colloid osmotic pressure, and increased interstitial colloid osmotic pressure would all promote filtration. Decreased arteriolar resistance would also promote filtration by increasing capillary hydrostatic pressure. The filtration coefficient is the product of capillary surface area and the capillary water permeability. A decrease in capillary water permeability would decrease the filtration coefficient and reduce the filtration rate.",
+    "citation": "TMP13 pp. 193-194",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the mechanisms affecting capillary filtration rate.",
+    "topic": "capillary filtration"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__22",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 22,
+    "stem": "A 72-year-old man had surgery to remove an abdominal tumor. Findings of pathohistological studies reveal that the tumor mass contains a large number of blood vessels. The most likely stimulus for the growth of vessels in a solid tumor is an increase in which of the following?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Growth hormone"
+      },
+      {
+        "letter": "B",
+        "text": "Plasma glucose concentration"
+      },
+      {
+        "letter": "C",
+        "text": "Angiostatin growth factor"
+      },
+      {
+        "letter": "D",
+        "text": "Tissue oxygen concentration"
+      },
+      {
+        "letter": "E",
+        "text": "Vascular endothelial growth factor (VEGF)"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "Solid tumors are metabolically active tissues that need increased quantities of oxygen and other nutrients. When metabolism in a tissue is increased for a prolonged period, the vascularity of the tissue also increases. One of the important factors that increases growth of new blood vessels is VEGF. Presumably, a deficiency of tissue oxygen or other nutrients, or both, leads to the formation of VEGF.",
+    "citation": "TMP13 p. 210",
+    "level": "L3",
+    "levelRationale": "The question presents a clinical scenario requiring knowledge of tumor biology and angiogenesis.",
+    "topic": "tumor angiogenesis"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__23",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 23,
+    "stem": "The diameter of a precapillary arteriole is decreased in a muscle vascular bed. Which change in the microcirculation would be expected?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Decreased capillary filtration rate"
+      },
+      {
+        "letter": "B",
+        "text": "Increased interstitial volume"
+      },
+      {
+        "letter": "C",
+        "text": "Increased lymph flow"
+      },
+      {
+        "letter": "D",
+        "text": "Increased capillary hydrostatic pressure"
+      },
+      {
+        "letter": "E",
+        "text": "Decreased arteriolar resistance"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "A decrease in the diameter of a precapillary arteriole increases arteriolar resistance while decreasing vascular conductance and capillary blood flow, hydrostatic pressure, filtration rate, interstitial volume, and interstitial hydrostatic pressure.",
+    "citation": "TMP13 pp. 175 and 194",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the relationship between arteriole diameter and microcirculation changes.",
+    "topic": "microcirculation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__24",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 24,
+    "stem": "A 50-year-old man has a 3-year history of hypertension. He reports fatigue and occasional muscle cramps. There is no family history of hypertension. The patient has not had any other significant medical problems in the past. Examination reveals a blood pressure of 168/104 mm Hg. Additional laboratory tests indicate that the patient has primary hyperaldosteronism. Which set of findings would be expected in this man with primary hyperaldosteronism hypertension?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↑ ↓"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↓ ↑"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "Excess secretion of aldosterone results in enhanced tubular reabsorption of sodium and secretion of potassium. The increased reabsorption of sodium and water leads to an increase in extracellular fluid volume, which in turn suppresses renin release by the kidney. The increase in potassium secretion leads to a decrease in plasma potassium concentration, or hypokalemia.",
+    "citation": "TMP13 pp. 235-236",
+    "level": "L3",
+    "levelRationale": "The question presents a clinical vignette requiring understanding of primary hyperaldosteronism effects.",
+    "topic": "hyperaldosteronism"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__30",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 30,
+    "stem": "The arterial baroreceptors are activated in response to a fall in arterial pressure. During hemorrhage, the fall in arterial pressure at the level of the baroreceptors results in enhanced sympathetic outflow from the vasomotor center and a decrease in parasympathetic nerve activity. The increase in sympathetic nerve activity leads to constriction of peripheral blood vessels, increased total peripheral resistance, and a return of blood pressure toward normal. The decrease in parasympathetic nerve activity and sympathetic outflow would result in an increase in heart rate.",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Activated in response to a fall in arterial pressure"
+      },
+      {
+        "letter": "B",
+        "text": "Increased sympathetic outflow"
+      },
+      {
+        "letter": "C",
+        "text": "Decreased parasympathetic activity"
+      },
+      {
+        "letter": "D",
+        "text": "Constriction of peripheral blood vessels"
+      },
+      {
+        "letter": "E",
+        "text": "Increased total peripheral resistance"
+      },
+      {
+        "letter": "F",
+        "text": "Return of blood pressure toward normal"
+      },
+      {
+        "letter": "G",
+        "text": "Increase in heart rate"
+      },
+      {
+        "letter": "H",
+        "text": "All of the above"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "The arterial baroreceptors are activated in response to a fall in arterial pressure. During hemorrhage, the fall in arterial pressure at the level of the baroreceptors results in enhanced sympathetic outflow from the vasomotor center and a decrease in parasympathetic nerve activity. The increase in sympathetic nerve activity leads to constriction of peripheral blood vessels, increased total peripheral resistance, and a return of blood pressure toward normal. The decrease in parasympathetic nerve activity and sympathetic outflow would result in an increase in heart rate.",
+    "citation": "TMP13 pp. 219-222",
+    "level": "L3",
+    "levelRationale": "The question describes a physiological response to hemorrhage, requiring integration of multiple concepts.",
+    "topic": "baroreceptor reflex"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__41",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 41,
+    "stem": "Which of the following vessels has the greatest total cross-sectional area in the circulatory system?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Aorta"
+      },
+      {
+        "letter": "B",
+        "text": "Small arteries"
+      },
+      {
+        "letter": "C",
+        "text": "Capillaries"
+      },
+      {
+        "letter": "D",
+        "text": "Venules"
+      },
+      {
+        "letter": "E",
+        "text": "Vena cava"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "The capillaries have the largest total cross-sectional area of all vessels of the circulatory system. The venules also have a relatively large total cross-sectional area, but not as great as the capillaries, which explains the large storage of blood in the venous system compared with that in the arterial system.",
+    "citation": "TMP13 pp. 172-173",
+    "level": "L1",
+    "levelRationale": "This question asks for a specific fact about vessel cross-sectional areas.",
+    "topic": "total cross-sectional area"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__42",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 42,
+    "stem": "An increase in atrial pressure results in which of the following?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Decrease in plasma atrial natriuretic peptide"
+      },
+      {
+        "letter": "B",
+        "text": "Increase in plasma angiotensin II concentration"
+      },
+      {
+        "letter": "C",
+        "text": "Increase in plasma aldosterone concentration"
+      },
+      {
+        "letter": "D",
+        "text": "Increase in sodium excretion"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "An increase in atrial pressure would also increase plasma levels of atrial natriuretic peptide, which in turn would decrease plasma levels of angiotensin II and aldosterone and increase sodium excretion.",
+    "citation": "TMP13 pp. 222-223",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the physiological response to changes in atrial pressure.",
+    "topic": "atrial pressure effects"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__43",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 43,
+    "stem": "Autoregulation of tissue blood flow in response to an increase in arterial pressure occurs as a result of which of the following?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Decrease in vascular resistance"
+      },
+      {
+        "letter": "B",
+        "text": "Initial decrease in vascular wall tension"
+      },
+      {
+        "letter": "C",
+        "text": "Excess delivery of nutrients such as oxygen to the tissues"
+      },
+      {
+        "letter": "D",
+        "text": "Decrease in tissue metabolism"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "An increase in perfusion pressure to a tissue results in excessive delivery of nutrients such as oxygen to a tissue. The increase in tissue oxygen concentration constricts arterioles and returns blood flow and nutrient delivery toward normal levels.",
+    "citation": "TMP13 pp. 206-207",
+    "level": "L2",
+    "levelRationale": "This question involves understanding the mechanisms of autoregulation in response to pressure changes.",
+    "topic": "autoregulation of blood flow"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__44",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 44,
+    "stem": "Which component of the circulatory system contains the largest percentage of the total blood volume?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Arteries"
+      },
+      {
+        "letter": "B",
+        "text": "Capillaries"
+      },
+      {
+        "letter": "C",
+        "text": "Veins"
+      },
+      {
+        "letter": "D",
+        "text": "Pulmonary circulation"
+      },
+      {
+        "letter": "E",
+        "text": "Heart"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "The percentage of total blood volume in the veins is approximately 64%.",
+    "citation": "TMP13 p. 169",
+    "level": "L1",
+    "levelRationale": "This question asks for a specific fact about blood volume distribution.",
+    "topic": "blood volume distribution"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__45",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 45,
+    "stem": "Which set of changes would be expected to occur 2 weeks after a 50% reduction in renal artery pressure?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↓ ↑"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↑ ↓"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Constriction of the renal artery increases release of renin, formation of angiotensin II and aldosterone, and arterial pressure. A 50% reduction in renal artery pressure would be below the range of renal autoregulation and would result in a decrease in the glomerular filtration rate.",
+    "citation": "TMP13 p . 238",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the physiological changes following renal artery pressure reduction.",
+    "topic": "renal artery pressure"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__61",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 61,
+    "stem": "An increase in which of the following tends to increase capillary filtration rate?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Capillary wall hydraulic conductivity"
+      },
+      {
+        "letter": "B",
+        "text": "Arteriolar resistance"
+      },
+      {
+        "letter": "C",
+        "text": "Plasma colloid osmotic pressure"
+      },
+      {
+        "letter": "D",
+        "text": "Interstitial hydrostatic pressure"
+      },
+      {
+        "letter": "E",
+        "text": "Plasma sodium concentration"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "An increase in capillary wall permeability to water would increase capillary filtration rate, whereas increases in arteriolar resistance, plasma colloid osmotic pressure, and interstitial hydrostatic pressure would all decrease filtration rate. Plasma sodium concentration would have no effect on filtration.",
+    "citation": "TMP13 pp. 193-198",
+    "level": "L2",
+    "levelRationale": "This question requires understanding the relationship between capillary wall properties and filtration rate.",
+    "topic": "capillary filtration"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__62",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 62,
+    "stem": "The tendency for turbulent flow is greatest in which of the following?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Arterioles"
+      },
+      {
+        "letter": "B",
+        "text": "Capillaries"
+      },
+      {
+        "letter": "C",
+        "text": "Small arterioles"
+      },
+      {
+        "letter": "D",
+        "text": "Aorta"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "The tendency for turbulent flow occurs at vascular sites where the velocity of blood flow is high. The aorta has the highest velocity of blood flow.",
+    "citation": "TMP13 pp. 175-176",
+    "level": "L1",
+    "levelRationale": "This question tests knowledge of basic hemodynamic principles.",
+    "topic": "turbulent flow"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__63",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 63,
+    "stem": "A 60-year-old man has a mean arterial blood pressure of 130 mm Hg, a heart rate of 78 beats/min, a right atrial pressure of 0 mm Hg, and a cardiac output of and a hematocrit of 40. What is the approximate total peripheral vascular resistance in this man?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "17 mm Hg/L/min"
+      },
+      {
+        "letter": "B",
+        "text": "1.3 mm Hg/L/min"
+      },
+      {
+        "letter": "C",
+        "text": "13 mm Hg/L/min"
+      },
+      {
+        "letter": "D",
+        "text": "27 mm Hg/L/min"
+      },
+      {
+        "letter": "E",
+        "text": "37 mm Hg/L/min"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "Total peripheral vascular resistance = arterial pressure − right atrial pressure ÷ cardiac output. In this example, total peripheral vascular resistance = 130 mm Hg ÷ 3.5 L/min, or approximately 37 mm Hg/L/min.",
+    "citation": "TMP13 pp. 175-176",
+    "level": "L2",
+    "levelRationale": "This question requires calculation of vascular resistance using given parameters.",
+    "topic": "vascular resistance"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__64",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 64,
+    "stem": "Which pressure is normally negative in a muscle capillary bed in the lower extremities?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Plasma colloid osmotic pressure"
+      },
+      {
+        "letter": "B",
+        "text": "Capillary hydrostatic pressure"
+      },
+      {
+        "letter": "C",
+        "text": "Interstitial hydrostatic pressure"
+      },
+      {
+        "letter": "D",
+        "text": "Interstitial colloid osmotic pressure"
+      },
+      {
+        "letter": "E",
+        "text": "Venous hydrostatic pressure"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "Interstitial hydrostatic pressure in a muscle capillary bed is normally negative (−3 mm Hg). Pumping by the lymphatic system is the basic cause of the negative pressure.",
+    "citation": "TMP13 p. 195",
+    "level": "L1",
+    "levelRationale": "This question tests knowledge of physiological pressures in capillary beds.",
+    "topic": "capillary pressure"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__68",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 68,
+    "stem": "A nitric oxide donor is infused into the brachial artery of a 22-year-old man. Which set of microcirculatory changes would be expected in the infused arm?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "↑ ↑ ↑"
+      },
+      {
+        "letter": "B",
+        "text": "↑ ↑ ↓"
+      },
+      {
+        "letter": "C",
+        "text": "↑ ↓ ↓"
+      },
+      {
+        "letter": "D",
+        "text": "↑ ↓ ↑"
+      },
+      {
+        "letter": "E",
+        "text": "↓ ↓ ↓"
+      },
+      {
+        "letter": "F",
+        "text": "↓ ↓ ↑"
+      },
+      {
+        "letter": "G",
+        "text": "↓ ↑ ↑"
+      },
+      {
+        "letter": "H",
+        "text": "↓ ↑ ↓"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Nitric oxide is a vasodilator that is believed to play a role in regulating blood flow. Infusion of a nitric oxide donor into the brachial artery would increase arteriolar diameter and decrease arteriolar resistance. The decrease in arteriolar resistance would also result in an increase in capillary hydrostatic pressure and filtration rate. The increase in filtration rate leads to an increase in interstitial hydrostatic pressure and lymph flow.",
+    "citation": "TMP13 pp. 170-171, 200-201",
+    "level": "L3",
+    "levelRationale": "This question involves understanding the physiological effects of a drug on microcirculation.",
+    "topic": "microcirculation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__69",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 69,
+    "stem": "What often occurs in decompensated heart failure?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased renal loss of sodium and water"
+      },
+      {
+        "letter": "B",
+        "text": "Decreased mean systemic filling pressure"
+      },
+      {
+        "letter": "C",
+        "text": "Increased norepinephrine in cardiac sympathetic nerves"
+      },
+      {
+        "letter": "D",
+        "text": "Orthopnea"
+      },
+      {
+        "letter": "E",
+        "text": "Weight loss"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "In persons with decompensated heart failure, the kidneys retain sodium and water, which causes a weight gain and an increase in blood volume. This effect increases the mean systemic filling pressure, which also stretches the heart. Therefore, a decreased mean systemic filling pressure does not occur in decompensated heart failure. The excess blood volume often will overstretch the sarcomeres of the heart, which will prevent them from achieving their maximal tension. An excess central fluid volume also results in orthopnea, which is the inability to breathe properly except in the upright position.",
+    "citation": "TMP13 pp. 273-275",
+    "level": "L3",
+    "levelRationale": "This question requires understanding clinical manifestations of heart failure.",
+    "topic": "heart failure"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__71",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 71,
+    "stem": "A 50-year-old woman received an overdose of furosemide, and her arterial pressure decreased to 70/40. Her heart rate is 120, and her respiratory rate is 30/min. What therapy would you recommend?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Whole blood infusion"
+      },
+      {
+        "letter": "B",
+        "text": "Plasma infusion"
+      },
+      {
+        "letter": "C",
+        "text": "Infusion of a balanced electrolyte solution"
+      },
+      {
+        "letter": "D",
+        "text": "Infusion of a sympathomimetic drug"
+      },
+      {
+        "letter": "E",
+        "text": "Administration of a glucocorticoid"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "With an overdose of furosemide there is a large loss of sodium and water from the body, resulting in dehydration and sometimes shock. The optimal therapy is to replenish the electrolytes that were lost as a result of the overdose of the furosemide. Therefore, infusion of a balanced electrolyte solution is the therapy of choice.",
+    "citation": "TMP13 pp. 301-302",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the physiological effects of furosemide overdose and the appropriate therapeutic response.",
+    "topic": "furosemide overdose"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__72",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 72,
+    "stem": "A 30-year-old woman comes to a local emergency department with severe vomiting. She has pale skin, tachycardia, an arterial pressure of 70/45, and trouble walking. What therapy do you recommend to prevent shock?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Infusion of packed red blood cells"
+      },
+      {
+        "letter": "B",
+        "text": "Administration of an antihistamine"
+      },
+      {
+        "letter": "C",
+        "text": "Infusion of a balanced electrolyte solution"
+      },
+      {
+        "letter": "D",
+        "text": "Infusion of a sympathomimetic drug"
+      },
+      {
+        "letter": "E",
+        "text": "Administration of a glucocorticoid"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "Severe vomiting can lead to a large loss of sodium and water from the body, resulting in dehydration and sometimes shock. The best therapy is to replenish the depleted sodium and water lost by vomiting. Therefore, infusion of a balanced electrolyte solution is the therapy of choice.",
+    "citation": "TMP13 pp. 301-302",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the physiological consequences of severe vomiting and the appropriate therapeutic response.",
+    "topic": "severe vomiting"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__81",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 81,
+    "stem": "Which statement about resistance to venous return (RVR) is true?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "An increase in venous resistance causes an increase in RVR"
+      },
+      {
+        "letter": "B",
+        "text": "Increased parasympathetic stimulation causes an increase in RVR"
+      },
+      {
+        "letter": "C",
+        "text": "An increase in RVR causes an increase in venous return"
+      },
+      {
+        "letter": "D",
+        "text": "Sympathetic inhibition causes an increase in RVR"
+      },
+      {
+        "letter": "E",
+        "text": "Changes in arterial resistance have a greater effect on RVR than do equal changes in venous resistance"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "An increase in venous resistance will increase resistance to venous return to a greater degree than an increase in arterial resistance. Venous return of the heart is equal to the mean systemic filling pressure minus the right atrial pressure divided by the resistance to venous return. Parasympathetic stimulation does not affect resistance to venous return, and sympathetic inhibition will reduce resistance to venous return.",
+    "citation": "TMP13 pp. 253-254",
+    "level": "L2",
+    "levelRationale": "It requires understanding the relationship between venous resistance and venous return.",
+    "topic": "venous return"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__82",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 82,
+    "stem": "In which condition would you expect a decreased resistance to venous return?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Anemia"
+      },
+      {
+        "letter": "B",
+        "text": "Increased venous resistance"
+      },
+      {
+        "letter": "C",
+        "text": "Increased arteriolar resistance"
+      },
+      {
+        "letter": "D",
+        "text": "Increased sympathetic output"
+      },
+      {
+        "letter": "E",
+        "text": "Obstruction of veins"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Anemia will decrease resistance to venous return because of arteriolar dilation. The following mechanisms increase resistance to venous return: increased venous resistance, increased arteriolar resistance, increased sympathetic output, and obstruction of veins.",
+    "citation": "TMP13 pp. 253-254",
+    "level": "L2",
+    "levelRationale": "It involves understanding how anemia affects venous return resistance.",
+    "topic": "venous return"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__83",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 83,
+    "stem": "What is normally associated with an increased cardiac output?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased venous compliance"
+      },
+      {
+        "letter": "B",
+        "text": "Cardiac tamponade"
+      },
+      {
+        "letter": "C",
+        "text": "Surgically opening the chest"
+      },
+      {
+        "letter": "D",
+        "text": "Moderate anemia"
+      },
+      {
+        "letter": "E",
+        "text": "Severe aortic stenosis"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Decreased cardiac output can result from a weakened heart or from a decrease in venous return. Increased venous compliance decreases the venous return of blood to the heart. Cardiac tamponade, surgically opening the chest, and severe aortic stenosis will effectively weaken the heart and thus decrease cardiac output. Moderate anemia will cause an arteriolar vasodilation, which increases venous return of blood back to the heart, thus increasing cardiac output.",
+    "citation": "TMP13 pp. 249, 255",
+    "level": "L2",
+    "levelRationale": "It requires linking the effects of anemia on cardiac output.",
+    "topic": "cardiac output"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__84",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 84,
+    "stem": "In which condition would you normally expect to find a decreased cardiac output?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Hyperthyroidism"
+      },
+      {
+        "letter": "B",
+        "text": "Beriberi"
+      },
+      {
+        "letter": "C",
+        "text": "A-V fistula"
+      },
+      {
+        "letter": "D",
+        "text": "Anemia"
+      },
+      {
+        "letter": "E",
+        "text": "Acute myocardial infarction"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "Cardiac output increases in several conditions because of increased venous return. Cardiac output increases in hyperthyroidism because of the increased oxygen use by the peripheral tissues, resulting in arteriolar vasodilation and thus increased venous return. Beriberi causes increased cardiac output because a lack of the vitamin thiamine results in peripheral vasodilation. A-V fistulae also cause a decreased resistance to venous return, thus increasing cardiac output. Anemia, because of the decreased oxygen delivery to the tissues, causes an increase in venous return to the heart and thus an increase in cardiac output. Cardiac output decreases in patients with myocardial infarction.",
+    "citation": "TMP13 pp. 248-249",
+    "level": "L2",
+    "levelRationale": "It requires understanding the conditions that affect cardiac output.",
+    "topic": "cardiac output"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__85",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 85,
+    "stem": "At the onset of exercise, what normally occurs?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Decreased cerebral blood flow"
+      },
+      {
+        "letter": "B",
+        "text": "Increased venous constriction"
+      },
+      {
+        "letter": "C",
+        "text": "Decreased coronary blood flow"
+      },
+      {
+        "letter": "D",
+        "text": "Decreased mean systemic filling pressure"
+      },
+      {
+        "letter": "E",
+        "text": "Increased parasympathetic impulses to the heart"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "During exercise there is very little change in cerebral blood flow, and coronary blood flow increases. Because of the increased sympathetic output, mean systemic filling pressure increases and the veins constrict. During exercise there is also a decrease in parasympathetic impulses to the heart.",
+    "citation": "TMP13 pp. 255, 260",
+    "level": "L2",
+    "levelRationale": "It involves understanding the physiological changes during exercise.",
+    "topic": "exercise physiology"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__89",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 89,
+    "stem": "Which vasoactive agent is usually the most important controller of coronary blood flow?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Adenosine"
+      },
+      {
+        "letter": "B",
+        "text": "Bradykinin"
+      },
+      {
+        "letter": "C",
+        "text": "Prostaglandins"
+      },
+      {
+        "letter": "D",
+        "text": "Carbon dioxide"
+      },
+      {
+        "letter": "E",
+        "text": "Potassium ions"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Although bradykinin, prostaglandins, carbon dioxide, and potassium ions serve as vasodilators for the coronary artery system, the major controller of coronary blood flow is adenosine. Adenosine is formed as adenosine triphosphate degrades to adenosine monophosphate. Small portions of the adenosine monophosphate are then further degraded to release adenosine into the tissue fluids of the heart muscle, and this adenosine vasodilates the coronary arteries.",
+    "citation": "TMP13 p. 263",
+    "level": "L1",
+    "levelRationale": "It asks for a specific fact about coronary blood flow regulation.",
+    "topic": "coronary blood flow"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__100",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 100,
+    "stem": "The major causes of death after myocardial infarction include a decrease in cardiac output that prevents tissues of the body from receiving adequate nutrition and oxygen delivery and prevents removal of waste materials. Other causes of death are pulmonary edema, which reduces the oxygenation of the blood, fibrillation of the heart, and rupture of the heart. Cardiac contractility decreases after a myocardial infarction.",
+    "options": [
+      {
+        "letter": "A",
+        "text": "decrease in cardiac output"
+      },
+      {
+        "letter": "B",
+        "text": "pulmonary edema"
+      },
+      {
+        "letter": "C",
+        "text": "fibrillation of the heart"
+      },
+      {
+        "letter": "D",
+        "text": "rupture of the heart"
+      },
+      {
+        "letter": "E",
+        "text": "decrease in cardiac contractility"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "The major causes of death after myocardial infarction include a decrease in cardiac output that prevents tissues of the body from receiving adequate nutrition and oxygen delivery and prevents removal of waste materials. Other causes of death are pulmonary edema, which reduces the oxygenation of the blood, fibrillation of the heart, and rupture of the heart. Cardiac contractility decreases after a myocardial infarction.",
+    "citation": "TMP13 p. 266",
+    "level": "L3",
+    "levelRationale": "This question requires understanding the clinical consequences of myocardial infarction.",
+    "topic": "myocardial infarction"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__111",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 111,
+    "stem": "What is normally associated with the chronic stages of compensated heart failure? Assume the patient is resting.",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Decreased mean systemic filling pressure"
+      },
+      {
+        "letter": "B",
+        "text": "Increased right atrial pressure"
+      },
+      {
+        "letter": "C",
+        "text": "Increased heart rate"
+      },
+      {
+        "letter": "D",
+        "text": "Sweating"
+      },
+      {
+        "letter": "E",
+        "text": "Dyspnea"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "During compensated heart failure, many factors combine to increase cardiac output so it returns to normal. The kidneys decrease their urinary output of sodium and water to increase the blood volume. This action, when combined with a depressed cardiac output curve, will increase right atrial pressure. Mean systemic filling pressure increases (not decreases), and the venous return of blood back toward the heart thus increases right atrial pressure. Heart rate is normal, and sweating and dyspnea are absent in the chronic stages of compensated failure.",
+    "citation": "TMP13 pp. 274-275",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the physiological changes in compensated heart failure.",
+    "topic": "compensated heart failure"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__112",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 112,
+    "stem": "Patients with pulmonary edema often have dyspnea because of accumulation of fluid in the lungs. Which of the following would normally be the most beneficial for a patient with acute pulmonary edema?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Infusing furosemide"
+      },
+      {
+        "letter": "B",
+        "text": "Infusing dobutamine"
+      },
+      {
+        "letter": "C",
+        "text": "Infusing saline solution"
+      },
+      {
+        "letter": "D",
+        "text": "Infusing norepinephrine"
+      },
+      {
+        "letter": "E",
+        "text": "Infusing whole blood"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "Reduction of fluid in the lungs can prevent rapid deterioration in patients with acute pulmonary edema. Furosemide causes venodilation, which reduces thoracic blood volume and acts as a powerful diuretic. These both reduce excess fluid in the lungs. Blood can actually be removed in moderate quantities from the patient to decrease the volume of blood in the chest. Patients should also breathe oxygen to increase the oxygen levels in the blood. However, they should never be given a volume expander, such as saline, plasma, whole blood, or dextran, because it could worsen the pulmonary edema. Norepinephrine would be of little help in treating pulmonary edema.",
+    "citation": "TMP13 pp. 277-278",
+    "level": "L2",
+    "levelRationale": "The question involves understanding treatment mechanisms for acute pulmonary edema.",
+    "topic": "pulmonary edema"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__113",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 113,
+    "stem": "Which of the following is associated with compensated heart failure?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased cardiac output"
+      },
+      {
+        "letter": "B",
+        "text": "Increased blood volume"
+      },
+      {
+        "letter": "C",
+        "text": "Decreased mean systemic filling pressure"
+      },
+      {
+        "letter": "D",
+        "text": "Normal right atrial pressure"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "In compensated heart failure, mean systemic filling pressure increases because of hypervolemia, and cardiac output is often at normal values. The patient has air hunger, called dyspnea, and excess sweating occurs in the early phases of compensated heart failure. However, right atrial pressure becomes elevated to very high values in these patients and is a hallmark of this disease.",
+    "citation": "TMP13 pp. 272-273",
+    "level": "L2",
+    "levelRationale": "The question requires linking concepts related to heart failure physiology.",
+    "topic": "compensated heart failure"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__114",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 114,
+    "stem": "Which condition is normally associated with an increase in mean systemic filling pressure?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Decreased blood volume"
+      },
+      {
+        "letter": "B",
+        "text": "Congestive heart failure"
+      },
+      {
+        "letter": "C",
+        "text": "Sympathetic inhibition"
+      },
+      {
+        "letter": "D",
+        "text": "Venous dilation"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Mean systemic pressure is increased by factors that increase blood volume or decrease vascular capacity. Sympathetic inhibition and venous dilation both decrease the mean systemic filling pressure. In congestive heart failure, the kidneys retain great quantities of sodium and water, resulting in an increase in blood volume, which causes large increases in mean systemic filling pressure.",
+    "citation": "TMP13 p. 272",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the relationship between heart failure and systemic filling pressure.",
+    "topic": "mean systemic filling pressure"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__120",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 120,
+    "stem": "A 40-year-old woman has been diagnosed with a heart murmur. A “blowing” murmur of relatively high pitch is heard maximally over the left ventricle. The chest radiograph shows an enlarged heart. Arterial pressure in the aorta is 140/40 mm Hg. What is the diagnosis?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Aortic valve stenosis"
+      },
+      {
+        "letter": "B",
+        "text": "Aortic valve regurgitation"
+      },
+      {
+        "letter": "C",
+        "text": "Pulmonary valve stenosis"
+      },
+      {
+        "letter": "D",
+        "text": "Mitral valve stenosis"
+      },
+      {
+        "letter": "E",
+        "text": "Tricuspid valve regurgitation"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "Blowing murmurs of relatively high pitch are usually murmurs associated with valvular insufficiency. The key pieces of data to identify this murmur are the systolic and diastolic pressures. Aortic valve regurgitation typically has a high pulse pressure, which is the systolic - the diastolic pressure, and in this case is 100 mm Hg. Also notice that the diastolic pressure decreases to very low values of 40 mm Hg as the blood leaks back into the left ventricle.",
+    "citation": "TMP13 pp. 285-286",
+    "level": "L3",
+    "levelRationale": "The question presents a clinical vignette requiring diagnosis based on patient symptoms and data.",
+    "topic": "aortic valve regurgitation"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__130",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 130,
+    "stem": "In tetralogy of Fallot, an interventricular septal defect and increased resistance in the pulmonary valve or pulmonary artery cause partial blood shunting toward the left side of the heart without going through the lungs. This situation results in a severely decreased arterial oxygen content. The interventricular septal defect causes equal systolic pressures in both cardiac ventricles, which causes right ventricular hypertrophy and a wall thickness very similar to that of the left ventricle.",
+    "options": [
+      {
+        "letter": "A",
+        "text": "300 ml/min"
+      },
+      {
+        "letter": "B",
+        "text": "1600 ml/min"
+      },
+      {
+        "letter": "C",
+        "text": "1000 ml/min"
+      },
+      {
+        "letter": "D",
+        "text": "16,000 ml/min"
+      },
+      {
+        "letter": "E",
+        "text": "25,600 ml/min"
+      }
+    ],
+    "correctLetter": "B",
+    "explanation": "In tetralogy of Fallot, an interventricular septal defect and increased resistance in the pulmonary valve or pulmonary artery cause partial blood shunting toward the left side of the heart without going through the lungs. This situation results in a severely decreased arterial oxygen content. The interventricular septal defect causes equal systolic pressures in both cardiac ventricles, which causes right ventricular hypertrophy and a wall thickness very similar to that of the left ventricle.",
+    "citation": "TMP13 pp. 289-290",
+    "level": "L3",
+    "levelRationale": "This question involves understanding a clinical condition and its physiological implications.",
+    "topic": "tetralogy of Fallot"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__131",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 131,
+    "stem": "Which heart murmur is only heard during diastole?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Patent ductus arteriosus"
+      },
+      {
+        "letter": "B",
+        "text": "Mitral regurgitation"
+      },
+      {
+        "letter": "C",
+        "text": "Tricuspid valve stenosis"
+      },
+      {
+        "letter": "D",
+        "text": "Interventricular septal defect"
+      },
+      {
+        "letter": "E",
+        "text": "Aortic stenosis"
+      }
+    ],
+    "correctLetter": "C",
+    "explanation": "Mitral regurgitation and aortic stenosis are murmurs heard during the systolic period. A ventricular septal defect murmur is normally heard only during the systolic phase. Tricuspid valve stenosis and patent ductus arteriosus murmurs are heard during diastole. However, a patent ductus arteriosus murmur is also heard during systole.",
+    "citation": "TMP13 pp. 285-286",
+    "level": "L1",
+    "levelRationale": "The question asks for a specific fact about heart murmurs.",
+    "topic": "heart murmurs"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__132",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 132,
+    "stem": "Which mechanism is associated with the third heart sound?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Inrushing of blood into the ventricles as a result of atrial contraction"
+      },
+      {
+        "letter": "B",
+        "text": "Closing of the A-V valves"
+      },
+      {
+        "letter": "C",
+        "text": "Closing of the pulmonary valve"
+      },
+      {
+        "letter": "D",
+        "text": "Opening of the A-V valves"
+      },
+      {
+        "letter": "E",
+        "text": "Inrushing of blood into the ventricles in the early to middle part of diastole"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "The third heart sound is associated with inrushing of blood into the ventricles in the early to middle part of diastole. The next heart sound, the fourth heart sound, is caused by inrushing of blood in the ventricles caused by atrial contraction. The first heart sound is caused by the closing of the A-V valves, and the second heart sound is caused by the closing of the pulmonary and aortic valves.",
+    "citation": "TMP13 pp. 283-284",
+    "level": "L1",
+    "levelRationale": "The question tests knowledge of a specific physiological mechanism.",
+    "topic": "heart sounds"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__133",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 133,
+    "stem": "Which condition often occurs in a person with progressive hemorrhagic shock?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Increased capillary permeability"
+      },
+      {
+        "letter": "B",
+        "text": "Stress relaxation of veins"
+      },
+      {
+        "letter": "C",
+        "text": "Tissue alkalosis"
+      },
+      {
+        "letter": "D",
+        "text": "Increased urine output"
+      },
+      {
+        "letter": "E",
+        "text": "Increased mean systemic filling pressure"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "A number of things occur in progressive shock, including increased capillary permeability, which allows fluid to leak out of the vasculature, thus decreasing the blood volume. Other deteriorating factors include vasomotor center failure, peripheral circulatory failure, decreased cellular mitochondrial activity, and acidosis throughout the body. Usually, urine output strikingly decreases; therefore, the increased urinary output answer is incorrect. Tissue pH decreases and reverse stress relaxation of the veins occurs.",
+    "citation": "TMP13 pp. 296-297",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the physiological changes in hemorrhagic shock.",
+    "topic": "hemorrhagic shock"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__135",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 135,
+    "stem": "The blood pressure of a 60-year-old man decreased to 55/35 mm Hg during induction of anesthesia. His ECG still shows a normal sinus rhythm. What initial therapy do you recommend?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Infusion of packed red blood cells"
+      },
+      {
+        "letter": "B",
+        "text": "Infusion of plasma"
+      },
+      {
+        "letter": "C",
+        "text": "Infusion of a balanced electrolyte solution"
+      },
+      {
+        "letter": "D",
+        "text": "Infusion of a sympathomimetic drug"
+      },
+      {
+        "letter": "E",
+        "text": "Administration of a glucocorticoid"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "Too deep a level of anesthesia can decrease sympathetic tone and reduce arterial pressure enough to induce shock. To replace the sympathetic tone that was lost, the optimal therapy is infusion of a sympathomimetic drug. Infusion of red blood cells, plasma, or electrolytes would be of little benefit.",
+    "citation": "TMP13 pp. 300-301",
+    "level": "L2",
+    "levelRationale": "The question involves applying knowledge of shock management in a clinical scenario.",
+    "topic": "anesthesia shock"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__136",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 136,
+    "stem": "A 65-year-old man enters a local emergency department a few minutes after receiving an influenza inoculation. He has pallor, tachycardia, arterial pressure of 80/50, and trouble walking. What therapy do you recommend to prevent shock?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Infusion of blood"
+      },
+      {
+        "letter": "B",
+        "text": "Administration of an antihistamine"
+      },
+      {
+        "letter": "C",
+        "text": "Infusion of a balanced electrolyte solution such as saline"
+      },
+      {
+        "letter": "D",
+        "text": "Infusion of a sympathomimetic drug"
+      },
+      {
+        "letter": "E",
+        "text": "Administration of tissue plasminogen activator"
+      }
+    ],
+    "correctLetter": "D",
+    "explanation": "The patient received an influenza inoculation and quickly went into shock, which leads one to believe that he may be in anaphylactic shock. Anaphylactic shock is a state of extreme vasodilation because of histamine release. Antihistamines would be somewhat helpful, but they are very slow acting, and the patient could die in the meantime. Therefore, a very rapid-acting agent must be used, such as a sympathomimetic drug.",
+    "citation": "TMP13 pp. 300-301",
+    "level": "L3",
+    "levelRationale": "The question presents a clinical scenario requiring differential diagnosis and treatment.",
+    "topic": "anaphylactic shock"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__138",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 138,
+    "stem": "If a patient undergoing spinal anesthesia experiences a large decrease in arterial pressure and goes into shock, what would be the therapy of choice?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Plasma infusion"
+      },
+      {
+        "letter": "B",
+        "text": "Blood infusion"
+      },
+      {
+        "letter": "C",
+        "text": "Saline solution infusion"
+      },
+      {
+        "letter": "D",
+        "text": "Glucocorticoid infusion"
+      },
+      {
+        "letter": "E",
+        "text": "Infusion of a sympathomimetic drug"
+      }
+    ],
+    "correctLetter": "E",
+    "explanation": "Spinal anesthesia, especially when the anesthesia extends all the way up the spinal cord, can block the sympathetic nervous outflow from the spinal cord. This can be a very potent cause of neurogenic shock. The therapy of choice is to replace the sympathetic tone that was lost in the body. The best way to increase the sympathetic tone is by infusing a sympathomimetic drug.",
+    "citation": "TMP13 p. 301",
+    "level": "L2",
+    "levelRationale": "The question requires understanding the management of neurogenic shock.",
+    "topic": "neurogenic shock"
+  },
+  {
+    "id": "physiology-cardio-bank__Unit_IV_The_Circulation__139",
+    "source": "physiology-cardio-bank",
+    "unit": "Unit IV The Circulation",
+    "number": 139,
+    "stem": "A 25-year-old man who has been in a motorcycle wreck enters the emergency department. His clothes are very bloody, and his arterial pressure is decreased to 70/40. His heart rate is 120, and his respiratory rate is 30/min. Which therapy would the physician recommend?",
+    "options": [
+      {
+        "letter": "A",
+        "text": "Infusion of blood"
+      },
+      {
+        "letter": "B",
+        "text": "Infusion of plasma"
+      },
+      {
+        "letter": "C",
+        "text": "Infusion of a balanced electrolyte solution"
+      },
+      {
+        "letter": "D",
+        "text": "Infusion of a sympathomimetic drug"
+      },
+      {
+        "letter": "E",
+        "text": "Administration of a glucocorticoid"
+      }
+    ],
+    "correctLetter": "A",
+    "explanation": "This patient has obviously lost a lot of blood because of the motorcycle wreck. The most advantageous therapy is to replace what was lost in the accident. This would be whole blood, which is much superior to a plasma infusion, because the patient is also receiving red blood cells that have a much superior oxygen-carrying capacity than the plasma component of blood.",
+    "citation": "TMP13 p. 301",
+    "level": "L3",
+    "levelRationale": "The question presents a clinical scenario requiring urgent treatment decision-making.",
+    "topic": "trauma management"
+  }
+]

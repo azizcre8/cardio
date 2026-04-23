@@ -7,6 +7,20 @@ Cardio is a Next.js app for medical study workflows:
 - authenticated product at `/app`
 - PDF-to-question-bank generation with Supabase, OpenAI, and optional Stripe billing
 
+## Canonical app root
+
+This directory is the only active app:
+
+- local development: `/Users/sajedaziz/Documents/Claude/pdf/cardio`
+- production deployment root: `cardio`
+- repo-root HTML files are legacy references only and should not be deployed
+
+If you are using Codex or Claude, start with:
+
+```text
+Work only in /Users/sajedaziz/Documents/Claude/pdf/cardio
+```
+
 ## Local development
 
 1. Copy `.env.example` to `.env.local`.
@@ -90,6 +104,12 @@ Suggested Vercel setup:
 2. Add all production environment variables.
 3. Deploy.
 
+Suggested Netlify setup:
+
+1. Keep the repo-root `netlify.toml` only as a wrapper that points to `cardio`.
+2. Confirm the build base is `cardio`, not the repo root.
+3. Verify the published site is the Next.js app, not a legacy HTML file.
+
 After deploy, verify:
 
 - `/` loads the public site
@@ -101,10 +121,11 @@ After deploy, verify:
 ## Build verification
 
 ```bash
+npm run test:run
 npm run build
 ```
 
-Use the production build as the final pre-deploy check.
+Use `npm run test:run` and `npm run build` as the final pre-deploy checks.
 
 ## Auditing saved answer keys
 
