@@ -152,9 +152,13 @@ You want me to keep working when you're asleep / when this window closes. Plan:
 - Changed: `lib/pipeline/audit.ts`. Commit 9fa959c.
 - Result: all stored questions from PASS or REVISE paths now carry verified `evidence_match_type`.
 
+### 2026-04-22 23:15 UTC (Opus, manual — Phase 1 task 4)
+- Did: traced the L1 template root cause. Inventory's default was already flipped to `entity_recall` in `4b2df97`, but two downstream sites still hard-coded `?? 'definition_recall'` when reading concepts: `lib/pipeline/generation.ts` `buildSlotFromContext` and `app/api/process/route.ts` `conceptSpecs` assembly. Either fallback re-routed any concept missing `coverageDomain` back into the physiology bucket and re-triggered `shouldRewriteAsNamedConceptDefinition`. Both now default to `entity_recall`.
+- Changed: `lib/pipeline/generation.ts`, `app/api/process/route.ts`. Commit e606a73.
+- Result: 54/55 tests pass (same single pre-existing `alignSourceQuoteToEvidence` failure).
+
 ### Remaining for next cron / next session
-- Phase 1 task 4: verify L1 template default in `generation.ts` actually flipped to `entity_recall` for non-physio per commit `4b2df97`. The pathology audit still showed many L1 stems using "In the source passage, which named concept is described by..." — confirm if fix applies to all domains or only specific category.
-- Phase 1 task 5: re-run `scripts/eval-against-reference.ts` and the audit on `pathology-ch11a.pdf`, append delta numbers to `reports/pre-launch-eval-2026-04-21.md`. This validates that tasks 1–3 actually moved the metrics.
+- Phase 1 task 5: re-run `scripts/eval-against-reference.ts` and the audit on `pathology-ch11a.pdf`, append delta numbers to `reports/pre-launch-eval-2026-04-21.md`. This validates that tasks 1–4 actually moved the metrics.
 - Pre-existing test fix: `tests/generation.test.ts > alignSourceQuoteToEvidence` — the new data-driven distractors are returning descriptive phrases instead of concept names. Either fix the function or update the test snapshot.
 - Same-concept-different-id dedup: inventory phase isn't merging duplicate concept names (Pair 5 Uremia). Add a name-normalization pass or post-inventory dedup by canonical concept name.
 - TypeScript strict-null cleanup in `lib/pipeline/distractors.ts` (~10 errors from the Levenshtein matrix init).
