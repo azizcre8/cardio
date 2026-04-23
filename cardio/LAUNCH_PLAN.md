@@ -130,3 +130,31 @@ You want me to keep working when you're asleep / when this window closes. Plan:
 - Changed: added `cardio/reports/pre-launch-eval-2026-04-21.md`.
 - Findings: physiology good (Distractor 3.89/5, Evidence 4.45/5). Pathology bad — 65% weak items, 5 repetitive pairs (highest 0.82). Root causes ranked: long evidence quotes, generic L2 vignettes, L1 template still firing on pathology, missing `evidence_match_type`, off-chapter drift, dedup threshold too loose.
 - Next (for cron, in order): (1) hard-reject long evidence quotes in `lib/pipeline/question-validation.ts`; (2) lower L1 entity-recall dedup threshold in `lib/pipeline/dedup.ts`; (3) fail-fast on null `evidence_match_type`; (4) verify L1 template default in `lib/pipeline/generation.ts` is `entity_recall` for non-physio; (5) re-run audit script on `pathology-ch11a.pdf` and append numbers to the baseline report. DO NOT edit LLM prompt bodies or inventory off-chapter filter without user sign-off.
+
+### 2026-04-22 23:00 UTC (Opus, manual — overnight cron made zero commits, debugged below)
+- Did: discovered cron silence root cause was that origin/main was missing 17 modified + 14 untracked files of in-flight work (data-driven distractors, reference-bank exemplars, fact-check refactor, UI iteration, eval scripts/reports). Cron was checking out a stale tree.
+- Changed: synced everything to main in commit c0d3bb6 (all pipeline + UI + supporting files), reverted a destructive WIP edit to `question-validation.ts` that would have broken 6 existing tests. Held back `vercel.json`, `netlify.toml`, `cardio/vercel.json` — those are deploy-config (forbidden zone in plan).
+- Triggered manual cron run at 23:00 UTC to re-test against the synced main.
+- Note: pre-existing test failure in `tests/generation.test.ts > alignSourceQuoteToEvidence` (1/53 fail on HEAD `4b2df97`, not introduced by snapshot). Distractor function is now returning long descriptive phrases instead of concept names — separate fix needed.
+
+### 2026-04-22 23:05 UTC (Opus, manual — Phase 1 task 1)
+- Did: hard-reject source quotes longer than 35 words. Added test for the new gate.
+- Changed: `lib/pipeline/question-validation.ts`, `tests/question-validation.test.ts`. Commit 5e76125.
+- Result: 17/17 validator tests pass. Full suite 54/55 (only pre-existing alignSourceQuote fail).
+
+### 2026-04-22 23:07 UTC (Opus, manual — Phase 1 task 2)
+- Did: lowered L1 entity-recall dedup threshold from 0.92 → 0.78. L2/L3 keep 0.92 to avoid culling legitimate vignette variants.
+- Changed: `lib/pipeline/dedup.ts`. Commit 1f02d96.
+- Note: catches Pair 1 (0.82) + Pair 2 (0.79) from `reports/20a-audit.md`. Does NOT catch Pair 5 (Uremia, 0.61) — that's a same-concept-different-id duplicate, an inventory-phase gap. Tracked for later.
+
+### 2026-04-22 23:10 UTC (Opus, manual — Phase 1 task 3)
+- Did: fixed the actual bug behind the 9 null `evidence_match_type` audit findings. The audit-revision flow was setting chunk_id/start/end via `withEvidenceProvenance` but never the match type, even though `verifyEvidenceSpan` had just run inside `extractEvidenceMatchedText`. Refactored `extractEvidenceMatch` to return both `matchedText` and `matchType`; `withEvidenceProvenance` now propagates `matchType`.
+- Changed: `lib/pipeline/audit.ts`. Commit 9fa959c.
+- Result: all stored questions from PASS or REVISE paths now carry verified `evidence_match_type`.
+
+### Remaining for next cron / next session
+- Phase 1 task 4: verify L1 template default in `generation.ts` actually flipped to `entity_recall` for non-physio per commit `4b2df97`. The pathology audit still showed many L1 stems using "In the source passage, which named concept is described by..." — confirm if fix applies to all domains or only specific category.
+- Phase 1 task 5: re-run `scripts/eval-against-reference.ts` and the audit on `pathology-ch11a.pdf`, append delta numbers to `reports/pre-launch-eval-2026-04-21.md`. This validates that tasks 1–3 actually moved the metrics.
+- Pre-existing test fix: `tests/generation.test.ts > alignSourceQuoteToEvidence` — the new data-driven distractors are returning descriptive phrases instead of concept names. Either fix the function or update the test snapshot.
+- Same-concept-different-id dedup: inventory phase isn't merging duplicate concept names (Pair 5 Uremia). Add a name-normalization pass or post-inventory dedup by canonical concept name.
+- TypeScript strict-null cleanup in `lib/pipeline/distractors.ts` (~10 errors from the Levenshtein matrix init).
