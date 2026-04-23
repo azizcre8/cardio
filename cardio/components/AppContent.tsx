@@ -69,6 +69,7 @@ export default function AppContent({
           onStartQuiz={onStartQuiz}
           onOpenConceptMap={onOpenConceptMap}
           onSetView={() => onSetView('add')}
+          onPdfsChange={onPdfsChange}
         />
       )}
 

@@ -11,9 +11,10 @@ interface Props {
   onStartQuiz: (pdfId: string) => void;
   onOpenConceptMap: (pdfId: string) => void;
   onSetView: (view: 'add') => void;
+  onPdfsChange: (pdfs: PDF[]) => void;
 }
 
-export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, onSetView }: Props) {
+export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, onSetView, onPdfsChange }: Props) {
   const { roots } = useMemo(() => buildDeckTree(decks, pdfs), [decks, pdfs]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(roots.map(r => r.id)));
   const [srsByPdf, setSrsByPdf] = useState<Record<string, PdfSrsSummary>>({});
@@ -94,12 +95,14 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
                 key={node.id}
                 node={node}
                 pdfs={pdfs}
+                decks={decks}
                 expanded={expanded}
                 srsByPdf={srsByPdf}
                 sumSrs={sumSrs}
                 onToggle={toggle}
                 onStartQuiz={onStartQuiz}
                 onOpenConceptMap={onOpenConceptMap}
+                onPdfsChange={onPdfsChange}
                 level={0}
               />
             ))}
@@ -108,9 +111,11 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
               <div style={{ marginTop: 8 }}>
                 <UncategorizedCard
                   pdfs={uncategorized}
+                  decks={decks}
                   srsByPdf={srsByPdf}
                   onStartQuiz={onStartQuiz}
                   onOpenConceptMap={onOpenConceptMap}
+                  onPdfsChange={onPdfsChange}
                 />
               </div>
             )}
@@ -122,16 +127,18 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
 }
 
 function DeckCard({
-  node, pdfs, expanded, srsByPdf, sumSrs, onToggle, onStartQuiz, onOpenConceptMap, level,
+  node, pdfs, decks, expanded, srsByPdf, sumSrs, onToggle, onStartQuiz, onOpenConceptMap, onPdfsChange, level,
 }: {
   node: DeckNode;
   pdfs: PDF[];
+  decks: Deck[];
   expanded: Set<string>;
   srsByPdf: Record<string, PdfSrsSummary>;
   sumSrs: (ids: string[]) => PdfSrsSummary;
   onToggle: (id: string) => void;
   onStartQuiz: (pdfId: string) => void;
   onOpenConceptMap: (pdfId: string) => void;
+  onPdfsChange: (pdfs: PDF[]) => void;
   level: number;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -226,12 +233,14 @@ function DeckCard({
               key={child.id}
               node={child}
               pdfs={pdfs}
+              decks={decks}
               expanded={expanded}
               srsByPdf={srsByPdf}
               sumSrs={sumSrs}
               onToggle={onToggle}
               onStartQuiz={onStartQuiz}
               onOpenConceptMap={onOpenConceptMap}
+              onPdfsChange={onPdfsChange}
               level={level + 1}
             />
           ))}
@@ -239,10 +248,13 @@ function DeckCard({
             <PdfRow
               key={pdf.id}
               pdf={pdf}
+              decks={decks}
+              allPdfs={pdfs}
               srs={srsByPdf[pdf.id]}
               level={level + 1}
               onStudy={() => onStartQuiz(pdf.id)}
               onOpen={() => onOpenConceptMap(pdf.id)}
+              onPdfsChange={onPdfsChange}
             />
           ))}
         </>
@@ -252,12 +264,14 @@ function DeckCard({
 }
 
 function UncategorizedCard({
-  pdfs, srsByPdf, onStartQuiz, onOpenConceptMap,
+  pdfs, decks, srsByPdf, onStartQuiz, onOpenConceptMap, onPdfsChange,
 }: {
   pdfs: PDF[];
+  decks: Deck[];
   srsByPdf: Record<string, PdfSrsSummary>;
   onStartQuiz: (pdfId: string) => void;
   onOpenConceptMap: (pdfId: string) => void;
+  onPdfsChange: (pdfs: PDF[]) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -311,10 +325,13 @@ function UncategorizedCard({
         <PdfRow
           key={pdf.id}
           pdf={pdf}
+          decks={decks}
+          allPdfs={pdfs}
           srs={srsByPdf[pdf.id]}
           level={1}
           onStudy={() => onStartQuiz(pdf.id)}
           onOpen={() => onOpenConceptMap(pdf.id)}
+          onPdfsChange={onPdfsChange}
         />
       ))}
     </div>
@@ -322,61 +339,161 @@ function UncategorizedCard({
 }
 
 function PdfRow({
-  pdf, srs, level, onStudy, onOpen,
+  pdf, decks, allPdfs, srs, level, onStudy, onOpen, onPdfsChange,
 }: {
   pdf: PDF;
+  decks: Deck[];
+  allPdfs: PDF[];
   srs?: PdfSrsSummary;
   level: number;
   onStudy: () => void;
   onOpen: () => void;
+  onPdfsChange: (pdfs: PDF[]) => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [moving, setMoving] = useState(false);
   const hasQuestions = (pdf.question_count ?? 0) > 0;
   const hasSrs = srs && (srs.due > 0 || srs.learning > 0 || srs.new > 0);
+
+  async function moveTo(deckId: string | null) {
+    setPickerOpen(false);
+    setMoving(true);
+    try {
+      const res = await fetch(`/api/pdfs/${pdf.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId }),
+      });
+      if (res.ok) {
+        onPdfsChange(allPdfs.map(p => p.id === pdf.id ? { ...p, deck_id: deckId } : p));
+      }
+    } finally {
+      setMoving(false);
+    }
+  }
 
   return (
     <div
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={onOpen}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: `10px ${16 + level * 20}px`,
-        borderRadius: 6, cursor: 'pointer',
-        background: hovered ? 'var(--bg-sunken)' : 'transparent',
-        transition: 'background 0.15s',
-      }}
+      onMouseLeave={() => { setHovered(false); setPickerOpen(false); }}
+      style={{ position: 'relative' }}
     >
-      <div style={{ width: 20, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 13, opacity: 0.4 }}>📄</span>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)',
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
-          {pdf.display_name ?? pdf.name}
+      <div
+        onClick={onOpen}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          padding: `10px ${16 + level * 20}px`,
+          borderRadius: 6, cursor: 'pointer',
+          background: hovered ? 'var(--bg-sunken)' : 'transparent',
+          transition: 'background 0.15s',
+          opacity: moving ? 0.5 : 1,
+        }}
+      >
+        <div style={{ width: 20, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 13, opacity: 0.4 }}>📄</span>
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-          {hasSrs ? (
-            <>
-              {srs!.due > 0 && <StatBadge value={srs!.due} label="due" color="var(--amber)" />}
-              {srs!.learning > 0 && <StatBadge value={srs!.learning} label="learning" color="var(--green)" />}
-              {srs!.new > 0 && <StatBadge value={srs!.new} label="new" color="var(--accent)" />}
-            </>
-          ) : hasQuestions ? (
-            <span style={{ fontSize: 10, color: 'var(--text-disabled)', fontFamily: 'var(--font-mono)' }}>
-              {pdf.question_count}q · all done
-            </span>
-          ) : pdf.processed_at === null ? (
-            <span style={{ fontSize: 10, color: 'var(--amber)' }}>processing…</span>
-          ) : null}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {pdf.display_name ?? pdf.name}
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+            {hasSrs ? (
+              <>
+                {srs!.due > 0 && <StatBadge value={srs!.due} label="due" color="var(--amber)" />}
+                {srs!.learning > 0 && <StatBadge value={srs!.learning} label="learning" color="var(--green)" />}
+                {srs!.new > 0 && <StatBadge value={srs!.new} label="new" color="var(--accent)" />}
+              </>
+            ) : hasQuestions ? (
+              <span style={{ fontSize: 10, color: 'var(--text-disabled)', fontFamily: 'var(--font-mono)' }}>
+                {pdf.question_count}q · all done
+              </span>
+            ) : pdf.processed_at === null ? (
+              <span style={{ fontSize: 10, color: 'var(--amber)' }}>processing…</span>
+            ) : null}
+          </div>
         </div>
+
+        {hovered && (
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            {/* Move button */}
+            <button
+              onClick={e => { e.stopPropagation(); setPickerOpen(o => !o); }}
+              title="Move to bank"
+              style={{
+                padding: '4px 8px', fontSize: 11, fontWeight: 500,
+                background: pickerOpen ? 'var(--accent-dim)' : 'var(--bg-sunken)',
+                border: '1px solid var(--border)', borderRadius: 5,
+                color: pickerOpen ? 'var(--accent)' : 'var(--text-dim)',
+                cursor: 'pointer', transition: 'all 0.15s',
+              }}
+            >
+              Move
+            </button>
+            {hasQuestions && (
+              <StudyBtn onClick={e => { e.stopPropagation(); onStudy(); }} small />
+            )}
+          </div>
+        )}
       </div>
-      {hasQuestions && hovered && (
-        <StudyBtn onClick={e => { e.stopPropagation(); onStudy(); }} small />
+
+      {/* Deck picker popover */}
+      {pickerOpen && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 16,
+            zIndex: 50,
+            background: 'var(--bg-raised)',
+            border: '1px solid var(--border-med)',
+            borderRadius: 'var(--r2)',
+            boxShadow: 'var(--shadow-2)',
+            minWidth: 200,
+            overflow: 'hidden',
+          }}
+        >
+          <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)', borderBottom: '1px solid var(--border)' }}>
+            Move to bank
+          </div>
+          {pdf.deck_id && (
+            <PickerOption label="No bank (uncategorized)" onSelect={() => void moveTo(null)} />
+          )}
+          {decks.map(d => (
+            d.id !== pdf.deck_id && (
+              <PickerOption key={d.id} label={d.name} indent={d.depth ?? 0} onSelect={() => void moveTo(d.id)} />
+            )
+          ))}
+          {decks.length === 0 && (
+            <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-dim)' }}>No banks yet</div>
+          )}
+        </div>
       )}
     </div>
+  );
+}
+
+function PickerOption({ label, indent = 0, onSelect }: { label: string; indent?: number; onSelect: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onSelect}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left',
+        padding: `8px ${12 + indent * 14}px`,
+        fontSize: 13, color: 'var(--text-secondary)',
+        background: hovered ? 'var(--bg-sunken)' : 'transparent',
+        border: 'none', cursor: 'pointer', transition: 'background 0.1s',
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

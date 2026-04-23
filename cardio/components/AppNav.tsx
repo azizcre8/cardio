@@ -65,7 +65,7 @@ export default function AppNav({
             lineHeight: 1,
             marginBottom: 4,
           }}>
-            Carido
+            Cardio
           </div>
           <div style={{
             fontFamily: 'var(--font-mono)',
