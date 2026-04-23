@@ -112,7 +112,17 @@ export async function dedupQuestions(
 
     const exactFingerprint = fingerprints[pair.left] === fingerprints[pair.right];
     const similarity = cosineSimilarity(vectors[pair.left] ?? [], vectors[pair.right] ?? []);
-    if (!exactFingerprint && similarity < 0.92) continue;
+
+    // L1 entity-recall stems use a fixed template ("In the source passage,
+    // which named concept is described by...") so two L1 stems for adjacent
+    // concepts hit very high lexical overlap legitimately. Audit found L1
+    // pairs at 0.82 and 0.79 cosine that were clearly redundant — the 0.92
+    // ceiling let them through. Lower the threshold for L1-vs-L1 pairs to
+    // 0.78, which the pathology audit shows is the right cut.
+    // See reports/20a-audit.md "Highest-similarity repetitive pairs" for evidence.
+    const bothL1 = questions[pair.left]!.level === 1 && questions[pair.right]!.level === 1;
+    const threshold = bothL1 ? 0.78 : 0.92;
+    if (!exactFingerprint && similarity < threshold) continue;
 
     const winner = compareQuestions(questions[pair.left]!, questions[pair.right]!, conceptImportance) <= 0
       ? pair.left
