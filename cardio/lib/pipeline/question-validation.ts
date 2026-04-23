@@ -97,6 +97,19 @@ export function validateSourceQuoteShape(sourceQuote: string): string | null {
     return 'Source quote appears to be a table of contents or index page — use a verbatim sentence from the body text.';
   }
 
+  // Guard against embedded MCQ text (e.g. "A Endothelial cell disruption B Intimal
+  // thickening C Lymphocytic infiltrates..."). Textbooks that include practice questions
+  // can leak Q&A option-list text into the evidence corpus; it is never a valid quote.
+  const mcqOptionPattern = /\b[A-E]\s+[A-Z][a-z].{3,}\s+[B-E]\s+[A-Z]/;
+  if (mcqOptionPattern.test(trimmed)) {
+    return 'Source quote appears to be a multiple-choice option list, not prose. Pick a single explanatory sentence from the body text.';
+  }
+
+  // Guard against question stems being used as quotes.
+  if (/\bWhich of the following\b.*\?$/.test(trimmed) || /\bWhat is the most likely\b.*\?$/.test(trimmed)) {
+    return 'Source quote must be explanatory prose from the source, not a test question stem.';
+  }
+
   return null;
 }
 

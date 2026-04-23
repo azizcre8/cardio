@@ -250,11 +250,24 @@ function evidenceTokenOverlap(a: string, b: string): number {
   return overlap / Math.max(1, Math.min(aTokens.size, bTokens.size));
 }
 
+// Pattern matching text that looks like an embedded multiple-choice question
+// (e.g. "A Endothelial cell disruption B Intimal thickening C Lymphocytic...").
+// These appear in textbooks that include practice questions and should never
+// be used as source quotes since they are not explanatory prose.
+const EMBEDDED_MCQ_PATTERN = /^\s*[A-E]\s+\w.{5,}\s+[B-E]\s+\w/;
+
+function isEmbeddedMCQText(text: string): boolean {
+  return EMBEDDED_MCQ_PATTERN.test(text) ||
+    // Also catch question stems that read like test items
+    /\bWhich of the following\b.*\?$/.test(text.trim()) ||
+    /\bWhat is the most likely\b.*\?$/.test(text.trim());
+}
+
 function extractEvidenceSentences(evidenceCorpus: string): string[] {
   return evidenceCorpus
     .split(/(?<=[.!?])\s+|\n+/)
     .map(part => part.trim())
-    .filter(part => part.length >= 30);
+    .filter(part => part.length >= 30 && !isEmbeddedMCQText(part));
 }
 
 export function inferEvidenceProvenance(
@@ -1000,7 +1013,8 @@ const OPTION_SUFFIX_NOISE = new Set([
   'particles', 'cells', 'cell', 'disease', 'diseases', 'syndrome', 'syndromes',
   'disorder', 'disorders', 'condition', 'conditions', 'type', 'types',
   'formation', 'occurrence', 'incident', 'event', 'process', 'mechanism',
-  'therapy', 'treatment',
+  'therapy', 'treatment', 'development', 'activation', 'dysfunction',
+  'injury', 'damage', 'response', 'reaction', 'changes', 'change',
 ]);
 
 function optionsAreTooSimilar(a: string, b: string): boolean {
