@@ -273,24 +273,32 @@ function buildChunkMapByConcept(
 function withEvidenceProvenance(
   question: Omit<Question, 'id' | 'created_at'>,
   conceptChunks: ChunkRecord[],
-  evidenceMatchedText?: string,
+  evidenceMatch?: { matchedText?: string; matchType?: Question['evidence_match_type'] },
 ): Omit<Question, 'id' | 'created_at'> {
-  const provenance = inferEvidenceProvenance(question.source_quote, conceptChunks, evidenceMatchedText);
+  const provenance = inferEvidenceProvenance(question.source_quote, conceptChunks, evidenceMatch?.matchedText);
   return {
     ...question,
     chunk_id: provenance.chunkId,
     evidence_start: provenance.evidenceStart,
     evidence_end: provenance.evidenceEnd,
+    // Always carry the freshly-verified match type forward when available.
+    // Without this, audit-revision questions stored evidence_match_type as
+    // null (see reports/20a-audit.md "missing evidence match type"), even
+    // after verifyEvidenceSpan succeeded inside extractEvidenceMatch below.
+    evidence_match_type: evidenceMatch?.matchType ?? question.evidence_match_type,
   };
 }
 
-function extractEvidenceMatchedText(
+function extractEvidenceMatch(
   conceptName: string | null,
   question: Omit<Question, 'id' | 'created_at'>,
   evidenceCorpus: string,
-): string | undefined {
+): { matchedText?: string; matchType: Question['evidence_match_type'] } {
   const validation = buildDeterministicQuestionValidation(question, conceptName, evidenceCorpus);
-  return validation.evidenceResult.evidenceMatchedText;
+  return {
+    matchedText: validation.evidenceResult.evidenceMatchedText,
+    matchType: validation.evidenceResult.evidenceMatchType,
+  };
 }
 
 function runInlineAnswerKeyChecks(
@@ -465,12 +473,12 @@ export async function auditQuestions(
       }
 
       if (v.status === 'PASS') {
-        const evidenceMatchedText = extractEvidenceMatchedText(
+        const evidenceMatch = extractEvidenceMatch(
           concept?.name ?? null,
           q,
           ragPassages[q.concept_id] ?? '',
         );
-        passed.push(withEvidenceProvenance(q, chunkMapByConcept[q.concept_id] ?? [], evidenceMatchedText));
+        passed.push(withEvidenceProvenance(q, chunkMapByConcept[q.concept_id] ?? [], evidenceMatch));
         continue;
       }
 
@@ -524,9 +532,9 @@ export async function auditQuestions(
         const normed = normaliseQuestion(revised, revisionConcept, q.level, pdfId, userId);
         if (normed) {
           const evidenceCorpus = ragPassages[revisionConcept.id] ?? '';
-          const evidenceMatchedText = extractEvidenceMatchedText(revisionConcept.name, normed, evidenceCorpus);
+          const evidenceMatch = extractEvidenceMatch(revisionConcept.name, normed, evidenceCorpus);
           nextRound.push({
-            q: withEvidenceProvenance(normed, chunkMapByConcept[revisionConcept.id] ?? [], evidenceMatchedText),
+            q: withEvidenceProvenance(normed, chunkMapByConcept[revisionConcept.id] ?? [], evidenceMatch),
             iteration: iteration + 1,
           });
         } else {
