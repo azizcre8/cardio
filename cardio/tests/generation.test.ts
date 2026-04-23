@@ -83,6 +83,49 @@ describe('alignSourceQuoteToEvidence', () => {
     expect(repaired.decidingClue).toBe('microangiopathic hemolytic anemia');
   });
 
+  it('repairs answer index when explanation names a different option as correct (writer off-by-one)', () => {
+    // Mirrors the CAD L2 smoke-run failure: answer=0 (Lymphocytic infiltrates)
+    // but explanation opens with "Intimal thickening is responsible..."
+    const repaired = repairDraftForValidation(
+      {
+        options: [
+          'Lymphocytic infiltrates',
+          'Intimal thickening',
+          'Endothelial cell disruption',
+          'Platelet aggregation',
+        ],
+        correctAnswer: 0,
+        explanation: 'Intimal thickening is responsible for his symptoms as it leads to restenosis. Platelet aggregation is tempting because it is involved in acute events but not the initial change.',
+        sourceQuote: 'Following angioplasty, there is often intimal thickening that causes restenosis.',
+      },
+      '',
+    );
+
+    expect(repaired.correctAnswer).toBe(1); // Intimal thickening
+  });
+
+  it('repairs answer index when current option is never mentioned in explanation', () => {
+    // Mirrors the Atherosclerosis L1 failure: answer=1 (Endothelial Cell Dysfunction Risk)
+    // but explanation says "Atherosclerosis Development Risk is correct"
+    const repaired = repairDraftForValidation(
+      {
+        options: [
+          'Clopidogrel Therapy Requirement',
+          'Endothelial Cell Dysfunction Risk',
+          'Diabetes Mellitus Development',
+          'Atherosclerosis Development Risk',
+          'Coronary Artery Disease Likelihood',
+        ],
+        correctAnswer: 1,
+        explanation: 'Atherosclerosis Development Risk is correct because lipid accumulation in arteries leads to atherosclerosis. Clopidogrel Therapy Requirement is incorrect because it is a treatment, not a condition caused by lipid accumulation.',
+        sourceQuote: 'Hyperlipidemia contributes to lipid accumulation in arterial walls.',
+      },
+      '',
+    );
+
+    expect(repaired.correctAnswer).toBe(3); // Atherosclerosis Development Risk
+  });
+
   it('rewrites definition-style drafts with length-parity distractors before long parenthetical options', () => {
     const rewritten = rewriteDefinitionStyleDraft(
       {

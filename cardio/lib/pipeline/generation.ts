@@ -24,6 +24,7 @@ import { embedTexts } from './embeddings';
 import { retrieveTopChunks } from './retrieval';
 import { calculateOpenAIUsageCostUSD, type OpenAICostTracker } from '@/lib/openai-cost';
 import { getExpectedOptionCount, runOptionSetAudit, validateQuestionDraft, validateSourceQuoteShape } from './question-validation';
+import { buildOptionAliases, explanationMentionsAlias } from './answer-key-check';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -374,6 +375,72 @@ function alignDecidingClueToSourceQuote(repaired: Record<string, unknown>): void
   repaired.deciding_clue = verbatim;
 }
 
+/**
+ * Infer the correct answer index from the explanation text when the writer's
+ * `correctAnswer` index is wrong.
+ *
+ * The writer frequently off-by-ones the index or copy-pastes the wrong number.
+ * The explanation text is almost always right — it names the answer in the
+ * opening sentence. Strategy:
+ *   1. Find which option starts / leads the explanation with a positive cue.
+ *   2. If that option differs from the current answer AND the current answer
+ *      option is not mentioned in the explanation → use the leader.
+ *   3. Fallback: if the current answer option is never mentioned in the
+ *      explanation but exactly one other option is → use that one.
+ *
+ * Returns the corrected index, or -1 if ambiguous / no fix needed.
+ */
+function inferCorrectAnswerFromExplanation(
+  options: string[],
+  currentAnswer: number,
+  explanation: string,
+): number {
+  if (!explanation || !options.length) return -1;
+
+  const normalizedExplanation = explanation.toLowerCase();
+  const firstSentence = explanation.split(/(?<=[.!?])\s+/)[0] ?? explanation;
+  const normalizedFirst = firstSentence.toLowerCase();
+
+  const positiveCue = /\b(is correct|correct because|best answer|primarily responsible|primarily explains|directly affects|defined as|refers to)\b/i;
+  const negativeCue = /\b(tempting|fails because|incorrect|wrong|whereas|however|unlike|in contrast|not because)\b/i;
+
+  // Score each option: does it appear early in the explanation with a positive signal?
+  const matches = options.map((option, idx) => {
+    const aliases = buildOptionAliases(option);
+    const mentionedEarly = aliases.some(a => explanationMentionsAlias(normalizedFirst, a));
+    const mentionedAnywhere = aliases.some(a => explanationMentionsAlias(normalizedExplanation, a));
+    const startsExplanation = aliases.some(alias => {
+      const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      return new RegExp(`^${escaped}\\b`, 'i').test(normalizedFirst);
+    });
+    return { idx, mentionedEarly, mentionedAnywhere, startsExplanation };
+  });
+
+  const currentMatch = matches[currentAnswer];
+  const currentMentioned = currentMatch?.mentionedAnywhere ?? false;
+
+  // Find which option leads the explanation with a positive cue and no negative cue
+  const leader = matches.find(m =>
+    m.idx !== currentAnswer &&
+    (m.startsExplanation || (m.mentionedEarly && positiveCue.test(firstSentence))) &&
+    !negativeCue.test(firstSentence),
+  );
+
+  if (leader && !currentMentioned) {
+    return leader.idx;
+  }
+
+  // Fallback: current answer not mentioned at all, exactly one other option is
+  if (!currentMentioned) {
+    const mentioned = matches.filter(m => m.idx !== currentAnswer && m.mentionedAnywhere);
+    if (mentioned.length === 1) {
+      return mentioned[0]!.idx;
+    }
+  }
+
+  return -1;
+}
+
 export function repairDraftForValidation(
   raw: Record<string, unknown>,
   evidenceCorpus: string,
@@ -422,17 +489,16 @@ export function repairDraftForValidation(
 
   const explanation = typeof repaired.explanation === 'string' ? repaired.explanation : '';
   const conceptName = typeof repaired.conceptName === 'string' ? repaired.conceptName.trim() : '';
-  if (
-    options.length
-    && conceptName
-    && explanationStartsWithConcept(explanation, conceptName)
-  ) {
-    const conceptOptionIndex = options.findIndex(option =>
-      normalizeOptionComparisonText(option) === normalizeOptionComparisonText(conceptName),
-    );
-    if (conceptOptionIndex >= 0) {
-      repaired.correctAnswer = conceptOptionIndex;
-      repaired.answer = conceptOptionIndex;
+
+  // General answer-key repair: infer the correct index from the explanation
+  // text. This catches the common writer error of providing the right explanation
+  // but the wrong correctAnswer index. Only fires when there is a clear,
+  // unambiguous candidate — never guesses when evidence is mixed.
+  if (options.length && explanation) {
+    const inferredIdx = inferCorrectAnswerFromExplanation(options, answer, explanation);
+    if (inferredIdx >= 0 && inferredIdx !== answer) {
+      repaired.correctAnswer = inferredIdx;
+      repaired.answer = inferredIdx;
     }
   }
 
