@@ -1,10 +1,10 @@
 'use client';
 
-import { useRef, useState, useMemo } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import type { PDF, Deck, Density, ProcessEvent } from '@/types';
 import ProcessingLog from './ProcessingLog';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
-import { MasteryBar, Eyebrow, Icon, Btn } from './ui';
+import { Eyebrow, Icon, Btn } from './ui';
 
 interface Props {
   pdfs:                  PDF[];
@@ -22,7 +22,6 @@ export default function LibraryView({
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
   const [processing,     setProcessing]     = useState<string | null>(null);
-  const [publishingId,   setPublishingId]   = useState<string | null>(null);
   const [joinSlug,       setJoinSlug]       = useState('');
   const [joinStatus,     setJoinStatus]     = useState<string | null>(null);
   const [logs,           setLogs]           = useState<ProcessEvent[]>([]);
@@ -73,38 +72,6 @@ export default function LibraryView({
     }
   }
 
-  async function publishPdf(pdf: PDF) {
-    if (pdf.access_scope === 'shared') return;
-    const defaultTitle = getPdfDisplayName(pdf);
-    const title = window.prompt('Shared bank title:', defaultTitle)?.trim();
-    if (!title) return;
-    setPublishingId(pdf.id);
-    setJoinStatus(null);
-    try {
-      const res = await fetch('/api/shared-banks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfId: pdf.id, title, visibility: 'public' }),
-      });
-      const data = await res.json().catch(() => null) as {
-        bank?: { slug?: string | null };
-        shareUrl?: string | null;
-        error?: string;
-      } | null;
-      if (!res.ok) throw new Error(data?.error ?? 'Failed to publish shared bank.');
-      if (data?.shareUrl && navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(data.shareUrl);
-      }
-      await refreshPdfsFromServer();
-      setJoinStatus(data?.shareUrl
-        ? `Published. Link copied: ${data.shareUrl}`
-        : `Published ${data?.bank?.slug ?? ''}`.trim());
-    } catch (error) {
-      setJoinStatus(error instanceof Error ? error.message : 'Failed to publish.');
-    } finally {
-      setPublishingId(null);
-    }
-  }
 
   async function joinSharedBank() {
     const slug = parseSharedSlug(joinSlug);
@@ -262,7 +229,7 @@ export default function LibraryView({
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: '260px 1fr 280px',
+      gridTemplateColumns: '260px 1fr',
       height: 'calc(100vh - 56px)',
       overflow: 'hidden',
     }}>
@@ -289,20 +256,21 @@ export default function LibraryView({
           <SubjectPanel
             deck={selectedDeck}
             pdfs={filtered}
+            decks={decks}
             getPdfDisplayName={getPdfDisplayName}
             nodeMap={nodeMap}
             onStudy={onOpenConceptMap}
             onDelete={deletePdf}
             onRename={renamePdf}
-            onPublish={publishPdf}
+            onMovePdf={handleMovePdf}
             onUpload={() => fileInputRef.current?.click()}
-            publishingId={publishingId}
             processing={processing}
           />
         ) : (
           <TodayPanel
             pdfs={pdfs}
             filtered={filtered}
+            decks={decks}
             search={search}
             onSearchChange={setSearch}
             density={density}
@@ -312,8 +280,7 @@ export default function LibraryView({
             onStudy={onOpenConceptMap}
             onDelete={deletePdf}
             onRename={renamePdf}
-            onPublish={publishPdf}
-            publishingId={publishingId}
+            onMovePdf={handleMovePdf}
             getPdfDisplayName={getPdfDisplayName}
             nodeMap={nodeMap}
             daysLeft={daysLeft}
@@ -328,15 +295,6 @@ export default function LibraryView({
         )}
       </div>
 
-      {/* ── Right rail ── */}
-      <RightRail
-        pdfs={pdfs}
-        ready={ready}
-        totalQ={totalQ}
-        daysLeft={daysLeft}
-        examDate={examDate}
-      />
-
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }}
         onChange={e => { const f = e.target.files?.[0]; if (f) { void handleUpload(f); } e.target.value = ''; }} />
@@ -347,12 +305,12 @@ export default function LibraryView({
 // ── Today / home panel ────────────────────────────────────────────────────────
 
 function TodayPanel({
-  pdfs, filtered, search, onSearchChange, density, onDensityChange,
-  processing, onUpload, onStudy, onDelete, onRename, onPublish, publishingId,
+  pdfs, filtered, decks, search, onSearchChange, density, onDensityChange,
+  processing, onUpload, onStudy, onDelete, onRename, onMovePdf,
   getPdfDisplayName, nodeMap, daysLeft, logs, joinStatus, joinSlug,
   showJoinPanel, onShowJoinPanel, onJoinSlugChange, onJoinBank,
 }: {
-  pdfs: PDF[]; filtered: PDF[]; search: string;
+  pdfs: PDF[]; filtered: PDF[]; decks: Deck[]; search: string;
   onSearchChange: (v: string) => void;
   density: Density; onDensityChange: (v: Density) => void;
   processing: string | null;
@@ -360,8 +318,7 @@ function TodayPanel({
   onStudy: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (pdf: PDF) => void;
-  onPublish: (pdf: PDF) => void;
-  publishingId: string | null;
+  onMovePdf: (pdfId: string, deckId: string | null) => Promise<void>;
   getPdfDisplayName: (pdf: PDF) => string;
   nodeMap: Map<string, import('@/types').DeckNode>;
   daysLeft: number | null;
@@ -537,11 +494,11 @@ function TodayPanel({
               pdf={pdf}
               displayName={getPdfDisplayName(pdf)}
               examDeadline={findExamDeadline(pdf.deck_id, nodeMap)}
+              decks={decks}
               onStudy={onStudy}
-              onDelete={() => void deletePdf_wrapper(pdf.id, onDelete)}
+              onDelete={() => onDelete(pdf.id)}
               onRename={() => onRename(pdf)}
-              onPublish={() => void onPublish(pdf)}
-              isPublishing={publishingId === pdf.id}
+              onMove={deckId => void onMovePdf(pdf.id, deckId)}
             />
           ))
         )}
@@ -550,26 +507,23 @@ function TodayPanel({
   );
 }
 
-function deletePdf_wrapper(id: string, onDelete: (id: string) => void) {
-  onDelete(id);
-}
 
 // ── Subject / deck detail panel ───────────────────────────────────────────────
 
 function SubjectPanel({
-  deck, pdfs, getPdfDisplayName, nodeMap,
-  onStudy, onDelete, onRename, onPublish, onUpload, publishingId, processing,
+  deck, pdfs, decks, getPdfDisplayName, nodeMap,
+  onStudy, onDelete, onRename, onMovePdf, onUpload, processing,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
+  decks: Deck[];
   getPdfDisplayName: (pdf: PDF) => string;
   nodeMap: Map<string, import('@/types').DeckNode>;
   onStudy: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (pdf: PDF) => void;
-  onPublish: (pdf: PDF) => void;
+  onMovePdf: (pdfId: string, deckId: string | null) => Promise<void>;
   onUpload: () => void;
-  publishingId: string | null;
   processing: string | null;
 }) {
   const [filter, setFilter] = useState<'all' | 'processed' | 'shared'>('all');
@@ -647,11 +601,11 @@ function SubjectPanel({
             pdf={pdf}
             displayName={getPdfDisplayName(pdf)}
             examDeadline={findExamDeadline(pdf.deck_id, nodeMap)}
+            decks={decks}
             onStudy={onStudy}
             onDelete={() => onDelete(pdf.id)}
             onRename={() => onRename(pdf)}
-            onPublish={() => void onPublish(pdf)}
-            isPublishing={publishingId === pdf.id}
+            onMove={deckId => void onMovePdf(pdf.id, deckId)}
           />
         ))
       )}
@@ -659,44 +613,56 @@ function SubjectPanel({
   );
 }
 
-// ── Source row (v2 design) ────────────────────────────────────────────────────
+// ── Source row ────────────────────────────────────────────────────────────────
 
 function SourceRow({
-  idx, pdf, displayName, examDeadline,
-  onStudy, onDelete, onRename, onPublish, isPublishing,
+  idx, pdf, displayName, examDeadline, decks,
+  onStudy, onDelete, onRename, onMove,
 }: {
   idx: number;
   pdf: PDF;
   displayName: string;
   examDeadline: string | null;
+  decks: Deck[];
   onStudy: (id: string) => void;
   onDelete: () => void;
   onRename: () => void;
-  onPublish: () => void;
-  isPublishing: boolean;
+  onMove: (deckId: string | null) => void;
 }) {
-  const [hov, setHov] = useState(false);
+  const [menu, setMenu] = useState<'closed' | 'main' | 'move'>('closed');
+  const menuRef = useRef<HTMLDivElement>(null);
   const isOwned = pdf.access_scope !== 'shared';
   const total = pdf.question_count ?? 0;
+
+  useEffect(() => {
+    if (menu === 'closed') return;
+    function close(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenu('closed');
+    }
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menu]);
 
   let examBadgeDays: number | null = null;
   if (examDeadline) {
     examBadgeDays = Math.ceil((new Date(examDeadline).getTime() - Date.now()) / 86_400_000);
   }
 
+  const menuItemStyle: React.CSSProperties = {
+    display: 'block', width: '100%', textAlign: 'left',
+    padding: '7px 14px', background: 'none', border: 'none',
+    fontSize: 13, cursor: 'pointer', color: 'var(--text-primary)',
+    fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
+  };
+
   return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '28px 1fr auto',
-        gap: 20, alignItems: 'center',
-        padding: '18px 0',
-        borderBottom: '1px solid var(--border)',
-        transition: 'background 0.1s',
-      }}
-    >
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: '28px 1fr auto',
+      gap: 20, alignItems: 'center',
+      padding: '18px 0',
+      borderBottom: '1px solid var(--border)',
+    }}>
       <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-dim)' }}>
         {String(idx + 1).padStart(2, '0')}
       </span>
@@ -711,8 +677,7 @@ function SourceRow({
         <div style={{
           display: 'flex', gap: 10, marginTop: 4,
           fontSize: 11, fontFamily: 'var(--font-mono)',
-          color: 'var(--text-dim)', letterSpacing: '0.02em',
-          flexWrap: 'wrap',
+          color: 'var(--text-dim)', letterSpacing: '0.02em', flexWrap: 'wrap',
         }}>
           {total > 0 && <span>{total} Q</span>}
           {pdf.page_count > 0 && <><span>·</span><span>{pdf.page_count} PP</span></>}
@@ -727,7 +692,7 @@ function SourceRow({
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, opacity: hov ? 1 : 0.6, transition: 'opacity 0.15s' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {pdf.processed_at ? (
           <button
             onClick={() => onStudy(pdf.id)}
@@ -735,8 +700,7 @@ function SourceRow({
               fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
               padding: '5px 10px', color: 'var(--accent)',
               background: 'var(--accent-dim)', border: 'none',
-              borderRadius: 4, cursor: 'pointer',
-              fontFamily: 'var(--font-mono)',
+              borderRadius: 4, cursor: 'pointer', fontFamily: 'var(--font-mono)',
             }}
           >
             OPEN →
@@ -747,145 +711,55 @@ function SourceRow({
           </span>
         )}
 
-        {isOwned && hov && (
-          <>
+        {isOwned && (
+          <div ref={menuRef} style={{ position: 'relative' }}>
             <button
-              onClick={onRename}
+              onClick={() => setMenu(m => m === 'closed' ? 'main' : 'closed')}
               style={{
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text-dim)', padding: 4, fontSize: 13,
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-dim)', padding: '4px 6px',
+                fontSize: 16, lineHeight: 1, borderRadius: 4,
+                transition: 'background 0.1s',
               }}
-              title="Rename"
-            >✎</button>
-            <button
-              onClick={onPublish}
-              style={{
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text-dim)', padding: 4, fontSize: 11,
-                fontFamily: 'var(--font-mono)',
-              }}
-              title={pdf.shared_bank_slug ? 'Share link' : 'Publish'}
-            >
-              {isPublishing ? '…' : '↑'}
-            </button>
-            <button
-              onClick={onDelete}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
-              style={{
-                background: 'transparent', border: 'none', cursor: 'pointer',
-                color: 'var(--text-dim)', padding: 4, fontSize: 13,
-                transition: 'color 0.15s',
-              }}
-              title="Delete"
-            >✕</button>
-          </>
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-raised)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+              title="More options"
+            >···</button>
+
+            {menu !== 'closed' && (
+              <div style={{
+                position: 'absolute', right: 0, top: '100%', marginTop: 4,
+                background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                zIndex: 50, minWidth: 140, overflow: 'hidden',
+              }}>
+                {menu === 'main' && (
+                  <>
+                    <button style={menuItemStyle} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onRename(); setMenu('closed'); }}>Rename</button>
+                    <button style={menuItemStyle} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => setMenu('move')}>Move to deck →</button>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <button style={{ ...menuItemStyle, color: 'var(--red, #ef4444)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onDelete(); setMenu('closed'); }}>Delete</button>
+                  </>
+                )}
+                {menu === 'move' && (
+                  <>
+                    <button style={{ ...menuItemStyle, color: 'var(--text-dim)', fontSize: 12 }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => setMenu('main')}>← Back</button>
+                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                    <button style={{ ...menuItemStyle, color: 'var(--text-secondary)', fontStyle: 'italic' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onMove(null); setMenu('closed'); }}>No folder</button>
+                    {decks.map(d => (
+                      <button key={d.id} style={menuItemStyle} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onMove(d.id); setMenu('closed'); }}>{d.name}</button>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// ── Right rail ────────────────────────────────────────────────────────────────
-
-function RightRail({
-  pdfs, ready, totalQ, daysLeft, examDate,
-}: {
-  pdfs: PDF[];
-  ready: PDF[];
-  totalQ: number;
-  daysLeft: number | null;
-  examDate: string | null;
-}) {
-  const newest = [...ready]
-    .sort((a, b) => new Date(b.processed_at!).getTime() - new Date(a.processed_at!).getTime())
-    .slice(0, 4);
-
-  return (
-    <aside style={{
-      borderLeft: '1px solid var(--border)', overflow: 'auto',
-      padding: '24px 20px', background: 'var(--bg)',
-    }}>
-      {/* Summary card */}
-      <div style={{
-        padding: 16, background: 'var(--bg-raised)',
-        border: '1px solid var(--border)', borderRadius: 'var(--r3)',
-        marginBottom: 24,
-      }}>
-        <Eyebrow>Library summary</Eyebrow>
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <RailStat label="Sources" value={String(pdfs.length)} />
-          <RailStat label="Ready" value={String(ready.length)} />
-          <RailStat label="Questions" value={totalQ.toLocaleString()} accent />
-        </div>
-
-        {daysLeft !== null && (
-          <div style={{
-            marginTop: 14, padding: '10px 12px',
-            background: daysLeft <= 7 ? 'var(--red-dim)' : 'var(--amber-dim)',
-            borderRadius: 'var(--r2)', fontSize: 12,
-            color: daysLeft <= 7 ? 'var(--red)' : 'var(--amber)',
-            fontWeight: 600,
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 2 }}>Exam countdown</div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 400, lineHeight: 1 }}>
-              {daysLeft > 0 ? daysLeft : 0}
-            </div>
-            <div style={{ fontSize: 11, marginTop: 2, opacity: 0.8 }}>
-              days {daysLeft <= 0 ? '— today!' : `until ${new Date(examDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Recent sources */}
-      {newest.length > 0 && (
-        <div>
-          <Eyebrow>Recent sources</Eyebrow>
-          <div style={{ marginTop: 10 }}>
-            {newest.map(pdf => {
-              const name = pdf.shared_bank_title ?? pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
-              return (
-                <div key={pdf.id} style={{ padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
-                  <div style={{
-                    fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)',
-                    lineHeight: 1.35, marginBottom: 3,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }} title={name}>
-                    {name}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10.5, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                    <span>{pdf.question_count ?? 0} Q</span>
-                    {pdf.question_count != null && <MasteryBar v={Math.min(100, ((pdf.question_count ?? 0) / 500) * 100)} width={40} />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {pdfs.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-dim)', fontSize: 12, lineHeight: 1.6 }}>
-          <div style={{ fontSize: '2rem', marginBottom: 8 }}>📖</div>
-          Upload your first PDF to get started.
-        </div>
-      )}
-    </aside>
-  );
-}
-
-function RailStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-      <span style={{ fontSize: 11.5, color: 'var(--text-secondary)' }}>{label}</span>
-      <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600,
-        color: accent ? 'var(--accent)' : 'var(--text-primary)',
-      }}>{value}</span>
-    </div>
-  );
-}
 
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
