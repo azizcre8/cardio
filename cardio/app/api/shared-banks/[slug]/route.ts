@@ -1,5 +1,5 @@
 import { requireUser } from '@/lib/auth';
-import { jsonNotFound, jsonOk } from '@/lib/api';
+import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
 import type { PDF, SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -40,4 +40,33 @@ export async function GET(
       membership_joined_at: membership?.joined_at ?? null,
     },
   });
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { slug: string } },
+) {
+  const auth = await requireUser();
+  if (!auth.ok) return auth.response;
+
+  const { data: bankRow, error: bankError } = await auth.supabase
+    .from('shared_banks')
+    .select('id, owner_user_id')
+    .eq('slug', params.slug)
+    .single();
+
+  if (bankError || !bankRow) return jsonNotFound('Shared bank not found');
+
+  if ((bankRow as SharedBank).owner_user_id !== auth.userId) {
+    return jsonError('Only the owner can revoke a shared bank', 403);
+  }
+
+  const { error: updateError } = await auth.supabase
+    .from('shared_banks')
+    .update({ is_active: false })
+    .eq('id', (bankRow as SharedBank).id);
+
+  if (updateError) return jsonError(updateError.message);
+
+  return jsonOk({ revoked: true, slug: params.slug });
 }

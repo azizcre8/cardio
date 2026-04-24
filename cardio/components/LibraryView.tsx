@@ -24,6 +24,7 @@ export default function LibraryView({
   const [processing,     setProcessing]     = useState<string | null>(null);
   const [joinSlug,       setJoinSlug]       = useState('');
   const [joinStatus,     setJoinStatus]     = useState<string | null>(null);
+  const [shareToast,     setShareToast]     = useState<string | null>(null);
   const [logs,           setLogs]           = useState<ProcessEvent[]>([]);
   const [search,         setSearch]         = useState('');
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
@@ -211,6 +212,28 @@ export default function LibraryView({
     onDecksChange(decks.map(d => d.id === id ? { ...d, parent_id: newParentId } : d));
   }
 
+  async function sharePdf(pdfId: string) {
+    const res = await fetch('/api/shared-banks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pdfId }),
+    });
+    const data = await res.json().catch(() => null) as { shareUrl?: string } | null;
+    if (!res.ok || !data?.shareUrl) { setShareToast('Failed to generate share link.'); return; }
+    await navigator.clipboard.writeText(data.shareUrl).catch(() => null);
+    setShareToast('Link copied! ' + data.shareUrl);
+    await refreshPdfsFromServer();
+    setTimeout(() => setShareToast(null), 6000);
+  }
+
+  async function revokePdf(slug: string) {
+    if (!confirm('Revoke this shared link? Students will no longer be able to join.')) return;
+    await fetch(`/api/shared-banks/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+    await refreshPdfsFromServer();
+    setShareToast('Sharing link revoked.');
+    setTimeout(() => setShareToast(null), 3000);
+  }
+
   async function handleMovePdf(pdfId: string, deckId: string | null) {
     const pdf = pdfs.find(item => item.id === pdfId);
     if (!pdf || pdf.access_scope === 'shared') return;
@@ -232,7 +255,20 @@ export default function LibraryView({
       gridTemplateColumns: '260px 1fr',
       height: 'calc(100vh - 56px)',
       overflow: 'hidden',
+      position: 'relative',
     }}>
+      {shareToast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--text-primary)', color: 'var(--bg)',
+          padding: '10px 18px', borderRadius: 8, fontSize: 13,
+          fontFamily: 'var(--font-sans)', zIndex: 200,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+          maxWidth: 480, textAlign: 'center', wordBreak: 'break-all',
+        }}>
+          {shareToast}
+        </div>
+      )}
       {/* ── Left sidebar ── */}
       <div style={{ borderRight: '1px solid var(--border)', overflow: 'auto' }}>
         <LibrarySidebar
@@ -263,6 +299,8 @@ export default function LibraryView({
             onDelete={deletePdf}
             onRename={renamePdf}
             onMovePdf={handleMovePdf}
+            onShare={sharePdf}
+            onRevoke={revokePdf}
             onUpload={() => fileInputRef.current?.click()}
             processing={processing}
           />
@@ -281,6 +319,8 @@ export default function LibraryView({
             onDelete={deletePdf}
             onRename={renamePdf}
             onMovePdf={handleMovePdf}
+            onShare={sharePdf}
+            onRevoke={revokePdf}
             getPdfDisplayName={getPdfDisplayName}
             nodeMap={nodeMap}
             daysLeft={daysLeft}
@@ -306,7 +346,7 @@ export default function LibraryView({
 
 function TodayPanel({
   pdfs, filtered, decks, search, onSearchChange, density, onDensityChange,
-  processing, onUpload, onStudy, onDelete, onRename, onMovePdf,
+  processing, onUpload, onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
   getPdfDisplayName, nodeMap, daysLeft, logs, joinStatus, joinSlug,
   showJoinPanel, onShowJoinPanel, onJoinSlugChange, onJoinBank,
 }: {
@@ -319,6 +359,8 @@ function TodayPanel({
   onDelete: (id: string) => void;
   onRename: (pdf: PDF) => void;
   onMovePdf: (pdfId: string, deckId: string | null) => Promise<void>;
+  onShare: (pdfId: string) => Promise<void>;
+  onRevoke: (slug: string) => Promise<void>;
   getPdfDisplayName: (pdf: PDF) => string;
   nodeMap: Map<string, import('@/types').DeckNode>;
   daysLeft: number | null;
@@ -499,6 +541,8 @@ function TodayPanel({
               onDelete={() => onDelete(pdf.id)}
               onRename={() => onRename(pdf)}
               onMove={deckId => void onMovePdf(pdf.id, deckId)}
+              onShare={() => void onShare(pdf.id)}
+              onRevoke={() => pdf.shared_bank_slug ? void onRevoke(pdf.shared_bank_slug) : undefined}
             />
           ))
         )}
@@ -512,7 +556,7 @@ function TodayPanel({
 
 function SubjectPanel({
   deck, pdfs, decks, getPdfDisplayName, nodeMap,
-  onStudy, onDelete, onRename, onMovePdf, onUpload, processing,
+  onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke, onUpload, processing,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
@@ -523,6 +567,8 @@ function SubjectPanel({
   onDelete: (id: string) => void;
   onRename: (pdf: PDF) => void;
   onMovePdf: (pdfId: string, deckId: string | null) => Promise<void>;
+  onShare: (pdfId: string) => Promise<void>;
+  onRevoke: (slug: string) => Promise<void>;
   onUpload: () => void;
   processing: string | null;
 }) {
@@ -606,6 +652,8 @@ function SubjectPanel({
             onDelete={() => onDelete(pdf.id)}
             onRename={() => onRename(pdf)}
             onMove={deckId => void onMovePdf(pdf.id, deckId)}
+            onShare={() => void onShare(pdf.id)}
+            onRevoke={() => pdf.shared_bank_slug ? void onRevoke(pdf.shared_bank_slug) : undefined}
           />
         ))
       )}
@@ -617,7 +665,7 @@ function SubjectPanel({
 
 function SourceRow({
   idx, pdf, displayName, examDeadline, decks,
-  onStudy, onDelete, onRename, onMove,
+  onStudy, onDelete, onRename, onMove, onShare, onRevoke,
 }: {
   idx: number;
   pdf: PDF;
@@ -628,6 +676,8 @@ function SourceRow({
   onDelete: () => void;
   onRename: () => void;
   onMove: (deckId: string | null) => void;
+  onShare: () => void;
+  onRevoke: () => void;
 }) {
   const [menu, setMenu] = useState<'closed' | 'main' | 'move'>('closed');
   const menuRef = useRef<HTMLDivElement>(null);
@@ -737,6 +787,17 @@ function SourceRow({
                   <>
                     <button style={menuItemStyle} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onRename(); setMenu('closed'); }}>Rename</button>
                     <button style={menuItemStyle} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => setMenu('move')}>Move to deck →</button>
+                    {pdf.processed_at && (
+                      <>
+                        <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                        <button style={menuItemStyle} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onShare(); setMenu('closed'); }}>
+                          {pdf.shared_bank_slug ? 'Copy class link' : 'Share with class'}
+                        </button>
+                        {pdf.shared_bank_slug && (
+                          <button style={{ ...menuItemStyle, color: 'var(--text-dim)', fontSize: 12 }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onRevoke(); setMenu('closed'); }}>Revoke link</button>
+                        )}
+                      </>
+                    )}
                     <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                     <button style={{ ...menuItemStyle, color: 'var(--red, #ef4444)' }} onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')} onMouseLeave={e => (e.currentTarget.style.background = 'none')} onClick={() => { onDelete(); setMenu('closed'); }}>Delete</button>
                   </>

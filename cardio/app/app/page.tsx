@@ -49,8 +49,12 @@ export default function AppPage() {
   }
 
   useEffect(() => {
-    const slug = new URLSearchParams(window.location.search).get('shared');
-    setSharedSlug(slug);
+    const params = new URLSearchParams(window.location.search);
+    const slug = params.get('shared') ?? params.get('join') ?? localStorage.getItem('pendingJoin');
+    if (slug) {
+      localStorage.removeItem('pendingJoin');
+      setSharedSlug(slug);
+    }
   }, []);
 
   useEffect(() => {

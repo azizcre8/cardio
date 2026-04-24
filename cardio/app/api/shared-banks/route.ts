@@ -166,6 +166,6 @@ export async function POST(req: NextRequest) {
       ...bank,
       source_pdf: pdfRow as PDF,
     } satisfies SharedBankWithPdf,
-    shareUrl: `${origin}/app?shared=${bank.slug}`,
+    shareUrl: `${origin}/s/${bank.slug}`,
   });
 }

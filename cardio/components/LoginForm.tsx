@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 
 export default function LoginForm() {
@@ -9,6 +9,19 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [joinSlug, setJoinSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const join = params.get('join');
+    const urlMode = params.get('mode');
+    if (join) setJoinSlug(join);
+    if (urlMode === 'signup') setMode('signup');
+  }, []);
+
+  async function joinAfterAuth(slug: string) {
+    await fetch(`/api/shared-banks/${encodeURIComponent(slug)}/join`, { method: 'POST' });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,14 +40,17 @@ export default function LoginForm() {
     }
 
     if (mode === 'signup') {
+      if (joinSlug) localStorage.setItem('pendingJoin', joinSlug);
       setError('Check your email for a confirmation link.');
       return;
     }
 
+    if (joinSlug) await joinAfterAuth(joinSlug);
     window.location.href = '/app';
   }
 
   async function signInWithGoogle() {
+    if (joinSlug) localStorage.setItem('pendingJoin', joinSlug);
     await supabaseBrowser.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/app` },
@@ -51,6 +67,12 @@ export default function LoginForm() {
 
         <form onSubmit={submit} className="bg-gray-900 border border-gray-700 rounded-xl p-6 space-y-4">
           <h2 className="text-white font-semibold">{mode === 'login' ? 'Sign In' : 'Create Account'}</h2>
+
+          {joinSlug && (
+            <p className="text-xs px-3 py-2 rounded bg-teal-900 text-teal-300">
+              You&apos;ll be added to the shared question bank after signing in.
+            </p>
+          )}
 
           {error && (
             <p className={`text-xs px-3 py-2 rounded ${error.includes('Check your email') ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'}`}>
