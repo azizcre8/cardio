@@ -161,12 +161,14 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
       }
 
       let preparedPdfId: string | null = null;
+      let _cappedConceptCount = 0;
       let prepError = false;
 
       await streamSSE(prepResp, ev => {
         if (ev.phase === 0) { prepError = true; return true; }
         if (ev.phase === 6 && ev.data?.readyForGenerate && ev.data?.pdfId) {
           preparedPdfId = ev.data.pdfId as string;
+          _cappedConceptCount = (ev.data.cappedConceptCount as number) || 0;
         }
         return false;
       });
@@ -185,48 +187,78 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
         return;
       }
 
-      // ── Phase 2: Call /api/process/generate (phase 6) ──
-      const genResp = await fetch('/api/process/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pdfId: preparedPdfId }),
-      });
-      if (!genResp.ok) {
-        const txt = await genResp.text();
-        setActiveJob(prev => prev ? {
-          ...prev,
-          isRunning: false,
-          logs: [...prev.logs, { phase: 0, message: `Error: ${txt}`, pct: 0 }],
-        } : null);
-        return;
-      }
+      // ── Phase 2: Call /api/process/generate in batches of 15 concepts ──
+      const CONCEPTS_PER_CALL = 15;
+      const totalConcepts = _cappedConceptCount || 1; // fallback: at least 1 so loop runs once
+      let genOffset = 0;
+      let genSawTerminal = false;
+      let genError = false;
 
-      let sawGenTerminal = false;
-
-      await streamSSE(genResp, ev => {
-        if (ev.phase === 7 && ev.data?.pdfId) {
-          sawGenTerminal = true;
-          const pdfId = ev.data.pdfId as string;
-          void fetch('/api/pdfs').then(r => r.ok ? r.json() : null).then((data: PDF[] | null) => {
-            if (data) setPdfs(data);
-          });
-          setActiveJob(prev => prev ? { ...prev, isRunning: false, completedPdfId: pdfId } : null);
-          return true;
+      while (!genSawTerminal && !genError) {
+        const isLast = genOffset + CONCEPTS_PER_CALL >= totalConcepts;
+        const genResp = await fetch('/api/process/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pdfId: preparedPdfId,
+            batchOffset: genOffset,
+            batchSize: CONCEPTS_PER_CALL,
+            isFinal: isLast,
+          }),
+        });
+        if (!genResp.ok) {
+          const txt = await genResp.text();
+          setActiveJob(prev => prev ? {
+            ...prev,
+            isRunning: false,
+            logs: [...prev.logs, { phase: 0, message: `Error: ${txt}`, pct: 0 }],
+          } : null);
+          return;
         }
-        if (ev.phase === 0) {
-          sawGenTerminal = true;
-          setActiveJob(prev => prev ? { ...prev, isRunning: false } : null);
-          return true;
-        }
-        return false;
-      });
 
-      if (!sawGenTerminal) {
-        setActiveJob(prev => prev ? {
-          ...prev,
-          isRunning: false,
-          logs: [...prev.logs, { phase: 0, message: 'Error: Question generation stream ended unexpectedly. Check server logs.', pct: 0 }],
-        } : null);
+        let batchDone = false;
+        await streamSSE(genResp, ev => {
+          if (ev.phase === 7 && ev.data?.pdfId) {
+            genSawTerminal = true;
+            const pdfId = ev.data.pdfId as string;
+            void fetch('/api/pdfs').then(r => r.ok ? r.json() : null).then((data: PDF[] | null) => {
+              if (data) setPdfs(data);
+            });
+            setActiveJob(prev => prev ? { ...prev, isRunning: false, completedPdfId: pdfId } : null);
+            return true;
+          }
+          if (ev.phase === 0) {
+            genError = true;
+            setActiveJob(prev => prev ? { ...prev, isRunning: false } : null);
+            return true;
+          }
+          if (ev.phase === 6 && ev.data?.batchDone) {
+            batchDone = true;
+            return true;
+          }
+          return false;
+        });
+
+        if (!genSawTerminal && !genError && !batchDone && !isLast) {
+          // Stream closed without a terminal — treat as error
+          setActiveJob(prev => prev ? {
+            ...prev,
+            isRunning: false,
+            logs: [...prev.logs, { phase: 0, message: 'Error: Question generation stream ended unexpectedly. Check server logs.', pct: 0 }],
+          } : null);
+          return;
+        }
+
+        genOffset += CONCEPTS_PER_CALL;
+        if (isLast && !genSawTerminal && !genError) {
+          // Final batch ended without phase 7 — shouldn't happen but guard it
+          setActiveJob(prev => prev ? {
+            ...prev,
+            isRunning: false,
+            logs: [...prev.logs, { phase: 0, message: 'Error: Final generation batch ended without completion. Check server logs.', pct: 0 }],
+          } : null);
+          return;
+        }
       }
     } catch (e) {
       setActiveJob(prev => prev ? {

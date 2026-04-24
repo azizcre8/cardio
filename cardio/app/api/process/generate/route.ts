@@ -1,9 +1,15 @@
 /**
- * POST /api/process/generate — phase 6 of the pipeline (question generation + audit + dedup).
- * Called by the client after /api/process (prepare) completes.
+ * POST /api/process/generate — phase 6 of the pipeline (question generation + audit).
+ * Called repeatedly by the client in batches after /api/process (prepare) completes.
  *
- * Request: JSON { pdfId: string }
- * Response: text/event-stream of ProcessEvent JSON objects, ending with phase 7
+ * Request: JSON { pdfId, batchOffset, batchSize, isFinal }
+ *   batchOffset — index into the capped concept list to start at
+ *   batchSize   — number of concepts to process in this call (default 15)
+ *   isFinal     — if true, run dedup + finalize after generation
+ *
+ * Response: text/event-stream of ProcessEvent JSON objects.
+ *   Non-final calls end after the last batch progress event.
+ *   The final call emits phase 7 on success.
  */
 
 import { NextRequest } from 'next/server';
@@ -39,8 +45,15 @@ export async function POST(req: NextRequest) {
   const { userId } = auth;
 
   let pdfId: string;
+  let batchOffset = 0;
+  let batchSize   = 15;
+  let isFinal     = true;
   try {
-    ({ pdfId } = await req.json() as { pdfId: string });
+    const body = await req.json() as { pdfId: string; batchOffset?: number; batchSize?: number; isFinal?: boolean };
+    pdfId       = body.pdfId;
+    batchOffset = body.batchOffset ?? 0;
+    batchSize   = body.batchSize   ?? 15;
+    isFinal     = body.isFinal     ?? true;
   } catch {
     return new Response('Invalid JSON body', { status: 400 });
   }
@@ -49,13 +62,19 @@ export async function POST(req: NextRequest) {
   const pdf = await getPDF(pdfId, userId);
   if (!pdf) return new Response('PDF not found', { status: 404 });
 
-  const conceptSpecs = (pdf.concept_specs ?? []) as ConceptSpec[];
-  const confusionMap = (pdf.confusion_map ?? {}) as ConfusionMap;
-  const effectiveMax = pdf.effective_max_questions ?? 300;
-  const dc = DENSITY_CONFIG[pdf.density];
+  const allConceptSpecs = (pdf.concept_specs ?? []) as ConceptSpec[];
+  const confusionMap    = (pdf.confusion_map  ?? {}) as ConfusionMap;
+  const effectiveMax    = pdf.effective_max_questions ?? 300;
+  const dc              = DENSITY_CONFIG[pdf.density];
 
-  if (!conceptSpecs.length) {
+  if (!allConceptSpecs.length) {
     return new Response('PDF has no concept specs — run /api/process first', { status: 409 });
+  }
+
+  // This call's slice of concepts
+  const batchConceptSpecs = allConceptSpecs.slice(batchOffset, batchOffset + batchSize);
+  if (!batchConceptSpecs.length) {
+    return new Response('batchOffset out of range', { status: 400 });
   }
 
   const pdfJob = await getActivePdfJobByPdfId(pdfId);
@@ -64,7 +83,6 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       let isClosed = false;
       let runningOpenAICostUSD = 0;
-      let latestQuestionCount = 0;
 
       const recordCost = async (event: OpenAICostEvent) => {
         if (!(event.costUSD > 0)) return;
@@ -94,49 +112,46 @@ export async function POST(req: NextRequest) {
             try {
               if (pdfJob?.id) {
                 await finishPdfJobError(pdfJob.id, {
-                  question_count: latestQuestionCount,
                   openai_cost_usd: runningOpenAICostUSD,
-                  error_message: 'Question generation timed out after 5 minutes. Try a lower density setting.',
+                  error_message: 'Question generation timed out. The PDF may be too large — try standard density.',
                 });
               }
             } catch { /* ignore */ }
-            emit({ phase: 0, message: 'Error: Question generation timed out after 5 minutes. Try a lower density setting.', pct: 0 });
+            emit({ phase: 0, message: 'Error: Question generation timed out. The PDF may be too large — try standard density.', pct: 0 });
           })();
         }
       }, INTERNAL_TIMEOUT_MS);
 
       try {
-        emit({ phase: 6, message: 'Phase 6: Loading chunks and building retrieval index…', pct: 60 });
+        // Fetch chunks once per call and rebuild BM25 index
         const chunkRecords = await getChunks(pdfId);
-        const bm25Index = buildBM25Index(chunkRecords);
+        const bm25Index    = buildBM25Index(chunkRecords);
 
-        const cappedConceptSpecs = conceptSpecs;
+        const totalConcepts = allConceptSpecs.length;
+        const conceptImportance: Record<string, string> = {};
+        allConceptSpecs.forEach(c => { conceptImportance[c.id] = c.importance; });
 
-        if (cappedConceptSpecs.length > 1) {
-          emit({
-            phase: 6,
-            message: `Phase 6: Generating questions for ${cappedConceptSpecs.length} concepts…`,
-            pct: 61,
-          });
-        }
+        emit({
+          phase: 6,
+          message: `Phase 6: Generating batch ${Math.floor(batchOffset / batchSize) + 1} (concepts ${batchOffset + 1}–${Math.min(batchOffset + batchSize, totalConcepts)} of ${totalConcepts})…`,
+          pct: 61 + Math.round((batchOffset / totalConcepts) * 30),
+        });
 
         let totalQuestions = 0;
         let totalRejected  = 0;
         const allPassedQuestions: any[] = [];
         const rejectionBreakdown: Record<string, number> = {};
-        const conceptImportance: Record<string, string> = {};
-        cappedConceptSpecs.forEach(c => { conceptImportance[c.id] = c.importance; });
 
         const GEN_BATCH = 3;
-        for (let g = 0; g < cappedConceptSpecs.length; g += GEN_BATCH) {
-          const batch = cappedConceptSpecs.slice(g, g + GEN_BATCH);
-          const totalBatchCount = Math.ceil(cappedConceptSpecs.length / GEN_BATCH);
+        for (let g = 0; g < batchConceptSpecs.length; g += GEN_BATCH) {
+          const batch = batchConceptSpecs.slice(g, g + GEN_BATCH);
+          const totalBatchCount = Math.ceil(batchConceptSpecs.length / GEN_BATCH);
 
           let genQs: any[] = [];
           let rejectedSlots: Array<{ conceptId: string; conceptName: string; level: number; reason: string; raw: Record<string, unknown> | null }> = [];
           try {
             const result = await generateCoverageQuestions(
-              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index, cappedConceptSpecs, recordCost,
+              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index, allConceptSpecs, recordCost,
             );
             genQs = result.questions;
             rejectedSlots = result.rejectedSlots;
@@ -145,48 +160,35 @@ export async function POST(req: NextRequest) {
             const failureFlags = buildGenerationBatchFailureFlags(batch, genErr);
             for (const failureFlag of failureFlags) {
               await insertFlaggedQuestion({
-                pdf_id: pdfId,
-                user_id: userId,
-                question_id: null,
-                reason: failureFlag.reason,
-                raw_json: failureFlag.raw_json,
+                pdf_id: pdfId, user_id: userId, question_id: null,
+                reason: failureFlag.reason, raw_json: failureFlag.raw_json,
               });
             }
             totalRejected += failureFlags.length;
             rejectionBreakdown['GENERATION_BATCH_FAILED'] = (rejectionBreakdown['GENERATION_BATCH_FAILED'] ?? 0) + failureFlags.length;
           }
 
-          const ragPassages: Record<string, string> = {};
-          const ragChunks: Record<string, typeof chunkRecords> = {};
-          const distractorGuides: Record<string, string> = {};
+          const ragPassages: Record<string, string>           = {};
+          const ragChunks:   Record<string, typeof chunkRecords> = {};
+          const distractorGuides: Record<string, string>      = {};
           batch.forEach(c => {
             const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
-            ragChunks[c.id] = chunks;
+            ragChunks[c.id]   = chunks;
             ragPassages[c.id] = chunks.map(ch => ch.text).join('\n\n');
-            const confusions = confusionMap[c.name] ?? [];
+            const confusions  = confusionMap[c.name] ?? [];
             const candidatePool = buildDistractorCandidatePool(
               {
-                conceptId: c.id,
-                conceptName: c.name,
-                category: c.category,
-                importance: c.importance as ImportanceLevel,
-                level: 2,
-                coverageDomain: c.coverageDomain,
-                chunkIds: c.chunk_ids,
-                pageEstimate: c.pageEstimate,
-                keyFacts: c.keyFacts,
-                clinicalRelevance: c.clinicalRelevance,
-                associations: c.associations,
+                conceptId: c.id, conceptName: c.name, category: c.category,
+                importance: c.importance as ImportanceLevel, level: 2,
+                coverageDomain: c.coverageDomain, chunkIds: c.chunk_ids,
+                pageEstimate: c.pageEstimate, keyFacts: c.keyFacts,
+                clinicalRelevance: c.clinicalRelevance, associations: c.associations,
               },
-              cappedConceptSpecs,
-              confusions,
-              [],
+              allConceptSpecs, confusions, [],
             );
-            const candidateGuide = formatDistractorCandidatePool(candidatePool);
             const confusionGuide = confusions.length
-              ? confusions.map(cf => `${cf.concept}: ${cf.reason}`).join('\n')
-              : '';
-            distractorGuides[c.id] = [candidateGuide, confusionGuide].filter(Boolean).join('\n');
+              ? confusions.map(cf => `${cf.concept}: ${cf.reason}`).join('\n') : '';
+            distractorGuides[c.id] = [formatDistractorCandidatePool(candidatePool), confusionGuide].filter(Boolean).join('\n');
           });
 
           let passed: any[] = [], hardRejected: { criterion: string; critique: string; lastQuestion: unknown }[] = [];
@@ -200,24 +202,15 @@ export async function POST(req: NextRequest) {
 
           for (const slotFailure of rejectedSlots) {
             await insertFlaggedQuestion({
-              pdf_id: pdfId,
-              user_id: userId,
-              question_id: null,
+              pdf_id: pdfId, user_id: userId, question_id: null,
               reason: `SLOT_GENERATION: ${slotFailure.conceptName} L${slotFailure.level} — ${slotFailure.reason}`,
-              raw_json: (slotFailure.raw ?? {
-                conceptId: slotFailure.conceptId,
-                conceptName: slotFailure.conceptName,
-                level: slotFailure.level,
-              }) as Record<string, unknown>,
+              raw_json: (slotFailure.raw ?? { conceptId: slotFailure.conceptId, conceptName: slotFailure.conceptName, level: slotFailure.level }) as Record<string, unknown>,
             });
           }
-
           for (const hr of hardRejected) {
             await insertFlaggedQuestion({
-              pdf_id:   pdfId,
-              user_id:  userId,
-              question_id: null,
-              reason:   `${hr.criterion}: ${hr.critique}`,
+              pdf_id: pdfId, user_id: userId, question_id: null,
+              reason: `${hr.criterion}: ${hr.critique}`,
               raw_json: hr.lastQuestion as Record<string, unknown>,
             });
           }
@@ -226,65 +219,83 @@ export async function POST(req: NextRequest) {
           totalQuestions += passed.length;
           totalRejected  += hardRejected.length + rejectedSlots.length;
           for (const hr of hardRejected) {
-            const key = hr.criterion || 'UNKNOWN';
-            rejectionBreakdown[key] = (rejectionBreakdown[key] ?? 0) + 1;
+            rejectionBreakdown[hr.criterion || 'UNKNOWN'] = (rejectionBreakdown[hr.criterion || 'UNKNOWN'] ?? 0) + 1;
           }
-          for (const _sf of rejectedSlots) {
-            rejectionBreakdown['SLOT_GENERATION'] = (rejectionBreakdown['SLOT_GENERATION'] ?? 0) + 1;
-          }
+          rejectionBreakdown['SLOT_GENERATION'] = (rejectionBreakdown['SLOT_GENERATION'] ?? 0) + rejectedSlots.length;
 
-          const pct = 61 + Math.round(((g + GEN_BATCH) / cappedConceptSpecs.length) * 30);
+          const conceptsDone = batchOffset + g + GEN_BATCH;
+          const pct = 61 + Math.round((conceptsDone / totalConcepts) * 30);
           emit({
             phase: 6,
-            message: `Phase 6: ${totalQuestions} accepted / ${totalQuestions + totalRejected} generated (batch ${Math.floor(g / GEN_BATCH) + 1}/${totalBatchCount})`,
-            pct: Math.min(pct, 91),
+            message: `Phase 6: ${totalQuestions} accepted / ${totalQuestions + totalRejected} generated (${Math.min(conceptsDone, totalConcepts)}/${totalConcepts} concepts)`,
+            pct: Math.min(pct, isFinal ? 91 : Math.min(pct, 90)),
             data: {
               questionsGenerated: totalQuestions + totalRejected,
               questionsAccepted:  totalQuestions,
               questionsRejected:  totalRejected,
               rejectionBreakdown,
+              batchOffset, batchSize, totalConcepts,
             },
           });
         }
 
-        // ── Quality-sort then dedup ──
+        // Insert this batch's questions immediately (dedup runs in the final call)
+        await insertQuestions(allPassedQuestions);
+
+        if (!isFinal) {
+          // Non-final: signal client to call next batch
+          emit({
+            phase: 6,
+            message: `Batch complete — ${totalQuestions} questions added so far`,
+            pct: 61 + Math.round(((batchOffset + batchSize) / totalConcepts) * 30),
+            data: { batchDone: true, nextOffset: batchOffset + batchSize, totalConcepts },
+          });
+          return;
+        }
+
+        // ── Final call: dedup across all batches, finalize ──
+        emit({ phase: 6, message: 'Phase 6: Deduplicating questions…', pct: 92 });
+
+        const allStoredQuestions = await getQuestions(pdfId);
         const importanceWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
-        allPassedQuestions.sort((a, b) => {
+        allStoredQuestions.sort((a, b) => {
           const levelDiff = (b.level ?? 1) - (a.level ?? 1);
           if (levelDiff !== 0) return levelDiff;
-          const aImp = importanceWeight[conceptImportance[a.concept_id] ?? 'low'] ?? 1;
-          const bImp = importanceWeight[conceptImportance[b.concept_id] ?? 'low'] ?? 1;
-          return bImp - aImp;
+          return (importanceWeight[conceptImportance[b.concept_id] ?? 'low'] ?? 1)
+               - (importanceWeight[conceptImportance[a.concept_id] ?? 'low'] ?? 1);
         });
 
-        const dedupResult = await dedupQuestions(allPassedQuestions, conceptImportance, recordCost);
+        const dedupResult = await dedupQuestions(allStoredQuestions, conceptImportance, recordCost);
         const totalDeduped = dedupResult.dropped.length;
+
+        // Delete dropped questions from DB
+        const droppedIds = dedupResult.dropped
+          .map(d => allStoredQuestions.find(q => q.stem === d.droppedStem)?.id)
+          .filter((id): id is string => !!id);
+        if (droppedIds.length) await deleteQuestions(droppedIds);
+
+        // Apply plan cap
+        const keptIds = new Set(droppedIds);
+        let finalQuestions = allStoredQuestions.filter(q => !keptIds.has(q.id));
+        if (!env.flags.slotBasedGeneration) {
+          const overLimit = finalQuestions.slice(effectiveMax);
+          if (overLimit.length) await deleteQuestions(overLimit.map(q => q.id));
+          finalQuestions = finalQuestions.slice(0, effectiveMax);
+        }
+
         if (totalDeduped > 0) {
           emit({
             phase: 6,
             message: `Phase 6: Removed ${totalDeduped} near-duplicate question${totalDeduped === 1 ? '' : 's'}`,
-            pct: 93,
+            pct: 95,
             data: { deduped: totalDeduped },
           });
         }
 
-        const finalQuestions = env.flags.slotBasedGeneration
-          ? dedupResult.kept
-          : dedupResult.kept.slice(0, effectiveMax);
-
-        const savedQuestions = await insertQuestions(finalQuestions);
-        latestQuestionCount = savedQuestions.length;
-
-        // Clean up any stale questions from a previous (failed) attempt on this PDF
-        const allStoredIds = new Set(savedQuestions.map(q => q.id));
-        const allForPdf = await getQuestions(pdfId);
-        const staleIds = allForPdf.map(q => q.id).filter(id => !allStoredIds.has(id));
-        if (staleIds.length) await deleteQuestions(staleIds);
-
         await updatePDF(pdfId, {
           processed_at:        new Date().toISOString(),
           processing_cost_usd: runningOpenAICostUSD,
-          question_count:      savedQuestions.length,
+          question_count:      finalQuestions.length,
           // Clear pipeline state — no longer needed
           concept_specs:       null,
           confusion_map:       null,
@@ -295,25 +306,23 @@ export async function POST(req: NextRequest) {
         if (pdfJob?.id) {
           await finishPdfJobSuccess(pdfJob.id, {
             page_count:      pdf.page_count,
-            concept_count:   conceptSpecs.length,
-            question_count:  savedQuestions.length,
+            concept_count:   allConceptSpecs.length,
+            question_count:  finalQuestions.length,
             openai_cost_usd: runningOpenAICostUSD,
           });
         }
 
         emit({
           phase: 7,
-          message: `Done! ${conceptSpecs.length} concepts, ${savedQuestions.length} questions. Cost: $${runningOpenAICostUSD.toFixed(3)}`,
+          message: `Done! ${allConceptSpecs.length} concepts, ${finalQuestions.length} questions. Cost: $${runningOpenAICostUSD.toFixed(3)}`,
           pct: 100,
           data: {
             pdfId,
-            conceptCount:       conceptSpecs.length,
-            questionCount:      savedQuestions.length,
-            questionsGenerated: totalQuestions + totalRejected,
-            questionsAccepted:  savedQuestions.length,
-            questionsRejected:  totalRejected,
-            deduped:            totalDeduped,
-            costUSD:            runningOpenAICostUSD,
+            conceptCount:      allConceptSpecs.length,
+            questionCount:     finalQuestions.length,
+            questionsAccepted: finalQuestions.length,
+            deduped:           totalDeduped,
+            costUSD:           runningOpenAICostUSD,
           },
         });
 
@@ -322,7 +331,6 @@ export async function POST(req: NextRequest) {
         try {
           if (pdfJob?.id) {
             await finishPdfJobError(pdfJob.id, {
-              question_count:  latestQuestionCount,
               openai_cost_usd: runningOpenAICostUSD,
               error_message:   (e as Error).message ?? String(e),
             });
