@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import type { Concept, PDF } from '@/types';
 
 interface Props {
-  pdf:        PDF;
-  onStudyNow: () => void;
-  onBack:     () => void;
+  pdf:          PDF;
+  onStudyNow:   () => void;
+  onReviewDue?: () => void;
+  onBack:       () => void;
 }
 
 const IMP = {
@@ -15,11 +16,12 @@ const IMP = {
   low:    { border: 'var(--border)', bg: 'var(--bg-sunken)',         text: 'var(--text-dim)', label: 'Low'     },
 } as const;
 
-export default function ConceptMapView({ pdf, onStudyNow, onBack }: Props) {
+export default function ConceptMapView({ pdf, onStudyNow, onReviewDue, onBack }: Props) {
   const [concepts,  setConcepts]  = useState<Concept[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [selected,  setSelected]  = useState<string | null>(null);
   const [hovAction, setHovAction] = useState('');
+  const [dueCount,  setDueCount]  = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`/api/pdfs/${pdf.id}/concepts`)
@@ -27,6 +29,18 @@ export default function ConceptMapView({ pdf, onStudyNow, onBack }: Props) {
       .then(d => { setConcepts(d.concepts ?? []); setLoading(false); })
       .catch(() => setLoading(false));
   }, [pdf.id]);
+
+  useEffect(() => {
+    if (!onReviewDue) return;
+    fetch(`/api/study/queue?pdfId=${pdf.id}`)
+      .then(r => r.json())
+      .then(d => {
+        // Count only SRS-due items (previously reviewed, now due)
+        const due = (d.queue ?? []).filter((q: { _bucket: string }) => q._bucket === 'srs').length;
+        setDueCount(due);
+      })
+      .catch(() => {});
+  }, [pdf.id, onReviewDue]);
 
   /* group by category */
   const byCategory = new Map<string, Concept[]>();
@@ -114,9 +128,18 @@ export default function ConceptMapView({ pdf, onStudyNow, onBack }: Props) {
           marginBottom: '28px',
           animation: 'fade-up 0.35s ease 0.05s both',
         }}>
+          {onReviewDue && (
+            <ActionBtn
+              label={dueCount === null ? '🔁 Review Due' : dueCount > 0 ? `🔁 Review Due (${dueCount})` : '🔁 Review Due (0)'}
+              primary={dueCount !== null && dueCount > 0}
+              hovered={hovAction === 'review'}
+              onHover={h => setHovAction(h ? 'review' : '')}
+              onClick={onReviewDue}
+            />
+          )}
           <ActionBtn
-            label="▶ Study Now"
-            primary
+            label="▶ Practice All"
+            primary={!onReviewDue || dueCount === 0}
             hovered={hovAction === 'study'}
             onHover={h => setHovAction(h ? 'study' : '')}
             onClick={onStudyNow}

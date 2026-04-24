@@ -8,6 +8,7 @@ import ProcessingView, { type ActiveJob } from '@/components/ProcessingView';
 import QuizView from '@/components/QuizView';
 import SettingsView from '@/components/SettingsView';
 import StatsView from '@/components/StatsView';
+import StudyView from '@/components/StudyView';
 import type { Deck, Density, PDF } from '@/types';
 import type { AppView } from '@/app/app/page';
 
@@ -21,11 +22,14 @@ interface Props {
   isJobRunning: boolean;
   conceptMapPdfId: string | null;
   quizPdfId: string | null;
+  studyPdfId: string | null;
   onSetView: (view: AppView) => void;
   onStartProcessing: (file: File, density: Density, maxQuestions: number) => void;
   onOpenConceptMap: (pdfId: string) => void;
   onStartQuiz: (pdfId: string) => void;
   onQuizDone: () => void;
+  onStartStudy: (pdfId: string) => void;
+  onStudyDone: () => void;
   onPdfsChange: (pdfs: PDF[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onExamDateChange: (date: string | null) => void;
@@ -41,11 +45,14 @@ export default function AppContent({
   isJobRunning,
   conceptMapPdfId,
   quizPdfId,
+  studyPdfId,
   onSetView,
   onStartProcessing,
   onOpenConceptMap,
   onStartQuiz,
   onQuizDone,
+  onStartStudy,
+  onStudyDone,
   onPdfsChange,
   onDecksChange,
   onExamDateChange,
@@ -56,7 +63,7 @@ export default function AppContent({
     <main
       style={{
         flex: 1,
-        padding: (view === 'processing' || view === 'library' || view === 'quiz') ? '0' : '24px 16px',
+        padding: (view === 'processing' || view === 'library' || view === 'quiz' || view === 'study') ? '0' : '24px 16px',
         overflow: 'auto',
         display: 'flex',
         flexDirection: 'column',
@@ -102,6 +109,7 @@ export default function AppContent({
         <ConceptMapView
           pdf={conceptMapPdf}
           onStudyNow={() => onStartQuiz(conceptMapPdfId!)}
+          onReviewDue={() => onStartStudy(conceptMapPdfId!)}
           onBack={() => onSetView('library')}
         />
       )}
@@ -116,6 +124,10 @@ export default function AppContent({
 
       {view === 'quiz' && quizPdfId && (
         <QuizView pdfId={quizPdfId} onDone={onQuizDone} />
+      )}
+
+      {view === 'study' && studyPdfId && (
+        <StudyView pdfId={studyPdfId} examDate={examDate} onDone={onStudyDone} />
       )}
 
       {view === 'stats' && (

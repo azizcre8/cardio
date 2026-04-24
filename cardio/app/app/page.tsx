@@ -6,12 +6,13 @@ import AppNav from '@/components/AppNav';
 import CommandPalette from '@/components/CommandPalette';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
 
-export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'stats' | 'settings';
+export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'settings';
 
 export default function AppPage() {
   const [view, setView] = useState<AppView>('library');
   const [conceptMapPdfId, setConceptMapPdfId] = useState<string | null>(null);
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
+  const [studyPdfId, setStudyPdfId] = useState<string | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const handledSharedSlug = useRef<string | null>(null);
   const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId } = useUserLibraryData();
@@ -37,6 +38,7 @@ export default function AppPage() {
     setView('conceptmap');
   }
   function startQuiz(pdfId: string) { setQuizPdfId(pdfId); setView('quiz'); }
+  function startStudy(pdfId: string) { setStudyPdfId(pdfId); setView('study'); }
 
   const handlePaletteNavigate = useCallback((navView: string, pdfId?: string) => {
     if (pdfId) { startQuiz(pdfId); }
@@ -45,6 +47,10 @@ export default function AppPage() {
   }, []);
   function quizDone() {
     if (quizPdfId) setConceptMapPdfId(quizPdfId);
+    setView('conceptmap');
+  }
+  function studyDone() {
+    if (studyPdfId) setConceptMapPdfId(studyPdfId);
     setView('conceptmap');
   }
 
@@ -109,11 +115,14 @@ export default function AppPage() {
         isJobRunning={isJobRunning}
         conceptMapPdfId={conceptMapPdfId}
         quizPdfId={quizPdfId}
+        studyPdfId={studyPdfId}
         onSetView={setView}
         onStartProcessing={startProcessing}
         onOpenConceptMap={openConceptMap}
         onStartQuiz={startQuiz}
         onQuizDone={quizDone}
+        onStartStudy={startStudy}
+        onStudyDone={studyDone}
         onPdfsChange={setPdfs}
         onDecksChange={setDecks}
         onExamDateChange={setExamDate}
