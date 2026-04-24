@@ -167,9 +167,29 @@ You want me to keep working when you're asleep / when this window closes. Plan:
 - Features shipped: (1) indent guides — faint 1px vertical lines at each depth level; (2) auto-expand on drag hover — collapsed deck expands after 700ms drag hover; (3) always-visible dimmed actions — `+/✎/✕` at opacity 0.3 always, 1.0 on hover/selection (not hidden); (4) error toast — circular-parent drop shows 3s red toast instead of silent no-op; (5) keyboard shortcuts — `n`/`r`/`Del` on selected deck (sidebar is `tabIndex=0`).
 - Verified in browser: sidebar renders correctly with nested decks + indent guides; action buttons visible on all rows.
 
-### Remaining for next cron / next session
-- Phase 1 task 5 (deferred): re-process Chapter 26 or another recent chapter with the new gates live, then run `analyze-question-bank.ts` again and compare acceptance rate vs 58.3% baseline. Target: ≥75%.
-- Pre-existing test fix: `tests/generation.test.ts > alignSourceQuoteToEvidence` — the new data-driven distractors are returning descriptive phrases instead of concept names. Either fix the function or update the test snapshot.
-- Same-concept-different-id dedup: inventory phase isn't merging duplicate concept names (Pair 5 Uremia). Add a name-normalization pass or post-inventory dedup by canonical concept name.
-- TypeScript strict-null cleanup in `lib/pipeline/distractors.ts` (~10 errors from the Levenshtein matrix init).
-- Phase 3 next: class sharing flow — "Share with class" button + `/s/[slug]` public landing + revoke control.
+### 2026-04-24 (manual — Phase 3 complete + Phase 4 deploy script)
+- Did: implemented entire class sharing flow. Commit efbdf1e.
+  - `app/s/[slug]/page.tsx` — public landing (title, Q count, member count, owner dashboard)
+  - `app/s/[slug]/JoinSection.tsx` — client: add-to-library if logged in, auth gate if not
+  - `LoginForm.tsx` — reads `?join=slug`, auto-joins after login, stores `pendingJoin` in localStorage for email-confirmation flow
+  - `app/app/page.tsx` — picks up `localStorage.pendingJoin` + `?join=` param on mount
+  - `LibraryView.tsx` — "Share with class" / "Copy class link" + "Revoke link" in ··· menu, toast on copy
+  - `api/shared-banks/route.ts` — fixed shareUrl to `/s/${slug}`
+  - `api/shared-banks/[slug]/route.ts` — added DELETE handler for revoke
+- Did: created `scripts/deploy-vercel.sh` — one-shot Vercel deploy that auto-sets all env vars from `.env.local` + feature flags.
+- Supabase: all 7 migrations already applied to prod project `smhvjqwlrdnwfekjuhrq`. No migration work needed.
+
+### Phase 4 — To deploy (requires user to run 2 interactive commands)
+1. `cd /Users/sajedaziz/Documents/Claude/pdf/cardio && npx vercel login` (opens browser)
+2. `npx vercel link` (select/create project named "cardio")
+3. `bash scripts/deploy-vercel.sh --prod` (sets all env vars, deploys)
+4. In Vercel dashboard → Settings → Environment Variables: set `NEXT_PUBLIC_SITE_URL` to your deployment URL
+5. Stripe webhook: dashboard → Webhooks → add `<url>/api/stripe/webhook`, copy secret to Vercel env `STRIPE_WEBHOOK_SECRET`
+   - Note: no Stripe webhook route exists yet — Stripe billing not needed for class beta
+6. Smoke test: signup → upload PDF → generate → click ··· → "Share with class" → open link in incognito → join → verify bank appears
+
+### Remaining after deploy
+- Pre-existing test fix: `tests/generation.test.ts > alignSourceQuoteToEvidence`
+- Phase 1 task 5 (deferred): re-process chapter, run `analyze-question-bank.ts`, verify ≥75% acceptance
+- Same-concept-different-id dedup (Pair 5 Uremia)
+- TypeScript strict-null cleanup in `lib/pipeline/distractors.ts`
