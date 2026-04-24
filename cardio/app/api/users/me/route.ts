@@ -14,6 +14,7 @@ export async function GET() {
     id: auth.userId,
     email: profile?.email ?? auth.session.user.email ?? null,
     exam_date: profile?.exam_date ?? null,
+    plan: profile?.plan ?? 'free',
   });
 }
 

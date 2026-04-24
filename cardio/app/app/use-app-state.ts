@@ -14,6 +14,8 @@ export function useUserLibraryData() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const [examDate, setExamDate] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userPlan, setUserPlan] = useState<string>('free');
 
   const refreshPdfs = useCallback(async () => {
     const res = await fetch('/api/pdfs');
@@ -42,7 +44,11 @@ export function useUserLibraryData() {
 
     fetch('/api/users/me')
       .then(r => r.ok ? r.json() : null)
-      .then((data: { exam_date: string | null } | null) => setExamDate(data?.exam_date ?? null))
+      .then((data: { exam_date: string | null; email?: string | null; plan?: string } | null) => {
+        setExamDate(data?.exam_date ?? null);
+        setUserEmail(data?.email ?? null);
+        setUserPlan(data?.plan ?? 'free');
+      })
       .catch(() => setExamDate(null));
 
     fetch('/api/decks')
@@ -60,6 +66,8 @@ export function useUserLibraryData() {
     examDate,
     setExamDate,
     userId,
+    userEmail,
+    userPlan,
   };
 }
 

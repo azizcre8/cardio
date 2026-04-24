@@ -15,7 +15,7 @@ export default function AppPage() {
   const [studyPdfId, setStudyPdfId] = useState<string | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const handledSharedSlug = useRef<string | null>(null);
-  const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId } = useUserLibraryData();
+  const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId, userEmail, userPlan } = useUserLibraryData();
   const { darkMode, toggleDark } = useThemePreference();
   const { activeJob, isJobRunning, startProcessing } = useProcessingJob(setView, setPdfs);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -97,6 +97,8 @@ export default function AppPage() {
         onSetView={setView}
         onToggleDark={toggleDark}
         onOpenPalette={() => setPaletteOpen(true)}
+        userEmail={userEmail}
+        userPlan={userPlan}
       />
       <CommandPalette
         open={paletteOpen}
