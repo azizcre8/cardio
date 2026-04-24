@@ -117,13 +117,15 @@ export default function LibrarySidebar({
   decks, pdfs, selectedDeckId, onSelectDeck,
   onCreateDeck, onRenameDeck, onDeleteDeck, onMoveDeck, onMovePdf,
 }: Props) {
-  const [expanded,  setExpanded]  = useState<Set<string>>(new Set());
-  const [renaming,  setRenaming]  = useState<string | null>(null);
-  const [renameVal, setRenameVal] = useState('');
-  const [creating,  setCreating]  = useState<CreationState | null>(null);
-  const [dragOver,  setDragOver]  = useState<string | 'root' | null>(null);
-  const renameRef  = useRef<HTMLInputElement>(null);
-  const createRef  = useRef<HTMLInputElement>(null);
+  const [expanded,   setExpanded]   = useState<Set<string>>(new Set());
+  const [renaming,   setRenaming]   = useState<string | null>(null);
+  const [renameVal,  setRenameVal]  = useState('');
+  const [creating,   setCreating]   = useState<CreationState | null>(null);
+  const [dragOver,   setDragOver]   = useState<string | 'root' | null>(null);
+  const [errorToast, setErrorToast] = useState<string | null>(null);
+  const renameRef      = useRef<HTMLInputElement>(null);
+  const createRef      = useRef<HTMLInputElement>(null);
+  const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setExpanded(loadExpanded()); }, []);
 
@@ -185,6 +187,11 @@ export default function LibrarySidebar({
 
   // ── Drag helpers ──────────────────────────────────────────────────────────
 
+  function clearDragState() {
+    setDragOver(null);
+    if (expandTimerRef.current) { clearTimeout(expandTimerRef.current); expandTimerRef.current = null; }
+  }
+
   function onDragStart(e: React.DragEvent, type: 'deck' | 'pdf', id: string) {
     e.dataTransfer.setData(`cardio/${type}`, id);
     e.dataTransfer.effectAllowed = 'move';
@@ -194,19 +201,50 @@ export default function LibrarySidebar({
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOver(target);
+    if (typeof target === 'string' && target !== 'root') {
+      if (!expanded.has(target)) {
+        if (expandTimerRef.current) clearTimeout(expandTimerRef.current);
+        expandTimerRef.current = setTimeout(() => {
+          setExpanded(prev => {
+            const next = new Set(prev); next.add(target); saveExpanded(next); return next;
+          });
+          expandTimerRef.current = null;
+        }, 700);
+      }
+    } else {
+      if (expandTimerRef.current) { clearTimeout(expandTimerRef.current); expandTimerRef.current = null; }
+    }
   }
 
   async function onDrop(e: React.DragEvent, targetDeckId: string | null) {
     e.preventDefault();
-    setDragOver(null);
+    clearDragState();
     const deckId = e.dataTransfer.getData('cardio/deck');
     const pdfId  = e.dataTransfer.getData('cardio/pdf');
     if (deckId && deckId !== targetDeckId) {
-      // Prevent moving a deck into one of its own descendants
-      if (targetDeckId && descendantIds(deckId, nodeMap).has(targetDeckId)) return;
+      if (targetDeckId && descendantIds(deckId, nodeMap).has(targetDeckId)) {
+        setErrorToast("Can't move a deck into one of its own subdecks.");
+        setTimeout(() => setErrorToast(null), 3000);
+        return;
+      }
       await onMoveDeck(deckId, targetDeckId);
     } else if (pdfId) {
       await onMovePdf(pdfId, targetDeckId);
+    }
+  }
+
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+    if (!selectedDeckId || selectedDeckId === '__uncategorized__') return;
+    const node = nodeMap.get(selectedDeckId);
+    if (!node) return;
+    if (e.key === 'n') { e.preventDefault(); startCreate(selectedDeckId); }
+    if (e.key === 'r') { e.preventDefault(); startRename(node); }
+    if (e.key === 'Delete' && !renaming && !creating) {
+      e.preventDefault();
+      if (confirm(`Delete "${node.name}"? PDFs will become uncategorized.`)) void onDeleteDeck(selectedDeckId);
     }
   }
 
@@ -286,12 +324,13 @@ export default function LibrarySidebar({
           draggable
           onDragStart={e => onDragStart(e, 'deck', node.id)}
           onDragOver={e => onDragOver(e, node.id)}
-          onDragLeave={() => setDragOver(null)}
+          onDragLeave={clearDragState}
           onDrop={e => onDrop(e, node.id)}
           onClick={() => onSelectDeck(node.id)}
           onDoubleClick={() => startRename(node)}
           style={{
             ...s.row,
+            position: 'relative',
             paddingLeft: indent,
             background: isSelected
               ? 'var(--accent-dim)'
@@ -299,10 +338,21 @@ export default function LibrarySidebar({
               ? 'rgba(13,154,170,0.12)'
               : undefined,
             color: isSelected ? 'var(--accent)' : 'var(--text-secondary)',
-            outline: isDragOver ? '1px dashed var(--accent)' : undefined,
+            outline: isDragOver ? '1px solid var(--accent)' : undefined,
           }}
-          className="deck-row"
+          className={`deck-row${isSelected ? ' deck-row-selected' : ''}`}
         >
+          {/* Indent guides */}
+          {depth > 0 && Array.from({ length: depth }, (_, i) => (
+            <span key={i} aria-hidden style={{
+              position: 'absolute',
+              left: 12 + i * 16 + 8,
+              top: 0, bottom: 0,
+              width: 1,
+              background: 'rgba(128,128,128,0.08)',
+              pointerEvents: 'none',
+            }} />
+          ))}
           {/* Chevron */}
           <button
             onClick={e => { e.stopPropagation(); toggle(node.id); }}
@@ -376,8 +426,10 @@ export default function LibrarySidebar({
   return (
     <aside
       style={s.sidebar}
+      tabIndex={0}
+      onKeyDown={handleKeyDown}
       onDragOver={e => onDragOver(e, 'root')}
-      onDragLeave={() => setDragOver(null)}
+      onDragLeave={clearDragState}
       onDrop={e => onDrop(e, null)}
     >
       {/* Header */}
@@ -428,11 +480,25 @@ export default function LibrarySidebar({
         )}
       </div>
 
-      {/* Inline styles for hover states */}
+      {/* Error toast */}
+      {errorToast && (
+        <div style={{
+          position: 'absolute', bottom: 12, left: 8, right: 8,
+          background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+          color: '#ef4444', borderRadius: 6, padding: '7px 10px',
+          fontSize: '0.72rem', fontWeight: 500, pointerEvents: 'none',
+          animation: 'fade-up 0.2s ease',
+        }}>
+          {errorToast}
+        </div>
+      )}
+
+      {/* Inline styles for hover/focus states */}
       <style>{`
         .deck-row:hover { background: var(--bg-raised) !important; }
-        .deck-row:hover .row-actions { opacity: 1 !important; }
-        .deck-row .row-actions { opacity: 0; transition: opacity 0.12s; }
+        .deck-row:hover .row-actions,
+        .deck-row-selected .row-actions { opacity: 1 !important; }
+        .deck-row .row-actions { opacity: 0.3; transition: opacity 0.12s; }
       `}</style>
     </aside>
   );
@@ -486,6 +552,8 @@ const styles = {
     background: 'var(--bg)',
     overflowY: 'hidden' as const,
     userSelect: 'none' as const,
+    position: 'relative' as const,
+    outline: 'none',
   },
   header: {
     display: 'flex',
