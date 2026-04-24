@@ -33,7 +33,7 @@ import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
 import { createPdfJob, finishPdfJobError, finishPdfJobSuccess, updatePdfJob } from '@/lib/pdf-jobs';
 import { roundUsdAmount, type OpenAICostEvent } from '@/lib/openai-cost';
 
-export const maxDuration = 900;
+export const maxDuration = 300; // hobby plan max; upgrade to pro for longer PDF jobs
 export const runtime    = 'nodejs';
 
 // ─── SSE helpers ─────────────────────────────────────────────────────────────
