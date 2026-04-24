@@ -109,6 +109,19 @@ export async function finishPdfJobError(
   });
 }
 
+export async function getActivePdfJobByPdfId(pdfId: string): Promise<PDFJob | null> {
+  const { data, error } = await supabaseAdmin
+    .from('pdf_jobs')
+    .select('*')
+    .eq('pdf_id', pdfId)
+    .eq('status', 'processing')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+  if (error) return null;
+  return data as PDFJob;
+}
+
 /**
  * Internal aggregate helper for ops/admin use.
  * This keeps reporting out of the product UI while giving the backend a stable

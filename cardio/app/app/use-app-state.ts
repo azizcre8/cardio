@@ -118,22 +118,15 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
     form.append('density', density);
     if (maxQuestions > 0) form.append('maxQuestions', String(maxQuestions));
 
-    try {
-      const resp = await fetch('/api/process', { method: 'POST', body: form });
-      if (!resp.ok) {
-        const txt = await resp.text();
-        setActiveJob(prev => prev ? {
-          ...prev,
-          isRunning: false,
-          logs: [...prev.logs, { phase: 0, message: `Error: ${txt}`, pct: 0 }],
-        } : null);
-        return;
-      }
-
+    // Streams SSE events from a response into the active job log.
+    // Returns the last pdfId seen in event data, or null if an error terminal event was seen.
+    const streamSSE = async (
+      resp: Response,
+      onTerminal: (ev: ProcessEvent) => boolean, // return true to stop streaming
+    ): Promise<void> => {
       const reader = resp.body!.getReader();
       const dec = new TextDecoder();
       let buf = '';
-      let sawTerminalEvent = false;
 
       while (true) {
         const { value, done } = await reader.read();
@@ -145,32 +138,94 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
         for (const line of lines) {
           const trimmed = line.replace(/^data: /, '').trim();
           if (!trimmed) continue;
-
           try {
             const ev: ProcessEvent = JSON.parse(trimmed);
             setActiveJob(prev => prev ? { ...prev, logs: [...prev.logs, ev] } : null);
-
-            if (ev.phase === 7 && ev.data?.pdfId) {
-              sawTerminalEvent = true;
-              const pdfId = ev.data.pdfId as string;
-              const res = await fetch('/api/pdfs');
-              if (res.ok) setPdfs(await res.json() as PDF[]);
-              setActiveJob(prev => prev ? { ...prev, isRunning: false, completedPdfId: pdfId } : null);
-            } else if (ev.phase === 0) {
-              sawTerminalEvent = true;
-              setActiveJob(prev => prev ? { ...prev, isRunning: false } : null);
-            }
-          } catch {
-            /* ignore parse errors */
-          }
+            if (onTerminal(ev)) return;
+          } catch { /* ignore parse errors */ }
         }
       }
+    };
 
-      if (!sawTerminalEvent) {
+    try {
+      // ── Phase 1: Call /api/process (prepare: phases 1-5) ──
+      const prepResp = await fetch('/api/process', { method: 'POST', body: form });
+      if (!prepResp.ok) {
+        const txt = await prepResp.text();
         setActiveJob(prev => prev ? {
           ...prev,
           isRunning: false,
-          logs: [...prev.logs, { phase: 0, message: 'Error: Processing stream ended before completion.', pct: 0 }],
+          logs: [...prev.logs, { phase: 0, message: `Error: ${txt}`, pct: 0 }],
+        } : null);
+        return;
+      }
+
+      let preparedPdfId: string | null = null;
+      let prepError = false;
+
+      await streamSSE(prepResp, ev => {
+        if (ev.phase === 0) { prepError = true; return true; }
+        if (ev.phase === 6 && ev.data?.readyForGenerate && ev.data?.pdfId) {
+          preparedPdfId = ev.data.pdfId as string;
+        }
+        return false;
+      });
+
+      if (prepError) {
+        setActiveJob(prev => prev ? { ...prev, isRunning: false } : null);
+        return;
+      }
+
+      if (!preparedPdfId) {
+        setActiveJob(prev => prev ? {
+          ...prev,
+          isRunning: false,
+          logs: [...prev.logs, { phase: 0, message: 'Error: Prepare phase ended without signalling readiness. Check server logs.', pct: 0 }],
+        } : null);
+        return;
+      }
+
+      // ── Phase 2: Call /api/process/generate (phase 6) ──
+      const genResp = await fetch('/api/process/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfId: preparedPdfId }),
+      });
+      if (!genResp.ok) {
+        const txt = await genResp.text();
+        setActiveJob(prev => prev ? {
+          ...prev,
+          isRunning: false,
+          logs: [...prev.logs, { phase: 0, message: `Error: ${txt}`, pct: 0 }],
+        } : null);
+        return;
+      }
+
+      let sawGenTerminal = false;
+
+      await streamSSE(genResp, ev => {
+        if (ev.phase === 7 && ev.data?.pdfId) {
+          sawGenTerminal = true;
+          const pdfId = ev.data.pdfId as string;
+          void fetch('/api/pdfs').then(r => r.ok ? r.json() : null).then((data: PDF[] | null) => {
+            if (data) setPdfs(data);
+          });
+          setActiveJob(prev => prev ? { ...prev, isRunning: false, completedPdfId: pdfId } : null);
+          return true;
+        }
+        if (ev.phase === 0) {
+          sawGenTerminal = true;
+          setActiveJob(prev => prev ? { ...prev, isRunning: false } : null);
+          return true;
+        }
+        return false;
+      });
+
+      if (!sawGenTerminal) {
+        setActiveJob(prev => prev ? {
+          ...prev,
+          isRunning: false,
+          logs: [...prev.logs, { phase: 0, message: 'Error: Question generation stream ended unexpectedly. Check server logs.', pct: 0 }],
         } : null);
       }
     } catch (e) {

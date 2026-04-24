@@ -13,6 +13,7 @@ import type {
   ChunkRecord,
   DensityConfig,
   ConfusionMap,
+  ConceptSpec,
   BM25Index,
   GenerationSlot,
   DistractorCandidate,
@@ -877,19 +878,6 @@ export function normaliseQuestion(
 }
 
 // ─── generateCoverageQuestions — verbatim prompt ──────────────────────────────
-
-interface ConceptSpec {
-  id:            string;
-  name:          string;
-  category:      string;
-  importance:    string;
-  keyFacts:      string[];
-  clinicalRelevance: string;
-  associations:  string[];
-  pageEstimate:  string;
-  coverageDomain: string;
-  chunk_ids:     string[];
-}
 
 interface ConceptGenerationContext {
   concept: ConceptSpec;

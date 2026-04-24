@@ -1,7 +1,8 @@
 /**
- * POST /api/process — full 6-phase pipeline, SSE-streamed progress.
+ * POST /api/process — phases 1-5 of the pipeline (prepare).
+ * Phase 6 (question generation) runs in /api/process/generate after this stream closes.
  *
- * Request: multipart/form-data { pdf: File, density: string }
+ * Request: multipart/form-data { pdf: File, density: string, maxQuestions?: string }
  * Response: text/event-stream of ProcessEvent JSON objects
  */
 
@@ -10,27 +11,21 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { extractTextServer, assessTextQuality } from '@/lib/pipeline/ingestion';
 import { chunkText } from '@/lib/pipeline/chunking';
 import { embedAllChunks } from '@/lib/pipeline/embeddings';
-import { buildBM25Index } from '@/lib/pipeline/retrieval';
 import { mergeInventory, canonicalizeConcepts, generateConfusionMap, toConceptRow } from '@/lib/pipeline/inventory';
-import { generateCoverageQuestions } from '@/lib/pipeline/generation';
-import { auditQuestions } from '@/lib/pipeline/audit';
-import { buildDistractorCandidatePool, formatDistractorCandidatePool } from '@/lib/pipeline/distractors';
-import { dedupQuestions } from '@/lib/pipeline/dedup';
 import {
-  buildGenerationBatchFailureFlags,
   extractInventoriesResilient,
   sortConceptsByImportanceAndName,
   summarizePipelineFailure,
 } from '@/lib/pipeline/process-helpers';
 import {
-  insertPDF, updatePDF, insertChunks, insertConcepts, insertQuestions, insertFlaggedQuestion,
-  getAndMaybeResetMonthlyCount, incrementMonthlyCount, ensureUserProfile,
+  insertPDF, updatePDF, insertChunks, insertConcepts,
+  getAndMaybeResetMonthlyCount, ensureUserProfile,
 } from '@/lib/storage';
-import { DENSITY_CONFIG, type ProcessEvent, type Density, type DensityConfig } from '@/types';
+import { DENSITY_CONFIG, type ProcessEvent, type Density, type DensityConfig, type ConceptSpec } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
-import { createPdfJob, finishPdfJobError, finishPdfJobSuccess, updatePdfJob } from '@/lib/pdf-jobs';
+import { createPdfJob, finishPdfJobError, updatePdfJob } from '@/lib/pdf-jobs';
 import { roundUsdAmount, type OpenAICostEvent } from '@/lib/openai-cost';
 
 export const maxDuration = 300; // hobby plan max; upgrade to pro for longer PDF jobs
@@ -126,6 +121,29 @@ export async function POST(req: NextRequest) {
       let latestConceptCount = 0;
       let latestQuestionCount = 0;
 
+      // Fire 20s before Vercel's hard 300s kill so we can send a clean error event.
+      const INTERNAL_TIMEOUT_MS = 280_000;
+      let timeoutAbortController: AbortController | null = new AbortController();
+      const timeoutHandle = setTimeout(() => {
+        timeoutAbortController = null;
+        if (!isClosed) {
+          void (async () => {
+            try {
+              if (pdfJob?.id) {
+                await finishPdfJobError(pdfJob.id, {
+                  page_count: latestPageCount,
+                  concept_count: latestConceptCount,
+                  question_count: latestQuestionCount,
+                  openai_cost_usd: runningOpenAICostUSD,
+                  error_message: 'Processing timed out after 5 minutes. Try a shorter PDF or lower density setting.',
+                });
+              }
+            } catch { /* ignore */ }
+            emit({ phase: 0, message: 'Error: Processing timed out after 5 minutes. Try a shorter PDF or a lower density setting.', pct: 0 });
+          })();
+        }
+      }, INTERNAL_TIMEOUT_MS);
+
       const recordCost = async (event: OpenAICostEvent) => {
         if (!(event.costUSD > 0)) return;
         runningOpenAICostUSD = roundUsdAmount(runningOpenAICostUSD + event.costUSD);
@@ -219,9 +237,6 @@ export async function POST(req: NextRequest) {
         }));
 
         await insertChunks(persistedChunkRows);
-
-        // Keep lexical retrieval aligned with the exact text payload persisted above.
-        const bm25Index = buildBM25Index(persistedChunkRows);
         emit({ phase: 3, message: 'Phase 3: Embeddings complete', pct: 28 });
 
         // ── Phase 4: Concept inventory
@@ -287,24 +302,14 @@ export async function POST(req: NextRequest) {
         latestConceptCount = savedConcepts.length;
         emit({ phase: 5, message: `Phase 5: ${savedConcepts.length} concepts saved`, pct: 58 });
 
-        // ── Phase 6: Question generation + audit
-        emit({ phase: 6, message: 'Phase 6: Generating questions…', pct: 60 });
-
+        // ── Build concept specs (needed by phase 6) ──
         const maxQuestionsPerPdf = getPlanLimits(profileRow?.plan).maxQuestionsPerPdf;
         const effectiveMax = userMaxQ > 0
           ? Math.min(userMaxQ, maxQuestionsPerPdf)
           : maxQuestionsPerPdf;
 
-        let totalQuestions = 0;
-        let totalRejected  = 0;
-        let totalDeduped   = 0;
-        const allPassedQuestions: any[] = [];
-        const rejectionBreakdown: Record<string, number> = {};
-        /* map concept_id → importance for quality sorting */
-        const conceptImportance: Record<string, string> = {};
-
         const canonicalByName = new Map(canonical.map(c => [c.name, c]));
-        const conceptSpecs = savedConcepts.map(c => {
+        const conceptSpecs: ConceptSpec[] = savedConcepts.map(c => {
           const can = canonicalByName.get(c.name);
           return {
             id:               c.id,
@@ -320,12 +325,7 @@ export async function POST(req: NextRequest) {
           };
         });
 
-        /* ── Cap concepts before generation to prevent runaway pipelines ──
-         * Sort high → medium → low importance so the most critical concepts
-         * are always included when the PDF has hundreds of concepts.
-         * In development mode we skip the cap to allow full testing.            */
         const sortedConceptSpecs = sortConceptsByImportanceAndName(conceptSpecs);
-
         let cappedConceptSpecs = sortedConceptSpecs;
         if (process.env.NODE_ENV !== 'development') {
           if (env.flags.slotBasedGeneration) {
@@ -343,222 +343,61 @@ export async function POST(req: NextRequest) {
               slotBudget += requiredLevels.length;
             }
           } else {
-            // Aim for ~2× question budget in raw generation (audit rejects ~30-50%)
             const avgQPerConcept = (dc.min + dc.max) / 2;
             const byBudget = Math.ceil((maxQuestionsPerPdf * 2) / avgQPerConcept);
-            const maxConcepts = Math.min(Math.max(byBudget, 20), 80); // floor=20, ceil=80
+            const maxConcepts = Math.min(Math.max(byBudget, 20), 80);
             cappedConceptSpecs = sortedConceptSpecs.slice(0, maxConcepts);
           }
         }
 
-        if (cappedConceptSpecs.length < conceptSpecs.length) {
-          emit({ phase: 6, message: `Phase 6: Processing top ${cappedConceptSpecs.length}/${conceptSpecs.length} concepts by importance`, pct: 60 });
-        }
-
-        /* register concept importance for quality sorting later */
-        cappedConceptSpecs.forEach(c => { conceptImportance[c.id] = c.importance; });
-
-        const GEN_BATCH = 3;
-        for (let g = 0; g < cappedConceptSpecs.length; g += GEN_BATCH) {
-          const batch = cappedConceptSpecs.slice(g, g + GEN_BATCH);
-          const totalBatchCount = Math.ceil(cappedConceptSpecs.length / GEN_BATCH);
-
-          let genQs: any[] = [];
-          let rejectedSlots: Array<{ conceptId: string; conceptName: string; level: number; reason: string; raw: Record<string, unknown> | null }> = [];
-          try {
-            const result = await generateCoverageQuestions(
-              batch, pdfId, userId, dc, chunkRecords, confusionMap, bm25Index, cappedConceptSpecs, recordCost,
-            );
-            genQs = result.questions;
-            rejectedSlots = result.rejectedSlots;
-          } catch (genErr) {
-            console.error(`[process] Generation batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, genErr);
-            const failureFlags = buildGenerationBatchFailureFlags(batch, genErr);
-            for (const failureFlag of failureFlags) {
-              await insertFlaggedQuestion({
-                pdf_id: pdfId,
-                user_id: userId,
-                question_id: null,
-                reason: failureFlag.reason,
-                raw_json: failureFlag.raw_json,
-              });
-            }
-            totalRejected += failureFlags.length;
-            rejectionBreakdown['GENERATION_BATCH_FAILED'] = (rejectionBreakdown['GENERATION_BATCH_FAILED'] ?? 0) + failureFlags.length;
-          }
-
-          const ragPassages: Record<string, string> = {};
-          const ragChunks: Record<string, typeof chunkRecords> = {};
-          const distractorGuides: Record<string, string> = {};
-          batch.forEach(c => {
-            const chunks = chunkRecords.filter(ch => c.chunk_ids.includes(ch.id));
-            ragChunks[c.id] = chunks;
-            ragPassages[c.id] = chunks.map(ch => ch.text).join('\n\n');
-            const confusions = confusionMap[c.name] ?? [];
-            const candidatePool = buildDistractorCandidatePool(
-              {
-                conceptId: c.id,
-                conceptName: c.name,
-                category: c.category,
-                importance: c.importance,
-                level: 2,
-                coverageDomain: c.coverageDomain,
-                chunkIds: c.chunk_ids,
-                pageEstimate: c.pageEstimate,
-                keyFacts: c.keyFacts,
-                clinicalRelevance: c.clinicalRelevance,
-                associations: c.associations,
-              },
-              cappedConceptSpecs,
-              confusions,
-              [],
-            );
-            const candidateGuide = formatDistractorCandidatePool(candidatePool);
-            const confusionGuide = confusions.length
-              ? confusions.map(confusion => `${confusion.concept}: ${confusion.reason}`).join('\n')
-              : '';
-            distractorGuides[c.id] = [candidateGuide, confusionGuide].filter(Boolean).join('\n');
-          });
-
-          let passed: any[] = [], hardRejected: any[] = [];
-          try {
-            const auditResult = await auditQuestions(genQs, batch, pdfId, userId, ragPassages, ragChunks, distractorGuides, recordCost);
-            passed = auditResult.passed;
-            hardRejected = auditResult.hardRejected;
-          } catch (auditErr) {
-            console.error(`[process] Audit batch ${Math.floor(g / GEN_BATCH) + 1} failed:`, auditErr);
-          }
-
-          for (const slotFailure of rejectedSlots) {
-            await insertFlaggedQuestion({
-              pdf_id: pdfId,
-              user_id: userId,
-              question_id: null,
-              reason: `SLOT_GENERATION: ${slotFailure.conceptName} L${slotFailure.level} — ${slotFailure.reason}`,
-              raw_json: (slotFailure.raw ?? {
-                conceptId: slotFailure.conceptId,
-                conceptName: slotFailure.conceptName,
-                level: slotFailure.level,
-              }) as Record<string, unknown>,
-            });
-          }
-
-          for (const hr of hardRejected) {
-            await insertFlaggedQuestion({
-              pdf_id:      pdfId,
-              user_id:      userId,
-              question_id: null,
-              reason:      `${hr.criterion}: ${hr.critique}`,
-              raw_json:    hr.lastQuestion as unknown as Record<string, unknown>,
-            });
-          }
-
-          allPassedQuestions.push(...passed);
-          totalQuestions += passed.length;
-          totalRejected  += hardRejected.length + rejectedSlots.length;
-          for (const hr of hardRejected) {
-            const key = hr.criterion || 'UNKNOWN';
-            rejectionBreakdown[key] = (rejectionBreakdown[key] ?? 0) + 1;
-          }
-          for (const _sf of rejectedSlots) {
-            rejectionBreakdown['SLOT_GENERATION'] = (rejectionBreakdown['SLOT_GENERATION'] ?? 0) + 1;
-          }
-          latestQuestionCount = totalQuestions;
-          const totalAttempted = totalQuestions + totalRejected;
-
-          const pct = 60 + Math.round(((g + GEN_BATCH) / cappedConceptSpecs.length) * 35);
-          emit({
-            phase: 6,
-            message: `Phase 6: ${totalQuestions} accepted / ${totalAttempted} generated (batch ${Math.floor(g / GEN_BATCH) + 1}/${totalBatchCount})`,
-            pct: Math.min(pct, 94),
-            data: {
-              questionsGenerated: totalAttempted,
-              questionsAccepted: totalQuestions,
-              questionsRejected: totalRejected,
-              rejectionBreakdown,
-            },
-          });
-        }
-
-        /* Quality-sort then apply plan cap and user cap */
-        const importanceWeight: Record<string, number> = { high: 3, medium: 2, low: 1 };
-        allPassedQuestions.sort((a: any, b: any) => {
-          const levelDiff = (b.level ?? 1) - (a.level ?? 1);
-          if (levelDiff !== 0) return levelDiff;
-          const aImp = importanceWeight[conceptImportance[a.concept_id] ?? 'low'] ?? 1;
-          const bImp = importanceWeight[conceptImportance[b.concept_id] ?? 'low'] ?? 1;
-          return bImp - aImp;
-        });
-
-        const dedupResult = await dedupQuestions(allPassedQuestions, conceptImportance, recordCost);
-        totalDeduped = dedupResult.dropped.length;
-        if (totalDeduped > 0) {
-          emit({
-            phase: 6,
-            message: `Phase 6: Removed ${totalDeduped} near-duplicate question${totalDeduped === 1 ? '' : 's'}`,
-            pct: 95,
-            data: { deduped: totalDeduped },
-          });
-        }
-
-        const finalQuestions = env.flags.slotBasedGeneration
-          ? dedupResult.kept
-          : dedupResult.kept.slice(0, effectiveMax);
-
-        const savedQuestions = await insertQuestions(finalQuestions);
-
+        // ── Store pipeline state so /api/process/generate can resume ──
         await updatePDF(pdfId, {
-          processed_at:        new Date().toISOString(),
-          processing_cost_usd: runningOpenAICostUSD,
-          concept_count:        savedConcepts.length,
-          question_count:       savedQuestions.length,
+          concept_specs:            cappedConceptSpecs as unknown[],
+          confusion_map:            confusionMap as Record<string, unknown>,
+          effective_max_questions:  effectiveMax,
+          concept_count:            savedConcepts.length,
         });
-        latestQuestionCount = savedQuestions.length;
 
-        await incrementMonthlyCount(userId);
         if (pdfJob?.id) {
-          await finishPdfJobSuccess(pdfJob.id, {
-            page_count: latestPageCount,
-            concept_count: savedConcepts.length,
-            question_count: savedQuestions.length,
-            openai_cost_usd: runningOpenAICostUSD,
+          await updatePdfJob(pdfJob.id, {
+            concept_count:    savedConcepts.length,
+            openai_cost_usd:  runningOpenAICostUSD,
           });
         }
 
+        // Signal client to call /api/process/generate
         emit({
-          phase: 7,
-          message: `Done! ${savedConcepts.length} concepts, ${savedQuestions.length} questions. Cost: $${runningOpenAICostUSD.toFixed(3)}`,
-          pct: 100,
+          phase: 6,
+          message: `Concepts ready. Starting question generation…`,
+          pct: 59,
           data: {
             pdfId,
+            readyForGenerate: true,
             conceptCount: savedConcepts.length,
-            questionCount: savedQuestions.length,
-            questionsGenerated: totalQuestions + totalRejected,
-            questionsAccepted: savedQuestions.length,
-            questionsRejected: totalRejected,
-            deduped: totalDeduped,
-            costUSD: runningOpenAICostUSD,
+            cappedConceptCount: cappedConceptSpecs.length,
+            prepCostUSD: runningOpenAICostUSD,
           },
         });
 
       } catch (e) {
-        console.error('[process] Pipeline crashed:', e);
+        console.error('[process/prepare] Pipeline crashed:', e);
         try {
           if (pdfJob?.id) {
             await finishPdfJobError(pdfJob.id, {
               page_count: latestPageCount,
               concept_count: latestConceptCount,
-              question_count: latestQuestionCount,
+              question_count: 0,
               openai_cost_usd: runningOpenAICostUSD,
               error_message: (e as Error).message ?? String(e),
             });
           }
         } catch (jobError) {
-          console.error('[process] Failed to persist pdf job error state:', jobError);
+          console.error('[process/prepare] Failed to persist pdf job error state:', jobError);
         }
         fail((e as Error).message ?? String(e));
       } finally {
-        // Safety Valve 3: The ONLY place the controller closes. 
+        clearTimeout(timeoutHandle);
+        // Safety Valve 3: The ONLY place the controller closes.
         // We check isClosed to prevent the ERR_INVALID_STATE error.
         if (!isClosed) {
           try {

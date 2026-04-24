@@ -168,6 +168,17 @@ export async function deletePDF(id: string): Promise<void> {
   if (error) throw new Error(`deletePDF: ${error.message}`);
 }
 
+export async function getPDF(pdfId: string, userId: string): Promise<PDF | null> {
+  const { data, error } = await supabaseAdmin
+    .from('pdfs')
+    .select('*')
+    .eq('id', pdfId)
+    .eq('user_id', userId)
+    .single();
+  if (error) return null;
+  return data as PDF;
+}
+
 // ─── Shared Banks ────────────────────────────────────────────────────────────
 
 export async function getOwnedSharedBanks(ownerUserId: string): Promise<SharedBank[]> {
@@ -382,6 +393,18 @@ export async function getQuestions(pdfId: string): Promise<Question[]> {
     .eq('pdf_id', pdfId);
   if (error) throw new Error(`getQuestions: ${error.message}`);
   return (data ?? []) as Question[];
+}
+
+export async function deleteQuestions(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const BATCH = 100;
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const { error } = await supabaseAdmin
+      .from('questions')
+      .delete()
+      .in('id', ids.slice(i, i + BATCH));
+    if (error) throw new Error(`deleteQuestions: ${error.message}`);
+  }
 }
 
 /** Merge SRS state rows onto question objects (used by /api/study/queue). */

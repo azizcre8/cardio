@@ -85,6 +85,10 @@ export interface PDF {
   shared_bank_title?: string | null;
   shared_bank_slug?: string | null;
   shared_bank_visibility?: SharedBankVisibility | null;
+  // Pipeline state stored between prepare and generate calls (migration 008)
+  concept_specs?: unknown[] | null;
+  confusion_map?: Record<string, unknown> | null;
+  effective_max_questions?: number | null;
 }
 
 export interface SharedBank {
@@ -331,6 +335,19 @@ export interface ConfusionTarget {
 
 export interface ConfusionMap {
   [conceptName: string]: ConfusionTarget[];
+}
+
+export interface ConceptSpec {
+  id:                string;
+  name:              string;
+  category:          string;
+  importance:        string;
+  keyFacts:          string[];
+  clinicalRelevance: string;
+  associations:      string[];
+  pageEstimate:      string;
+  coverageDomain:    string;
+  chunk_ids:         string[];
 }
 
 export interface GenerationSlot {
