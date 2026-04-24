@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { Deck, DeckNode, PDF } from '@/types';
 import type { PdfSrsSummary } from '@/app/api/study/summary/route';
 import { buildDeckTree } from './LibrarySidebar';
@@ -113,6 +113,7 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
               <div style={{ marginTop: 8 }}>
                 <UncategorizedCard
                   pdfs={uncategorized}
+                  allPdfs={pdfs}
                   decks={decks}
                   srsByPdf={srsByPdf}
                   onStartQuiz={onStartQuiz}
@@ -270,9 +271,10 @@ function DeckCard({
 }
 
 function UncategorizedCard({
-  pdfs, decks, srsByPdf, onStartQuiz, onOpenConceptMap, onPdfsChange, onViewBank,
+  pdfs, allPdfs, decks, srsByPdf, onStartQuiz, onOpenConceptMap, onPdfsChange, onViewBank,
 }: {
   pdfs: PDF[];
+  allPdfs: PDF[];
   decks: Deck[];
   srsByPdf: Record<string, PdfSrsSummary>;
   onStartQuiz: (pdfId: string) => void;
@@ -333,7 +335,7 @@ function UncategorizedCard({
           key={pdf.id}
           pdf={pdf}
           decks={decks}
-          allPdfs={pdfs}
+          allPdfs={allPdfs}
           srs={srsByPdf[pdf.id]}
           level={1}
           onStudy={() => onStartQuiz(pdf.id)}
@@ -365,10 +367,20 @@ function PdfRow({
   const [renaming, setRenaming] = useState(false);
   const [renameVal, setRenameVal] = useState(pdf.display_name ?? pdf.name);
   const [moving, setMoving] = useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
   const hasQuestions = (pdf.question_count ?? 0) > 0;
   const hasSrs = srs && (srs.due > 0 || srs.learning > 0 || srs.new > 0);
 
   function closeMenu() { setMenuOpen(false); setSubMenu(null); }
+
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeMenu();
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   async function moveTo(deckId: string | null) {
     closeMenu();
@@ -404,7 +416,7 @@ function PdfRow({
   return (
     <div
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); closeMenu(); }}
+      onMouseLeave={() => setHovered(false)}
       style={{ position: 'relative' }}
     >
       <div
@@ -493,6 +505,7 @@ function PdfRow({
       {/* Kebab dropdown */}
       {menuOpen && (
         <div
+          ref={menuRef}
           onClick={e => e.stopPropagation()}
           style={{
             position: 'absolute', top: '100%', right: 16, zIndex: 50,
