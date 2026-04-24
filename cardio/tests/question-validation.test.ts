@@ -384,4 +384,90 @@ describe('question validation', () => {
       'In acute glomerulonephritis the glomerular tuft becomes hypercellular due to infiltrating leukocytes and proliferating endothelial and mesangial cells, producing the characteristic hematuria and red-cell casts seen on urinalysis.';
     expect(validateSourceQuoteShape(okQuote)).toBeNull();
   });
+
+  it('rejects truncated source quotes that start with a hyphen fragment', () => {
+    const truncated = '- ing of the bladder are periodic acute increases in pressure that last from a few seconds to more than 1 minute.';
+    const issue = validateSourceQuoteShape(truncated);
+    expect(issue).toBeTruthy();
+    expect(issue).toMatch(/fragment/i);
+  });
+
+  it('rejects source quotes that start with a lowercase letter', () => {
+    const lowercase = 'the collecting ducts respond to antidiuretic hormone and regulate final urine concentration.';
+    const issue = validateSourceQuoteShape(lowercase);
+    expect(issue).toBeTruthy();
+    expect(issue).toMatch(/fragment/i);
+  });
+
+  it('flags options with artificial descriptor suffixes', () => {
+    const { issues } = buildDeterministicQuestionValidation(
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 2,
+        stem: 'Which substance is used to estimate glomerular filtration rate?',
+        options: [
+          'Sodium Ion Concentration Level',
+          'Erythropoietin Hormone Level',
+          'Amino Acid Metabolite Levels',
+          'Creatinine Concentration Measurement',
+        ],
+        answer: 3,
+        explanation: 'Creatinine Concentration Measurement is correct because creatinine is freely filtered. Sodium Ion Concentration Level is incorrect.',
+        source_quote: 'Creatinine is freely filtered and not reabsorbed by the kidneys.',
+        evidence_start: 0,
+        evidence_end: 63,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'mechanism',
+        deciding_clue: 'freely filtered and not reabsorbed',
+        most_tempting_distractor: 'Sodium Ion Concentration Level',
+        why_tempting: 'both relate to kidney function',
+        why_fails: 'sodium is reabsorbed, not a filtration marker',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+      'Creatinine',
+      'Creatinine is freely filtered and not reabsorbed by the kidneys.',
+    );
+    expect(issues.some(i => /descriptor suffix/i.test(i))).toBe(true);
+  });
+
+  it('flags options that mix anatomical structures with physiological mechanisms', () => {
+    const { issues } = buildDeterministicQuestionValidation(
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 2,
+        stem: 'Which process is primarily responsible for removing waste from the blood?',
+        options: [
+          'Glomerulus',
+          'Tubular Secretion',
+          'Renal Cortex',
+          'Filtration',
+        ],
+        answer: 3,
+        explanation: 'Filtration removes waste. Glomerulus is anatomy, not a process.',
+        source_quote: 'Glomerular filtration removes waste products from the blood into the tubule.',
+        evidence_start: 0,
+        evidence_end: 74,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'mechanism',
+        deciding_clue: 'removes waste products',
+        most_tempting_distractor: 'Glomerulus',
+        why_tempting: 'site of filtration',
+        why_fails: 'it is an anatomical structure, not a process',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+      'Filtration',
+      'Glomerular filtration removes waste products from the blood into the tubule.',
+    );
+    expect(issues.some(i => /mix anatomical/i.test(i))).toBe(true);
+  });
 });

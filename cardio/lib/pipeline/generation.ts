@@ -85,7 +85,7 @@ function findSimilarExemplars(conceptName: string, level: number, count: number 
 
 export const OPENAI_MODEL  = 'gpt-4o-mini';
 export const WRITER_MODEL  = 'gpt-4o';
-export const AUDITOR_MODEL = 'gpt-4o';
+export const AUDITOR_MODEL = 'gpt-4o-mini';
 
 const RAG_TOP_K = 4;
 // ─── OpenAI client ────────────────────────────────────────────────────────────
@@ -1270,6 +1270,21 @@ async function generateQuestionsBySlot(
         : '';
       const evidenceCorpus = context.chunks.map(chunk => chunk.text).join('\n');
 
+      // Skip slots where the corpus can't supply a valid verbatim sourceQuote (≥10 words).
+      // Attempting generation anyway wastes up to 3 full gpt-4o calls with guaranteed EVIDENCE_GROUNDING failures.
+      const usableEvidenceSentences = extractEvidenceSentences(evidenceCorpus)
+        .filter(s => s.split(/\s+/).length >= 10);
+      if (usableEvidenceSentences.length < 2) {
+        rejectedSlots.push({
+          conceptId: slot.conceptId,
+          conceptName: slot.conceptName,
+          level: slot.level,
+          reason: `Evidence corpus too thin (${usableEvidenceSentences.length} usable sentence(s)) — skipped to avoid EVIDENCE_GROUNDING churn.`,
+          raw: null,
+        });
+        continue;
+      }
+
       const deterministicRaw = buildPressureVolumePropertyDraft(slot, evidenceCorpus);
       if (deterministicRaw) {
         const repairedDeterministic = repairDraftForValidation(deterministicRaw, evidenceCorpus);
@@ -1362,6 +1377,8 @@ async function generateQuestionsBySlot(
               : 'Return a fully grounded draft that satisfies all deterministic validation checks.';
             lastCritique = `Fix EVERY one of the following issues in your next draft (do not ignore any):\n${issueList}`;
             lastReason = validation.issues[0] ?? 'Writer returned a draft that failed deterministic validation.';
+            // EVIDENCE_GROUNDING failures are corpus-limited — a 2nd retry rarely recovers, a 3rd never does.
+            if (!validation.evidenceOk && attempt >= 1) break;
             continue;
           }
 
@@ -1543,12 +1560,12 @@ Key information: ${facts}${exemplarSection}${sourceSection}${confusionSection}${
 RULES (all mandatory):
 1. EVIDENCE. sourceQuote MUST be ONE complete sentence copied verbatim from SOURCE PASSAGES, from its capital letter to its period. No paraphrasing, no stitching clauses from different sentences, no deleting words. Minimum 10 words. The sentence must directly prove the keyed answer. Do NOT pick a sentence from a chapter outline, table of contents, index, list of figures, or page header — pick a body-text sentence. If no single body-text sentence in the passages proves the answer, pick a different angle on the same concept.
 2. STEM. The stem must be specific enough that an expert can answer it before seeing the options. Never write "Which is true about X" or "Which best describes X" stems. Never use template stems such as "The concept defined by X is...", "The condition characterized by Y is...", or "Which condition is characterized by Z?" — write a real clinical, mechanistic, or applied question. ${level === 3 ? 'L3: open with age, sex, and a short presentation, then ask the reasoning question.' : level === 2 ? 'L2: frame a mechanism or application, not a plain definition.' : 'L1: ask for a named concept that matches a specific clue from the source.'}
-3. OPTIONS. Exactly ${expectedOptionCount} options. All in the same comparison class (all mechanisms, or all named entities, or all lab findings — never mixed). All within 1–2 words of each other in length AND the same grammatical shape (all noun phrases, OR all "verb + object" phrases, OR all "noun + because-clause" — never mix shapes). No two options may end with the same word. If the correct answer contains a parenthetical, every distractor must also contain a parenthetical of similar length; otherwise no parentheticals at all.
+3. OPTIONS. Exactly ${expectedOptionCount} options. All in the SAME comparison class — if the answer is an anatomical structure, every distractor must also be an anatomical structure; if the answer is a mechanism/process, every distractor must also be a mechanism/process; if the answer is a clinical condition, every distractor must also be a clinical condition. NEVER mix categories (e.g. never "Glomerulus" alongside "Filtration" or "Renal Tubular Necrosis"). NEVER append descriptor nouns (Level, Rate, Measurement, Evaluation, Testing, Analysis, Profiling, Assessment, Concentration, Value, Reading, Index, Ratio, Structure, Layer, Network, Unit, System, Function, Process, Activity, Response, Regulation, Control) to option text — write bare concept names or natural complete phrases, not "Sodium Ion Concentration Level" or "GFR Value". All within 1–2 words AND ±25% of the longest option's character count (count every character including spaces). Same grammatical shape (all noun phrases, OR all "verb + object" phrases — never mix shapes). No two options may end with the same word. If the correct answer contains a parenthetical, every distractor must also contain a parenthetical of similar length; otherwise no parentheticals at all. Before finalising, write out each option's word count and confirm all options are in the same comparison class — if any fail, rewrite before returning JSON.
 4. DISTRACTORS. Each must be a genuine near-miss a partially-informed student would plausibly pick. Prefer entries from the DISTRACTOR CANDIDATE POOL. Do not reuse the same clinical word or root across 3+ options while the correct answer lacks it.
 5. NO TELLS. The correct answer must not stand out by length, specificity, grammar, or parenthetical detail. Never use "all of the above" or "none of the above".
 6. CONCEPT FIDELITY. Echo conceptId exactly as provided. The question must test ${concept.name}, not a neighboring concept.
 7. NEGATION. Avoid NOT/EXCEPT/LEAST stems at L1. At L2/L3, if you use one, every non-keyed option must be unambiguously true.
-8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source AND naming the keyed answer text explicitly. Sentence two: why the single closest distractor is wrong for THIS question, naming that distractor explicitly. Do not list all distractors. Do not include the phrase "Key distinction".
+8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source AND naming the keyed answer text explicitly — the exact text of your keyed option MUST appear verbatim in sentence one. Sentence two: why the single closest distractor is wrong for THIS question, naming that distractor explicitly. Do not list all distractors. Do not include the phrase "Key distinction". SELF-CHECK before emitting JSON: read your explanation sentence one — if it does not contain the exact text of options[correctAnswer], fix it before returning.
 9. METADATA. Populate decisionTarget (diagnosis / mechanism / distinguishing feature / next best step / comparison / definition), decidingClue, whyTempting (one short clause), whyFails (one short clause). decidingClue MUST be a verbatim phrase of 4–12 words copied directly from your sourceQuote — do NOT paraphrase, do NOT invent new wording. The decidingClue must literally appear inside sourceQuote. These are stored as sidecar data — do not paste them into the explanation text.
 
 Return a single JSON object only — no markdown, no prose:
@@ -1635,9 +1652,9 @@ Address ONLY the named flaw. Preserve everything else that worked. Keep the same
 
 Writing rules that still apply:
 - sourceQuote is ONE complete verbatim sentence from SOURCE PASSAGES, ≥10 words, and directly proves the keyed answer. Do not paraphrase. Do NOT pick a sentence from a chapter outline, table of contents, index, or list of figures.
-- Exactly ${expectedOptionCount} options. Same comparison class. All options within 1–2 words of each other in length, same grammatical shape. No two options end with the same word. No parentheticals on only the correct answer.
+- Exactly ${expectedOptionCount} options. Same comparison class — all anatomy, or all mechanisms, or all conditions; NEVER mixed (e.g. do not put an anatomical structure alongside a physiological process). NEVER append descriptor nouns (Level, Rate, Measurement, Evaluation, Testing, Analysis, Profiling, Assessment, Concentration, Value, Reading) to option text. All options within 1–2 words of each other in length, same grammatical shape. No two options end with the same word. No parentheticals on only the correct answer.
 - Stem must NOT use template phrasings such as "The concept defined by X is..." or "The condition characterized by Y is...". Write a real clinical, mechanistic, or applied question.
-- Explanation is two plain sentences: why correct (naming the keyed answer text explicitly), why the closest distractor fails (naming that distractor explicitly). No "Key distinction" phrase, no scaffolding. The keyed answer text must literally appear somewhere in your explanation.
+- Explanation is two plain sentences: why correct (naming the EXACT TEXT of options[correctAnswer] explicitly in sentence one), why the closest distractor fails (naming that distractor explicitly). No "Key distinction" phrase, no scaffolding. SELF-CHECK: before returning, confirm sentence one contains the exact text of your keyed option.
 - Echo conceptId exactly. Keep decisionTarget, whyTempting, whyFails populated as sidecar metadata — do not paste them into the explanation.
 - decidingClue MUST be a verbatim 4–12 word phrase copied directly from your sourceQuote (no paraphrase, no rewording).
 

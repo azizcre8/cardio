@@ -69,6 +69,13 @@ export function validateSourceQuoteShape(sourceQuote: string): string | null {
   const trimmed = sourceQuote.trim();
   if (!trimmed) return null;
 
+  // Guard against truncated fragments — a real sentence starts with a capital
+  // letter (or a recognised abbreviation). Chunks sometimes start mid-sentence
+  // due to PDF extraction (e.g. "- ing of the bladder are periodic acute…").
+  if (/^[-–—]/.test(trimmed) || /^[a-z]/.test(trimmed)) {
+    return 'Source quote appears to be a mid-sentence fragment — pick a complete sentence that starts with a capital letter.';
+  }
+
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
   if (wordCount < 10) {
     return 'Source quote must be at least 10 words copied verbatim from the source passages.';
@@ -274,6 +281,37 @@ export function runOptionSetAudit(
       }
     }
 
+    // Detect artificial descriptor suffixes padded onto option text (e.g.
+    // "Sodium Ion Concentration Level", "Creatinine Measurement", "GFR Value").
+    // These are almost always writer padding — the discriminating concept name is
+    // enough. Flag when ≥60% of options carry one of these trailing descriptor words.
+    const DESCRIPTOR_SUFFIX_WORDS = new Set([
+      'level', 'levels', 'rate', 'rates', 'measurement', 'measurements',
+      'evaluation', 'testing', 'analysis', 'profiling', 'assessment',
+      'concentration', 'value', 'reading', 'index', 'ratio',
+    ]);
+    if (opts.length >= 3) {
+      const suffixedCount = opts.filter(o => {
+        const words = o.trim().toLowerCase().split(/\s+/);
+        return words.length >= 3 && DESCRIPTOR_SUFFIX_WORDS.has(words[words.length - 1] ?? '');
+      }).length;
+      if (suffixedCount >= Math.ceil(opts.length * 0.6)) {
+        flags.push('DESCRIPTOR_SUFFIX');
+      }
+    }
+
+    // Detect mixing of anatomical structures and physiological processes/mechanisms.
+    // These comparisons are "fundamentally broken" — a student cannot reason across them.
+    const isAnatomyTerm = (o: string) =>
+      /\b(muscle|nerve|duct|tubule|glomerulus|vessel|artery|vein|capillary|cortex|medulla|pelvis|ureter|bladder|sphincter|nephron|loop|gland|lobe|capsule|node|valve|receptor|cell)\b/i.test(o);
+    const isMechanismOrProcessTerm = (o: string) =>
+      /\b(filtration|reabsorption|secretion|regulation|compliance|excretion|absorption|transport|diffusion|inhibition|activation|pathway|reflex|mechanism|cystometrogram|urodynamic|electromyograph|uroflowmetr)\b/i.test(o);
+    const anatomyCount = opts.filter(isAnatomyTerm).length;
+    const mechanismCount = opts.filter(isMechanismOrProcessTerm).length;
+    if (anatomyCount >= 2 && mechanismCount >= 2) {
+      flags.push('ANATOMY_MECHANISM_MIX');
+    }
+
     return flags;
   });
 }
@@ -349,6 +387,12 @@ export function buildDeterministicQuestionValidation(
         break;
       case 'SHARED_SUFFIX':
         issues.push('All options end with the same word — remove the artificial suffix so each option reads naturally.');
+        break;
+      case 'DESCRIPTOR_SUFFIX':
+        issues.push('Options contain artificial descriptor suffixes (Level/Rate/Measurement/Evaluation/Value etc.) — use bare concept names or natural phrases without tacked-on descriptor nouns.');
+        break;
+      case 'ANATOMY_MECHANISM_MIX':
+        issues.push('Options mix anatomical structures with physiological mechanisms/processes — all options must stay in one comparison class.');
         break;
       default:
         if (flag.startsWith('OPTION_OVERLAP_')) {
