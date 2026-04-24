@@ -12,9 +12,10 @@ interface Props {
   onOpenConceptMap: (pdfId: string) => void;
   onSetView: (view: 'add') => void;
   onPdfsChange: (pdfs: PDF[]) => void;
+  onViewBank: (pdfId: string) => void;
 }
 
-export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, onSetView, onPdfsChange }: Props) {
+export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, onSetView, onPdfsChange, onViewBank }: Props) {
   const { roots } = useMemo(() => buildDeckTree(decks, pdfs), [decks, pdfs]);
   const [expanded, setExpanded] = useState<Set<string>>(new Set(roots.map(r => r.id)));
   const [srsByPdf, setSrsByPdf] = useState<Record<string, PdfSrsSummary>>({});
@@ -103,6 +104,7 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
                 onStartQuiz={onStartQuiz}
                 onOpenConceptMap={onOpenConceptMap}
                 onPdfsChange={onPdfsChange}
+                onViewBank={onViewBank}
                 level={0}
               />
             ))}
@@ -116,6 +118,7 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
                   onStartQuiz={onStartQuiz}
                   onOpenConceptMap={onOpenConceptMap}
                   onPdfsChange={onPdfsChange}
+                  onViewBank={onViewBank}
                 />
               </div>
             )}
@@ -127,7 +130,7 @@ export default function BanksView({ pdfs, decks, onStartQuiz, onOpenConceptMap, 
 }
 
 function DeckCard({
-  node, pdfs, decks, expanded, srsByPdf, sumSrs, onToggle, onStartQuiz, onOpenConceptMap, onPdfsChange, level,
+  node, pdfs, decks, expanded, srsByPdf, sumSrs, onToggle, onStartQuiz, onOpenConceptMap, onPdfsChange, onViewBank, level,
 }: {
   node: DeckNode;
   pdfs: PDF[];
@@ -139,6 +142,7 @@ function DeckCard({
   onStartQuiz: (pdfId: string) => void;
   onOpenConceptMap: (pdfId: string) => void;
   onPdfsChange: (pdfs: PDF[]) => void;
+  onViewBank: (pdfId: string) => void;
   level: number;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -241,6 +245,7 @@ function DeckCard({
               onStartQuiz={onStartQuiz}
               onOpenConceptMap={onOpenConceptMap}
               onPdfsChange={onPdfsChange}
+              onViewBank={onViewBank}
               level={level + 1}
             />
           ))}
@@ -255,6 +260,7 @@ function DeckCard({
               onStudy={() => onStartQuiz(pdf.id)}
               onOpen={() => onOpenConceptMap(pdf.id)}
               onPdfsChange={onPdfsChange}
+              onViewBank={() => onViewBank(pdf.id)}
             />
           ))}
         </>
@@ -264,7 +270,7 @@ function DeckCard({
 }
 
 function UncategorizedCard({
-  pdfs, decks, srsByPdf, onStartQuiz, onOpenConceptMap, onPdfsChange,
+  pdfs, decks, srsByPdf, onStartQuiz, onOpenConceptMap, onPdfsChange, onViewBank,
 }: {
   pdfs: PDF[];
   decks: Deck[];
@@ -272,6 +278,7 @@ function UncategorizedCard({
   onStartQuiz: (pdfId: string) => void;
   onOpenConceptMap: (pdfId: string) => void;
   onPdfsChange: (pdfs: PDF[]) => void;
+  onViewBank: (pdfId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -332,6 +339,7 @@ function UncategorizedCard({
           onStudy={() => onStartQuiz(pdf.id)}
           onOpen={() => onOpenConceptMap(pdf.id)}
           onPdfsChange={onPdfsChange}
+          onViewBank={() => onViewBank(pdf.id)}
         />
       ))}
     </div>
@@ -339,7 +347,7 @@ function UncategorizedCard({
 }
 
 function PdfRow({
-  pdf, decks, allPdfs, srs, level, onStudy, onOpen, onPdfsChange,
+  pdf, decks, allPdfs, srs, level, onStudy, onOpen, onPdfsChange, onViewBank,
 }: {
   pdf: PDF;
   decks: Deck[];
@@ -349,15 +357,21 @@ function PdfRow({
   onStudy: () => void;
   onOpen: () => void;
   onPdfsChange: (pdfs: PDF[]) => void;
+  onViewBank: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [subMenu, setSubMenu] = useState<'move' | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameVal, setRenameVal] = useState(pdf.display_name ?? pdf.name);
   const [moving, setMoving] = useState(false);
   const hasQuestions = (pdf.question_count ?? 0) > 0;
   const hasSrs = srs && (srs.due > 0 || srs.learning > 0 || srs.new > 0);
 
+  function closeMenu() { setMenuOpen(false); setSubMenu(null); }
+
   async function moveTo(deckId: string | null) {
-    setPickerOpen(false);
+    closeMenu();
     setMoving(true);
     try {
       const res = await fetch(`/api/pdfs/${pdf.id}`, {
@@ -373,18 +387,33 @@ function PdfRow({
     }
   }
 
+  async function submitRename() {
+    const trimmed = renameVal.trim();
+    setRenaming(false);
+    if (!trimmed || trimmed === (pdf.display_name ?? pdf.name)) return;
+    const res = await fetch(`/api/pdfs/${pdf.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: trimmed }),
+    });
+    if (res.ok) {
+      onPdfsChange(allPdfs.map(p => p.id === pdf.id ? { ...p, display_name: trimmed } : p));
+    }
+  }
+
   return (
     <div
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); setPickerOpen(false); }}
+      onMouseLeave={() => { setHovered(false); closeMenu(); }}
       style={{ position: 'relative' }}
     >
       <div
-        onClick={onOpen}
+        onClick={renaming ? undefined : onOpen}
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: `10px ${16 + level * 20}px`,
-          borderRadius: 6, cursor: 'pointer',
+          borderRadius: 6,
+          cursor: renaming ? 'default' : 'pointer',
           background: hovered ? 'var(--bg-sunken)' : 'transparent',
           transition: 'background 0.15s',
           opacity: moving ? 0.5 : 1,
@@ -394,87 +423,151 @@ function PdfRow({
           <span style={{ fontSize: 13, opacity: 0.4 }}>📄</span>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {pdf.display_name ?? pdf.name}
-          </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
-            {hasSrs ? (
-              <>
-                {srs!.due > 0 && <StatBadge value={srs!.due} label="due" color="var(--amber)" />}
-                {srs!.learning > 0 && <StatBadge value={srs!.learning} label="learning" color="var(--green)" />}
-                {srs!.new > 0 && <StatBadge value={srs!.new} label="new" color="var(--accent)" />}
-              </>
-            ) : hasQuestions ? (
-              <span style={{ fontSize: 10, color: 'var(--text-disabled)', fontFamily: 'var(--font-mono)' }}>
-                {pdf.question_count}q · all done
-              </span>
-            ) : pdf.processed_at === null ? (
-              <span style={{ fontSize: 10, color: 'var(--amber)' }}>processing…</span>
-            ) : null}
-          </div>
+          {renaming ? (
+            <input
+              autoFocus
+              value={renameVal}
+              onChange={e => setRenameVal(e.target.value)}
+              onBlur={() => void submitRename()}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); void submitRename(); }
+                if (e.key === 'Escape') { setRenaming(false); setRenameVal(pdf.display_name ?? pdf.name); }
+              }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%', fontSize: 13, fontWeight: 400,
+                color: 'var(--text-primary)',
+                background: 'var(--bg-raised)',
+                border: '1px solid var(--accent)',
+                borderRadius: 4, padding: '2px 6px',
+                fontFamily: 'var(--font-sans)', outline: 'none',
+              }}
+            />
+          ) : (
+            <div style={{
+              fontSize: 13, fontWeight: 400, color: 'var(--text-secondary)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {pdf.display_name ?? pdf.name}
+            </div>
+          )}
+          {!renaming && (
+            <div style={{ display: 'flex', gap: 10, marginTop: 2 }}>
+              {hasSrs ? (
+                <>
+                  {srs!.due > 0 && <StatBadge value={srs!.due} label="due" color="var(--amber)" />}
+                  {srs!.learning > 0 && <StatBadge value={srs!.learning} label="learning" color="var(--green)" />}
+                  {srs!.new > 0 && <StatBadge value={srs!.new} label="new" color="var(--accent)" />}
+                </>
+              ) : hasQuestions ? (
+                <span style={{ fontSize: 10, color: 'var(--text-disabled)', fontFamily: 'var(--font-mono)' }}>
+                  {pdf.question_count}q · all done
+                </span>
+              ) : pdf.processed_at === null ? (
+                <span style={{ fontSize: 10, color: 'var(--amber)' }}>processing…</span>
+              ) : null}
+            </div>
+          )}
         </div>
 
-        {hovered && (
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-            {/* Move button */}
-            <button
-              onClick={e => { e.stopPropagation(); setPickerOpen(o => !o); }}
-              title="Move to bank"
-              style={{
-                padding: '4px 8px', fontSize: 11, fontWeight: 500,
-                background: pickerOpen ? 'var(--accent-dim)' : 'var(--bg-sunken)',
-                border: '1px solid var(--border)', borderRadius: 5,
-                color: pickerOpen ? 'var(--accent)' : 'var(--text-dim)',
-                cursor: 'pointer', transition: 'all 0.15s',
-              }}
-            >
-              Move
-            </button>
-            {hasQuestions && (
-              <StudyBtn onClick={e => { e.stopPropagation(); onStudy(); }} small />
-            )}
-          </div>
+        {/* Three-dot menu button */}
+        {hovered && !renaming && (
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(o => !o); setSubMenu(null); }}
+            title="Options"
+            style={{
+              width: 26, height: 26, flexShrink: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: menuOpen ? 'var(--bg-raised)' : 'transparent',
+              border: `1px solid ${menuOpen ? 'var(--border-med)' : 'transparent'}`,
+              borderRadius: 5, cursor: 'pointer',
+              fontSize: 14, color: 'var(--text-dim)',
+              transition: 'all 0.1s',
+            }}
+          >
+            ···
+          </button>
         )}
       </div>
 
-      {/* Deck picker popover */}
-      {pickerOpen && (
+      {/* Kebab dropdown */}
+      {menuOpen && (
         <div
           onClick={e => e.stopPropagation()}
           style={{
-            position: 'absolute',
-            top: '100%',
-            right: 16,
-            zIndex: 50,
+            position: 'absolute', top: '100%', right: 16, zIndex: 50,
             background: 'var(--bg-raised)',
             border: '1px solid var(--border-med)',
             borderRadius: 'var(--r2)',
             boxShadow: 'var(--shadow-2)',
-            minWidth: 200,
-            overflow: 'hidden',
+            minWidth: 180, overflow: 'hidden',
           }}
         >
-          <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-dim)', borderBottom: '1px solid var(--border)' }}>
-            Move to bank
-          </div>
-          {pdf.deck_id && (
-            <PickerOption label="No bank (uncategorized)" onSelect={() => void moveTo(null)} />
-          )}
-          {decks.map(d => (
-            d.id !== pdf.deck_id && (
-              <PickerOption key={d.id} label={d.name} indent={d.depth ?? 0} onSelect={() => void moveTo(d.id)} />
-            )
-          ))}
-          {decks.length === 0 && (
-            <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-dim)' }}>No banks yet</div>
+          {subMenu === 'move' ? (
+            <>
+              <div style={{
+                padding: '6px 10px 4px', fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: 'var(--text-dim)', borderBottom: '1px solid var(--border)',
+                display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+              }}
+                onClick={() => setSubMenu(null)}
+              >
+                ← Move to bank
+              </div>
+              {pdf.deck_id && (
+                <PickerOption label="No bank (uncategorized)" onSelect={() => void moveTo(null)} />
+              )}
+              {decks.map(d => (
+                d.id !== pdf.deck_id && (
+                  <PickerOption key={d.id} label={d.name} indent={d.depth ?? 0} onSelect={() => void moveTo(d.id)} />
+                )
+              ))}
+              {decks.length === 0 && (
+                <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-dim)' }}>No banks yet</div>
+              )}
+            </>
+          ) : (
+            <>
+              {hasQuestions && (
+                <MenuOption label="View Questions" onClick={() => { closeMenu(); onViewBank(); }} />
+              )}
+              {hasQuestions && (
+                <MenuOption label="Study" onClick={() => { closeMenu(); onStudy(); }} />
+              )}
+              {hasQuestions && <MenuDivider />}
+              <MenuOption label="Rename" onClick={() => { closeMenu(); setRenaming(true); setRenameVal(pdf.display_name ?? pdf.name); }} />
+              <MenuOption label="Move to…" onClick={() => setSubMenu('move')} />
+            </>
           )}
         </div>
       )}
     </div>
   );
+}
+
+function MenuOption({ label, onClick }: { label: string; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'block', width: '100%', textAlign: 'left',
+        padding: '8px 14px', fontSize: 13,
+        color: 'var(--text-secondary)',
+        background: hovered ? 'var(--bg-sunken)' : 'transparent',
+        border: 'none', cursor: 'pointer', transition: 'background 0.1s',
+      }}
+    >
+      {label}
+    </button>
+  );
+}
+
+function MenuDivider() {
+  return <div style={{ height: 1, background: 'var(--border)', margin: '3px 0' }} />;
 }
 
 function PickerOption({ label, indent = 0, onSelect }: { label: string; indent?: number; onSelect: () => void }) {

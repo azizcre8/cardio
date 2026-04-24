@@ -1,6 +1,7 @@
 'use client';
 
 import AddView from '@/components/AddView';
+import BankQuestionsView from '@/components/BankQuestionsView';
 import BankSelectView from '@/components/BankSelectView';
 import BanksView from '@/components/BanksView';
 import ConceptMapView from '@/components/ConceptMapView';
@@ -29,6 +30,8 @@ interface Props {
   onPdfsChange: (pdfs: PDF[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onExamDateChange: (date: string | null) => void;
+  bankViewPdfId: string | null;
+  onViewBank: (pdfId: string) => void;
 }
 
 export default function AppContent({
@@ -49,6 +52,8 @@ export default function AppContent({
   onPdfsChange,
   onDecksChange,
   onExamDateChange,
+  bankViewPdfId,
+  onViewBank,
 }: Props) {
   const conceptMapPdf = pdfs.find(p => p.id === conceptMapPdfId) ?? null;
 
@@ -56,7 +61,7 @@ export default function AppContent({
     <main
       style={{
         flex: 1,
-        padding: (view === 'processing' || view === 'library' || view === 'quiz') ? '0' : '24px 16px',
+        padding: (view === 'processing' || view === 'library' || view === 'quiz' || view === 'bankview') ? '0' : '24px 16px',
         overflow: 'auto',
         display: 'flex',
         flexDirection: 'column',
@@ -70,6 +75,16 @@ export default function AppContent({
           onOpenConceptMap={onOpenConceptMap}
           onSetView={() => onSetView('add')}
           onPdfsChange={onPdfsChange}
+          onViewBank={onViewBank}
+        />
+      )}
+
+      {view === 'bankview' && bankViewPdfId && (
+        <BankQuestionsView
+          pdfId={bankViewPdfId}
+          pdfs={pdfs}
+          onBack={() => onSetView('library')}
+          onStudy={() => onStartQuiz(bankViewPdfId)}
         />
       )}
 

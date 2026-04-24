@@ -6,12 +6,13 @@ import AppNav from '@/components/AppNav';
 import CommandPalette from '@/components/CommandPalette';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
 
-export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'stats' | 'settings';
+export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'stats' | 'settings' | 'bankview';
 
 export default function AppPage() {
   const [view, setView] = useState<AppView>('library');
   const [conceptMapPdfId, setConceptMapPdfId] = useState<string | null>(null);
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
+  const [bankViewPdfId, setBankViewPdfId] = useState<string | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const handledSharedSlug = useRef<string | null>(null);
   const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId } = useUserLibraryData();
@@ -37,6 +38,7 @@ export default function AppPage() {
     setView('conceptmap');
   }
   function startQuiz(pdfId: string) { setQuizPdfId(pdfId); setView('quiz'); }
+  function openBankView(pdfId: string) { setBankViewPdfId(pdfId); setView('bankview'); }
 
   const handlePaletteNavigate = useCallback((navView: string, pdfId?: string) => {
     if (pdfId) { startQuiz(pdfId); }
@@ -115,6 +117,8 @@ export default function AppPage() {
         onPdfsChange={setPdfs}
         onDecksChange={setDecks}
         onExamDateChange={setExamDate}
+        bankViewPdfId={bankViewPdfId}
+        onViewBank={openBankView}
       />
     </div>
   );
