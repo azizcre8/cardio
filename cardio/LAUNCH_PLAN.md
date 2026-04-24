@@ -161,8 +161,15 @@ You want me to keep working when you're asleep / when this window closes. Plan:
 - Did: ran `analyze-question-bank.ts` on most recent physio run (Chapter 26, Urinary System, dc8d9535). Acceptance rate 58.3% (49/84), no L3 questions. Root causes: (1) descriptor suffix noise — "Sodium Ion Concentration Level" style padding; (2) anatomy/mechanism option-set mixing; (3) truncated source quotes from PDF extraction (e.g. "- ing of the bladder…"); (4) writer explanation pointing to wrong answer despite repair; (5) L3 absent — confirmed NOT a bug, grounding guard correctly downgrades anatomy-heavy chapters.
 - Changed: `lib/pipeline/question-validation.ts` — DESCRIPTOR_SUFFIX flag (≥60% of options carry trailing noise words), ANATOMY_MECHANISM_MIX flag (anatomy + mechanism in same set), truncated-sentence guard in validateSourceQuoteShape. `lib/pipeline/generation.ts` — writer prompt Rule 3 strengthened with explicit suffix ban, same-class forbidden-combo examples, explanation self-check instruction. 4 new tests, 21/21 pass. Commit 72b564f.
 
+### 2026-04-23 (manual — Phase 2: sidebar UX polish)
+- Did: implemented all five Phase 2 items from LAUNCH_PLAN.md.
+- Changed: `components/LibrarySidebar.tsx`. Commit 46ee809.
+- Features shipped: (1) indent guides — faint 1px vertical lines at each depth level; (2) auto-expand on drag hover — collapsed deck expands after 700ms drag hover; (3) always-visible dimmed actions — `+/✎/✕` at opacity 0.3 always, 1.0 on hover/selection (not hidden); (4) error toast — circular-parent drop shows 3s red toast instead of silent no-op; (5) keyboard shortcuts — `n`/`r`/`Del` on selected deck (sidebar is `tabIndex=0`).
+- Verified in browser: sidebar renders correctly with nested decks + indent guides; action buttons visible on all rows.
+
 ### Remaining for next cron / next session
 - Phase 1 task 5 (deferred): re-process Chapter 26 or another recent chapter with the new gates live, then run `analyze-question-bank.ts` again and compare acceptance rate vs 58.3% baseline. Target: ≥75%.
 - Pre-existing test fix: `tests/generation.test.ts > alignSourceQuoteToEvidence` — the new data-driven distractors are returning descriptive phrases instead of concept names. Either fix the function or update the test snapshot.
 - Same-concept-different-id dedup: inventory phase isn't merging duplicate concept names (Pair 5 Uremia). Add a name-normalization pass or post-inventory dedup by canonical concept name.
 - TypeScript strict-null cleanup in `lib/pipeline/distractors.ts` (~10 errors from the Levenshtein matrix init).
+- Phase 3 next: class sharing flow — "Share with class" button + `/s/[slug]` public landing + revoke control.
