@@ -94,7 +94,8 @@ export interface PDF {
 export interface SharedBank {
   id: string;
   owner_user_id: string;
-  source_pdf_id: string;
+  source_pdf_id: string | null;
+  source_deck_id: string | null;
   title: string;
   description: string | null;
   slug: string;
@@ -104,6 +105,8 @@ export interface SharedBank {
   created_at: string;
   updated_at: string;
   source_pdf?: PDF | null;
+  source_deck?: Deck | null;
+  source_pdfs?: PDF[];
   membership_role?: SharedBankMemberRole | null;
   membership_joined_at?: string | null;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useMemo, useEffect } from 'react';
-import type { PDF, Deck, Density, ProcessEvent } from '@/types';
+import type { PDF, Deck, Density, ProcessEvent, SharedBank } from '@/types';
 import ProcessingLog from './ProcessingLog';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 import { Eyebrow, Icon, Btn } from './ui';
@@ -25,6 +25,8 @@ export default function LibraryView({
   const [joinSlug,       setJoinSlug]       = useState('');
   const [joinStatus,     setJoinStatus]     = useState<string | null>(null);
   const [shareToast,     setShareToast]     = useState<string | null>(null);
+  const [folderShareStatus, setFolderShareStatus] = useState<string | null>(null);
+  const [sharedBanks,    setSharedBanks]    = useState<SharedBank[]>([]);
   const [logs,           setLogs]           = useState<ProcessEvent[]>([]);
   const [search,         setSearch]         = useState('');
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
@@ -36,6 +38,12 @@ export default function LibraryView({
     : null;
 
   const { nodeMap } = useMemo(() => buildDeckTree(decks, pdfs), [decks, pdfs]);
+
+  const sharedDeckIds = useMemo(() => new Set(
+    sharedBanks
+      .filter(bank => bank.is_active && !!bank.source_deck_id)
+      .map(bank => bank.source_deck_id as string),
+  ), [sharedBanks]);
 
   const filtered = useMemo(() => {
     let base = pdfs;
@@ -61,6 +69,17 @@ export default function LibraryView({
     if (!res.ok) return;
     onPdfsChange(await res.json() as PDF[]);
   }
+
+  async function refreshSharedBanksFromServer() {
+    const res = await fetch('/api/shared-banks');
+    if (!res.ok) return;
+    const data = await res.json().catch(() => null) as { owned?: SharedBank[] } | null;
+    setSharedBanks(data?.owned ?? []);
+  }
+
+  useEffect(() => {
+    void refreshSharedBanksFromServer();
+  }, []);
 
   function parseSharedSlug(input: string) {
     const trimmed = input.trim();
@@ -233,11 +252,59 @@ export default function LibraryView({
     setTimeout(() => setShareToast(null), 6000);
   }
 
+  function shareUrlForSlug(slug: string) {
+    return `${window.location.origin}/s/${slug}`;
+  }
+
+  async function handleShareDeck(deckId: string) {
+    const existingBank = sharedBanks.find(bank => bank.is_active && bank.source_deck_id === deckId);
+    if (existingBank) {
+      const shareUrl = shareUrlForSlug(existingBank.slug);
+      await navigator.clipboard.writeText(shareUrl).catch(() => null);
+      setFolderShareStatus('Link copied!');
+      setShareToast('Link copied! ' + shareUrl);
+      setTimeout(() => setFolderShareStatus(null), 3000);
+      setTimeout(() => setShareToast(null), 6000);
+      return;
+    }
+
+    const res = await fetch('/api/shared-banks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deckId, visibility: 'public' }),
+    });
+    const data = await res.json().catch(() => null) as { shareUrl?: string; error?: string } | null;
+    if (!res.ok || !data?.shareUrl) {
+      const message = data?.error ?? 'Failed to generate folder share link.';
+      setFolderShareStatus(message);
+      setShareToast(message);
+      setTimeout(() => setFolderShareStatus(null), 4000);
+      setTimeout(() => setShareToast(null), 4000);
+      return;
+    }
+    await navigator.clipboard.writeText(data.shareUrl).catch(() => null);
+    await refreshSharedBanksFromServer();
+    setFolderShareStatus('Link copied!');
+    setShareToast('Link copied! ' + data.shareUrl);
+    setTimeout(() => setFolderShareStatus(null), 3000);
+    setTimeout(() => setShareToast(null), 6000);
+  }
+
   async function revokePdf(slug: string) {
     if (!confirm('Revoke this shared link? Students will no longer be able to join.')) return;
     await fetch(`/api/shared-banks/${encodeURIComponent(slug)}`, { method: 'DELETE' });
     await refreshPdfsFromServer();
     setShareToast('Sharing link revoked.');
+    setTimeout(() => setShareToast(null), 3000);
+  }
+
+  async function revokeDeck(slug: string) {
+    if (!confirm('Revoke this shared folder link? Students will no longer be able to join.')) return;
+    await fetch(`/api/shared-banks/${encodeURIComponent(slug)}`, { method: 'DELETE' });
+    await refreshSharedBanksFromServer();
+    setFolderShareStatus('Sharing link revoked.');
+    setShareToast('Sharing link revoked.');
+    setTimeout(() => setFolderShareStatus(null), 3000);
     setTimeout(() => setShareToast(null), 3000);
   }
 
@@ -255,6 +322,9 @@ export default function LibraryView({
   const ready     = pdfs.filter(p => p.processed_at);
   const totalQ    = ready.reduce((s, p) => s + (p.question_count ?? 0), 0);
   const selectedDeck = selectedDeckId ? nodeMap.get(selectedDeckId) : null;
+  const selectedDeckBank = selectedDeck
+    ? sharedBanks.find(bank => bank.is_active && bank.source_deck_id === selectedDeck.id) ?? null
+    : null;
 
   return (
     <div style={{
@@ -288,6 +358,8 @@ export default function LibraryView({
           onDeleteDeck={handleDeleteDeck}
           onMoveDeck={handleMoveDeck}
           onMovePdf={handleMovePdf}
+          onShareDeck={handleShareDeck}
+          sharedDeckIds={sharedDeckIds}
         />
       </div>
 
@@ -308,6 +380,10 @@ export default function LibraryView({
             onMovePdf={handleMovePdf}
             onShare={sharePdf}
             onRevoke={revokePdf}
+            onShareDeck={handleShareDeck}
+            onRevokeDeck={revokeDeck}
+            sharedBank={selectedDeckBank}
+            shareStatus={folderShareStatus}
             onUpload={() => fileInputRef.current?.click()}
             processing={processing}
             logs={logs}
@@ -564,7 +640,9 @@ function TodayPanel({
 
 function SubjectPanel({
   deck, pdfs, decks, getPdfDisplayName, nodeMap,
-  onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke, onUpload, processing, logs,
+  onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
+  onShareDeck, onRevokeDeck, sharedBank, shareStatus,
+  onUpload, processing, logs,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
@@ -577,6 +655,10 @@ function SubjectPanel({
   onMovePdf: (pdfId: string, deckId: string | null) => Promise<void>;
   onShare: (pdfId: string) => Promise<void>;
   onRevoke: (slug: string) => Promise<void>;
+  onShareDeck: (deckId: string) => Promise<void>;
+  onRevokeDeck: (slug: string) => Promise<void>;
+  sharedBank: SharedBank | null;
+  shareStatus: string | null;
   onUpload: () => void;
   processing: string | null;
   logs: import('@/types').ProcessEvent[];
@@ -624,6 +706,30 @@ function SubjectPanel({
         <Btn kind="primary" icon="plus" onClick={onUpload} disabled={!!processing}>
           {processing ? 'Processing…' : 'Add PDF'}
         </Btn>
+        {sharedBank ? (
+          <>
+            <Btn kind="secondary" icon="eye" onClick={() => { void onShareDeck(deck.id); }}>
+              Copy link
+            </Btn>
+            <Btn kind="danger" onClick={() => { void onRevokeDeck(sharedBank.slug); }}>
+              Revoke
+            </Btn>
+          </>
+        ) : (
+          <Btn kind="secondary" icon="eye" onClick={() => { void onShareDeck(deck.id); }}>
+            Share folder
+          </Btn>
+        )}
+        {shareStatus && (
+          <span style={{
+            alignSelf: 'center',
+            fontSize: 12,
+            color: shareStatus === 'Link copied!' ? 'var(--accent)' : 'var(--text-secondary)',
+            fontFamily: 'var(--font-sans)',
+          }}>
+            {shareStatus}
+          </span>
+        )}
       </div>
 
       {logs.length > 0 && (

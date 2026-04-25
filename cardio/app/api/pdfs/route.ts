@@ -42,7 +42,11 @@ export async function GET() {
     sharedBanks = (sharedRows ?? []) as SharedBank[];
   }
 
-  const bankByPdfId = new Map(sharedBanks.map(bank => [bank.source_pdf_id, bank]));
+  const bankByPdfId = new Map(
+    sharedBanks
+      .filter((bank): bank is SharedBank & { source_pdf_id: string } => !!bank.source_pdf_id)
+      .map(bank => [bank.source_pdf_id, bank]),
+  );
 
   const ownedPdfsMapped = pdfs.map(pdf => {
     const bank = bankByPdfId.get(pdf.id);
@@ -60,7 +64,7 @@ export async function GET() {
   // Fetch PDFs from shared banks the user has joined as a member
   const { data: memberRows } = await supabaseAdmin
     .from('shared_bank_members')
-    .select('shared_banks(id, source_pdf_id, title, slug, visibility, is_active, owner_user_id)')
+    .select('shared_banks(id, source_pdf_id, source_deck_id, title, slug, visibility, is_active, owner_user_id)')
     .eq('user_id', auth.userId)
     .eq('role', 'member');
 
@@ -68,20 +72,30 @@ export async function GET() {
     .map(r => r.shared_banks)
     .filter((b): b is SharedBank => b !== null && b.is_active);
 
+  const joinedPdfBanks = joinedBanks.filter((b): b is SharedBank & { source_pdf_id: string } => !!b.source_pdf_id);
+  const joinedDeckBanks = joinedBanks.filter((b): b is SharedBank & { source_deck_id: string } => !!b.source_deck_id);
+  const ownedPdfIds = new Set(pdfIds);
+
   const joinedPdfIds = joinedBanks
     .map(b => b.source_pdf_id)
-    .filter(id => !pdfIds.includes(id));
+    .filter((id): id is string => !!id && !ownedPdfIds.has(id));
+  const joinedDeckIds = joinedDeckBanks.map(b => b.source_deck_id);
 
-  if (joinedPdfIds.length === 0) {
+  if (joinedPdfIds.length === 0 && joinedDeckIds.length === 0) {
     return jsonOk(ownedPdfsMapped);
   }
 
-  const { data: joinedPdfRows } = await supabaseAdmin
-    .from('pdfs')
-    .select('*')
-    .in('id', joinedPdfIds);
+  const [{ data: joinedPdfRows }, { data: joinedDeckPdfRows }] = await Promise.all([
+    joinedPdfIds.length > 0
+      ? supabaseAdmin.from('pdfs').select('*').in('id', joinedPdfIds)
+      : Promise.resolve({ data: [] }),
+    joinedDeckIds.length > 0
+      ? supabaseAdmin.from('pdfs').select('*').in('deck_id', joinedDeckIds).order('position', { ascending: true }).order('name', { ascending: true })
+      : Promise.resolve({ data: [] }),
+  ]);
 
-  const bankBySourcePdfId = new Map(joinedBanks.map(b => [b.source_pdf_id, b]));
+  const bankBySourcePdfId = new Map(joinedPdfBanks.map(b => [b.source_pdf_id, b]));
+  const bankBySourceDeckId = new Map(joinedDeckBanks.map(b => [b.source_deck_id, b]));
 
   const joinedPdfsMapped = ((joinedPdfRows ?? []) as PDF[]).map(pdf => {
     const bank = bankBySourcePdfId.get(pdf.id);
@@ -96,5 +110,20 @@ export async function GET() {
     } satisfies PDF;
   });
 
-  return jsonOk([...ownedPdfsMapped, ...joinedPdfsMapped]);
+  const joinedDeckPdfsMapped = ((joinedDeckPdfRows ?? []) as PDF[])
+    .filter(pdf => !ownedPdfIds.has(pdf.id))
+    .map(pdf => {
+      const bank = pdf.deck_id ? bankBySourceDeckId.get(pdf.deck_id) : undefined;
+      return {
+        ...pdf,
+        access_scope: 'shared' as const,
+        deck_id: null,
+        shared_bank_id: bank?.id ?? null,
+        shared_bank_title: bank?.title ?? null,
+        shared_bank_slug: bank?.slug ?? null,
+        shared_bank_visibility: bank?.visibility ?? null,
+      } satisfies PDF;
+    });
+
+  return jsonOk([...ownedPdfsMapped, ...joinedPdfsMapped, ...joinedDeckPdfsMapped]);
 }

@@ -111,11 +111,13 @@ interface Props {
   onDeleteDeck: (id: string) => Promise<void>;
   onMoveDeck: (id: string, newParentId: string | null) => Promise<void>;
   onMovePdf: (pdfId: string, deckId: string | null) => Promise<void>;
+  onShareDeck: (deckId: string) => Promise<void>;
+  sharedDeckIds: Set<string>;
 }
 
 export default function LibrarySidebar({
   decks, pdfs, selectedDeckId, onSelectDeck,
-  onCreateDeck, onRenameDeck, onDeleteDeck, onMoveDeck, onMovePdf,
+  onCreateDeck, onRenameDeck, onDeleteDeck, onMoveDeck, onMovePdf, onShareDeck, sharedDeckIds,
 }: Props) {
   const [expanded,   setExpanded]   = useState<Set<string>>(new Set());
   const [renaming,   setRenaming]   = useState<string | null>(null);
@@ -301,6 +303,7 @@ export default function LibrarySidebar({
     const isRenaming  = renaming === node.id;
     const isDragOver  = dragOver === node.id;
     const hasChildren = node.children.length > 0 || (creating?.parentId === node.id);
+    const isShared    = sharedDeckIds.has(node.id);
     const indent      = 12 + depth * 16;
 
     let examLabel: React.ReactNode = null;
@@ -390,6 +393,10 @@ export default function LibrarySidebar({
 
           {examLabel}
 
+          {isShared && (
+            <span title="Shared folder" style={s.sharedBadge}>🔗</span>
+          )}
+
           {/* Count badge */}
           {node.totalPdfCount > 0 && (
             <span style={s.countBadge}>{node.totalPdfCount}</span>
@@ -399,6 +406,7 @@ export default function LibrarySidebar({
           {!isRenaming && (
             <span className="row-actions" style={s.rowActions}>
               <ActionBtn title="Add subdeck" onClick={e => { e.stopPropagation(); startCreate(node.id); }}>+</ActionBtn>
+              <ActionBtn title="Share folder" onClick={e => { e.stopPropagation(); void onShareDeck(node.id); }}>↗</ActionBtn>
               <ActionBtn title="Rename" onClick={e => { e.stopPropagation(); startRename(node); }}>✎</ActionBtn>
               <ActionBtn
                 title="Delete deck"
@@ -607,6 +615,13 @@ const styles = {
     padding: '1px 4px',
     borderRadius: '3px',
     border: '1px solid',
+    flexShrink: 0,
+    marginLeft: 2,
+  },
+  sharedBadge: {
+    fontSize: '0.68rem',
+    lineHeight: 1,
+    color: 'var(--accent)',
     flexShrink: 0,
     marginLeft: 2,
   },

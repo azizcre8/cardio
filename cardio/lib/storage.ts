@@ -198,7 +198,7 @@ export async function getJoinedSharedBanks(userId: string): Promise<SharedBank[]
     .eq('user_id', userId)
     .order('joined_at', { ascending: false });
   if (error) throw new Error(`getJoinedSharedBanks: ${error.message}`);
-  return (data ?? [])
+  return ((data ?? []) as Record<string, unknown>[])
     .map((row: Record<string, unknown>) => row.shared_banks as SharedBank | null)
     .filter((bank): bank is SharedBank => bank !== null);
 }

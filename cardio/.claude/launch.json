@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "cardio-dev",
-      "runtimeExecutable": "/Users/sajedaziz/Documents/Claude/pdf/cardio/node_modules/.bin/next",
-      "runtimeArgs": ["dev"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     }
   ]

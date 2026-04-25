@@ -15,20 +15,40 @@ export default async function SharedBankLandingPage({ params }: { params: { slug
 
   if (!bankRow) notFound();
   const bank = bankRow as SharedBank;
+  const isDeckBank = !!bank.source_deck_id;
 
-  const [{ data: pdfRow }, { count: memberCount }] = await Promise.all([
-    supabaseAdmin.from('pdfs').select('name, display_name, question_count, page_count').eq('id', bank.source_pdf_id).maybeSingle(),
+  const [{ data: pdfRow }, { data: deckPdfRows }, { count: memberCount }] = await Promise.all([
+    !isDeckBank && bank.source_pdf_id
+      ? supabaseAdmin
+        .from('pdfs')
+        .select('name, display_name, question_count, page_count')
+        .eq('id', bank.source_pdf_id)
+        .maybeSingle()
+      : Promise.resolve({ data: null }),
+    isDeckBank
+      ? supabaseAdmin
+        .from('pdfs')
+        .select('name, display_name, question_count, page_count')
+        .eq('deck_id', bank.source_deck_id)
+        .order('position', { ascending: true })
+        .order('name', { ascending: true })
+      : supabaseAdmin
+        .from('pdfs')
+        .select('name, display_name, question_count, page_count')
+        .limit(0),
     supabaseAdmin.from('shared_bank_members').select('*', { count: 'exact', head: true }).eq('shared_bank_id', bank.id),
   ]);
 
-  const pdf = pdfRow as Pick<PDF, 'name' | 'display_name' | 'question_count' | 'page_count'> | null;
+  const sourcePdfs = (isDeckBank
+    ? deckPdfRows ?? []
+    : pdfRow ? [pdfRow] : []) as Pick<PDF, 'name' | 'display_name' | 'question_count' | 'page_count'>[];
 
   const supabase = supabaseServerComponent();
   const { data: { user } } = await supabase.auth.getUser();
   const isOwner = user?.id === bank.owner_user_id;
 
-  const questionCount = pdf?.question_count ?? 0;
-  const pageCount = pdf?.page_count ?? 0;
+  const questionCount = sourcePdfs.reduce((sum, pdf) => sum + (pdf.question_count ?? 0), 0);
+  const pageCount = sourcePdfs.reduce((sum, pdf) => sum + (pdf.page_count ?? 0), 0);
 
   return (
     <div style={{
@@ -88,6 +108,7 @@ export default async function SharedBankLandingPage({ params }: { params: { slug
         }}>
           {questionCount > 0 && <span>{questionCount} questions</span>}
           {pageCount > 0 && <><span>·</span><span>{pageCount} pages</span></>}
+          {isDeckBank && <><span>·</span><span>{sourcePdfs.length} PDFs</span></>}
           {(memberCount ?? 0) > 0 && <><span>·</span><span>{memberCount} studying</span></>}
         </div>
 
@@ -99,6 +120,44 @@ export default async function SharedBankLandingPage({ params }: { params: { slug
           }}>
             {bank.description}
           </p>
+        )}
+
+        {isDeckBank && sourcePdfs.length > 0 && (
+          <div style={{
+            borderTop: '1px solid var(--border)',
+            borderBottom: '1px solid var(--border)',
+            marginBottom: 28,
+          }}>
+            {sourcePdfs.map(pdf => (
+              <div key={pdf.name} style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+                padding: '10px 0',
+                borderTop: '1px solid var(--border)',
+                fontFamily: 'var(--font-sans)',
+              }}>
+                <span style={{
+                  fontSize: 13,
+                  color: 'var(--text-primary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '')}
+                </span>
+                <span style={{
+                  fontSize: 11,
+                  color: 'var(--text-dim)',
+                  fontFamily: 'var(--font-mono)',
+                  flexShrink: 0,
+                }}>
+                  {pdf.question_count ?? 0} Q
+                </span>
+              </div>
+            ))}
+          </div>
         )}
 
         <JoinSection slug={params.slug} />
