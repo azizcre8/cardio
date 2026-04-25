@@ -144,7 +144,7 @@ STEP 2 — GENERATE the questions:
 5. Each question MUST include a verbatim quote (≥10 words) from the text body (NOT from references or bibliography) that directly supports the correct answer
 6. Include a brief explanation (2 sentences: why correct, why the closest wrong answer fails)
 7. 1st-order questions: 5 options (A–E). 2nd/3rd-order: 4 or 5 options
-8. No 'All of the above' / 'None of the above'
+8. No 'All of the above' / 'None of the above' / negatively worded stems (do not use "which is NOT..." or "which does NOT...")
 9. RANDOMISE CORRECT ANSWER POSITION — distribute the correct answer index roughly evenly across positions 0–4. Aim for each position to be correct ~20% of the time.
 
 --- EXAMPLES OF THE EXACT QUALITY REQUIRED ---
@@ -163,6 +163,92 @@ ${fewShotL3}
 Return ONLY a JSON array (no markdown, no wrapper):
 [{
   "level": 1,
+  "topic": "brief topic label (3–6 words)",
+  "stem": "question stem",
+  "options": ["...", "...", "...", "...", "..."],
+  "answer": 0,
+  "source_quote": "exact verbatim quote from the text body",
+  "explanation": "why correct + why closest distractor fails"
+}]
+
+--- MEDICAL TEXT ---
+${pdfText}`;
+}
+
+function buildL1L2Prompt(pdfText: string, targetCount: number): string {
+  const fewShotL1 = formatFewShot(randomExample('L1'));
+  const fewShotL2 = formatFewShot(randomExample('L2'));
+
+  return `You are a medical education expert creating board-style MCQs.
+
+STEP 1 — COVERAGE MAP (do this silently before generating):
+Read the entire text. Identify every major section or topic. Divide ${targetCount} questions proportionally across those sections so no single section receives more than 30% of the total questions.
+
+STEP 2 — GENERATE only 1st-order and 2nd-order questions:
+1. Distribute questions across the ENTIRE document per your coverage map
+2. Level mix: ~25% 1st-order (recall of specific values/facts), ~75% 2nd-order (mechanism, cause-effect, application). Do NOT generate any 3rd-order questions.
+3. LOW DISCRIMINABILITY — answer choices must be intentionally similar (e.g. nearby numbers, related mechanisms, related anatomical structures). This is the most important requirement.
+4. EQUAL OPTION LENGTH — all answer choices must be approximately the same length. The correct answer must NEVER be the longest option.
+5. Each question MUST include a verbatim quote (≥10 words) from the text body (NOT from references or bibliography) that directly supports the correct answer
+6. Include a brief explanation (2 sentences: why correct, why the closest wrong answer fails)
+7. 1st-order questions: 5 options (A–E). 2nd-order: 4 or 5 options
+8. No 'All of the above' / 'None of the above' / negatively worded stems (do not use "which is NOT..." or "which does NOT...")
+9. RANDOMISE CORRECT ANSWER POSITION — distribute the correct answer index roughly evenly across positions 0–4.
+
+--- EXAMPLES ---
+
+1st-order example:
+${fewShotL1}
+
+2nd-order example:
+${fewShotL2}
+
+--- END EXAMPLES ---
+
+Return ONLY a JSON array (no markdown, no wrapper):
+[{
+  "level": 1,
+  "topic": "brief topic label (3–6 words)",
+  "stem": "question stem",
+  "options": ["...", "...", "...", "...", "..."],
+  "answer": 0,
+  "source_quote": "exact verbatim quote from the text body",
+  "explanation": "why correct + why closest distractor fails"
+}]
+
+--- MEDICAL TEXT ---
+${pdfText}`;
+}
+
+function buildL3Prompt(pdfText: string, targetCount: number): string {
+  const fewShotL3 = formatFewShot(randomExample('L3'));
+
+  return `You are a medical education expert creating board-style clinical vignette MCQs for medical students.
+
+STEP 1 — COVERAGE MAP (do this silently before generating):
+Read the entire text. Identify every major clinical concept, mechanism, or syndrome. Divide ${targetCount} questions across those concepts so each is represented.
+
+STEP 2 — GENERATE only 3rd-order clinical vignette questions:
+1. EVERY question MUST open with a patient scenario: "A [age]-year-old [sex] presents with..." then ask about mechanism, diagnosis, or physiological consequence
+2. Cover different clinical scenarios — vary patient age, sex, and presenting complaint across questions
+3. LOW DISCRIMINABILITY — answer choices must be intentionally similar (related mechanisms, related diagnoses). This is the most important requirement.
+4. EQUAL OPTION LENGTH — all answer choices must be approximately the same length. The correct answer must NEVER be the longest option.
+5. Each question MUST include a verbatim quote (≥10 words) from the text body (NOT from references or bibliography) that directly supports the correct answer
+6. Include a brief explanation (2 sentences: why correct, why the closest wrong answer fails)
+7. 4 or 5 options per question
+8. No 'All of the above' / 'None of the above' / negatively worded stems
+9. RANDOMISE CORRECT ANSWER POSITION across positions 0–3 or 0–4.
+
+--- EXAMPLE ---
+
+3rd-order example:
+${fewShotL3}
+
+--- END EXAMPLE ---
+
+Return ONLY a JSON array (no markdown, no wrapper):
+[{
+  "level": 3,
   "topic": "brief topic label (3–6 words)",
   "stem": "question stem",
   "options": ["...", "...", "...", "...", "..."],
@@ -219,12 +305,12 @@ function getClaudeCostRates(model: string): { inputCostPerM: number; outputCostP
   return { inputCostPerM: 3, outputCostPerM: 15 };
 }
 
-async function callClaude(prompt: string): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
+async function callClaude(prompt: string, model?: string): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set');
   const client = new Anthropic({ apiKey });
   const response = await client.messages.create({
-    model: env.GENERATION_MODEL,
+    model: model ?? env.GENERATION_MODEL,
     max_tokens: 16000,
     messages: [{ role: 'user', content: prompt }],
   });
@@ -232,7 +318,8 @@ async function callClaude(prompt: string): Promise<{ rawQuestions: RawClaudeQues
   const textBlock = response.content[0];
   const text = textBlock && 'text' in textBlock ? textBlock.text : '';
   const rawQuestions = parseClaudeJson(text);
-  const { inputCostPerM, outputCostPerM } = getClaudeCostRates(env.GENERATION_MODEL);
+  const usedModel = model ?? env.GENERATION_MODEL;
+  const { inputCostPerM, outputCostPerM } = getClaudeCostRates(usedModel);
   const costUSD = (response.usage.input_tokens / 1_000_000) * inputCostPerM
     + (response.usage.output_tokens / 1_000_000) * outputCostPerM;
 
@@ -265,7 +352,10 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
     flagReason = flagReason ?? 'INVALID_ANSWER';
   }
 
-  if (evidenceResult.evidenceMatchType === 'none') {
+  const isCalculation = options.length >= 4 && options.every(opt =>
+    /^[+\-]?\d+(\.\d+)?(\s*(mm\s*Hg|ml\/min|L\/day|%|mg\/dL|mEq\/L|mmol\/L))?$/.test(opt.trim())
+  );
+  if (evidenceResult.evidenceMatchType === 'none' && !isCalculation) {
     flagged = true;
     flagReason = flagReason ?? 'QUOTE_NOT_FOUND';
   }
@@ -327,9 +417,17 @@ export async function generateQuestionsWithClaude(
       : Math.max(1, Math.round(targetCount * (segmentTokens[i] ?? 0) / tokenDenominator));
     onProgress?.(`Generating questions for segment ${i + 1}/${segments.length}…`);
 
-    const result = await callClaude(buildPrompt(segment, segmentTarget));
-    costUSD += result.costUSD;
-    questions.push(...result.rawQuestions.map(raw => toQuestion(raw, pdfText, pdfId, userId)));
+    const l3Target = Math.max(1, Math.round(segmentTarget * 0.45));
+    const l1l2Target = Math.max(1, segmentTarget - l3Target);
+
+    const [l1l2Result, l3Result] = await Promise.all([
+      callClaude(buildL1L2Prompt(segment, l1l2Target), 'claude-sonnet-4-6'),
+      callClaude(buildL3Prompt(segment, l3Target), env.GENERATION_MODEL),
+    ]);
+
+    costUSD += l1l2Result.costUSD + l3Result.costUSD;
+    const rawAll = [...l1l2Result.rawQuestions, ...l3Result.rawQuestions];
+    questions.push(...rawAll.map(raw => toQuestion(raw, pdfText, pdfId, userId)));
   }
 
   const dedupResult = await dedupQuestions(questions, {});
