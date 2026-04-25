@@ -1,0 +1,1 @@
+ALTER TABLE questions ALTER COLUMN concept_id DROP NOT NULL;
