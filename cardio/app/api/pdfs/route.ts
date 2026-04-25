@@ -1,5 +1,6 @@
 /**
  * GET /api/pdfs — list all PDFs visible to the authenticated user
+ * Includes owned PDFs and PDFs from shared banks the user has joined.
  */
 
 import { requireUser } from '@/lib/auth';
@@ -43,20 +44,57 @@ export async function GET() {
 
   const bankByPdfId = new Map(sharedBanks.map(bank => [bank.source_pdf_id, bank]));
 
-  return jsonOk(
-    pdfs.map(pdf => {
-      const bank = bankByPdfId.get(pdf.id);
-      const isOwned = pdf.user_id === auth.userId;
+  const ownedPdfsMapped = pdfs.map(pdf => {
+    const bank = bankByPdfId.get(pdf.id);
+    return {
+      ...pdf,
+      access_scope: 'owned' as const,
+      deck_id: pdf.deck_id,
+      shared_bank_id: bank?.id ?? null,
+      shared_bank_title: bank?.title ?? null,
+      shared_bank_slug: bank?.slug ?? null,
+      shared_bank_visibility: bank?.visibility ?? null,
+    } satisfies PDF;
+  });
 
-      return {
-        ...pdf,
-        access_scope: isOwned ? 'owned' : 'shared',
-        deck_id: isOwned ? pdf.deck_id : null,
-        shared_bank_id: bank?.id ?? null,
-        shared_bank_title: bank?.title ?? null,
-        shared_bank_slug: bank?.slug ?? null,
-        shared_bank_visibility: bank?.visibility ?? null,
-      } satisfies PDF;
-    }),
-  );
+  // Fetch PDFs from shared banks the user has joined as a member
+  const { data: memberRows } = await supabaseAdmin
+    .from('shared_bank_members')
+    .select('shared_banks(id, source_pdf_id, title, slug, visibility, is_active, owner_user_id)')
+    .eq('user_id', auth.userId)
+    .eq('role', 'member');
+
+  const joinedBanks = ((memberRows ?? []) as Array<{ shared_banks: SharedBank | null }>)
+    .map(r => r.shared_banks)
+    .filter((b): b is SharedBank => b !== null && b.is_active);
+
+  const joinedPdfIds = joinedBanks
+    .map(b => b.source_pdf_id)
+    .filter(id => !pdfIds.includes(id));
+
+  if (joinedPdfIds.length === 0) {
+    return jsonOk(ownedPdfsMapped);
+  }
+
+  const { data: joinedPdfRows } = await supabaseAdmin
+    .from('pdfs')
+    .select('*')
+    .in('id', joinedPdfIds);
+
+  const bankBySourcePdfId = new Map(joinedBanks.map(b => [b.source_pdf_id, b]));
+
+  const joinedPdfsMapped = ((joinedPdfRows ?? []) as PDF[]).map(pdf => {
+    const bank = bankBySourcePdfId.get(pdf.id);
+    return {
+      ...pdf,
+      access_scope: 'shared' as const,
+      deck_id: null,
+      shared_bank_id: bank?.id ?? null,
+      shared_bank_title: bank?.title ?? null,
+      shared_bank_slug: bank?.slug ?? null,
+      shared_bank_visibility: bank?.visibility ?? null,
+    } satisfies PDF;
+  });
+
+  return jsonOk([...ownedPdfsMapped, ...joinedPdfsMapped]);
 }
