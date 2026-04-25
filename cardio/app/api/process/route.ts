@@ -223,11 +223,18 @@ export async function POST(req: NextRequest) {
           data: { readyForGenerate: true, pdfId, cappedConceptCount: 0 },
         });
 
+        const questionsAccepted = questions.filter(q => !q.flagged).length;
         emit({
           phase: 7,
           message: 'Done',
           pct: 100,
-          data: { pdfId, questionCount: questions.length, costUSD: runningCostUSD },
+          data: {
+            pdfId,
+            questionCount: questions.length,
+            questionsGenerated: questions.length,
+            questionsAccepted,
+            costUSD: runningCostUSD,
+          },
         });
       } catch (e) {
         console.error('[process] Pipeline crashed:', e);

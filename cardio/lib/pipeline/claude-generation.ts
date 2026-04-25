@@ -148,6 +148,7 @@ STEP 2 — GENERATE the questions according to these requirements:
 6. Include a brief explanation (2 sentences: why correct, why closest wrong answer fails)
 7. 1st-order questions: 5 options (A–E). 2nd/3rd-order: 4 or 5 options
 8. No 'All of the above' / 'None of the above'
+9. RANDOMISE CORRECT ANSWER POSITION — across the full question set, the correct answer (index 0=A, 1=B, 2=C, 3=D, 4=E) must be distributed roughly evenly. Do not cluster correct answers at positions B or C. Aim for each position to be correct ~20% of the time.
 
 --- EXAMPLES OF THE EXACT QUALITY REQUIRED ---
 

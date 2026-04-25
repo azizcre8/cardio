@@ -222,7 +222,7 @@ export default function ConceptMapView({ pdf, onStudyNow, onReviewDue, onBack }:
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🗺️</div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '20px' }}>
-            Concepts are still being indexed.
+            No concept map for this bank. You can still study all questions directly.
           </p>
           <button
             onClick={onStudyNow}
