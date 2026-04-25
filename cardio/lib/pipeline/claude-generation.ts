@@ -178,7 +178,9 @@ function splitTextIntoSegments(pdfText: string): string[] {
 }
 
 async function callClaude(prompt: string): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
-  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY || undefined });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+  const client = new Anthropic({ apiKey });
   const response = await client.messages.create({
     model: env.GENERATION_MODEL,
     max_tokens: 16000,
