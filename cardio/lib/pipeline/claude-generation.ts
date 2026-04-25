@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { jsonrepair } from 'jsonrepair';
 import referenceBank from '@/data/reference-bank.json';
 import { env } from '@/lib/env';
 import type { Question } from '@/types';
@@ -91,18 +92,102 @@ function extractFirstJsonArray(text: string): string | null {
   return null;
 }
 
-function parseClaudeJson(text: string): RawClaudeQuestion[] {
+function prepareClaudeJsonForRepair(text: string): string {
+  let prepared = '';
+  let inString = false;
+  let escaped = false;
+  const stack: string[] = [];
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+
+    if (escaped) {
+      prepared += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      prepared += char;
+      escaped = inString;
+      continue;
+    }
+
+    if (char === '"') {
+      if (inString) {
+        const nextJsonChar = text.slice(index + 1).match(/\S/)?.[0] ?? '';
+        if (nextJsonChar && ![',', '}', ']', ':'].includes(nextJsonChar)) {
+          prepared += '\\"';
+          continue;
+        }
+      }
+
+      inString = !inString;
+      prepared += char;
+      continue;
+    }
+
+    if (!inString) {
+      if (char === '[' || char === '{') stack.push(char);
+      if (char === ']' && stack.at(-1) === '[') stack.pop();
+      if (char === '}' && stack.at(-1) === '{') stack.pop();
+    }
+
+    prepared += char;
+  }
+
+  if (inString) prepared += '"';
+
+  while (stack.length) {
+    const opener = stack.pop();
+    prepared += opener === '[' ? ']' : '}';
+  }
+
+  return prepared;
+}
+
+export function parseClaudeJson(text: string): RawClaudeQuestion[] {
   const stripped = stripMarkdownFence(text);
+
+  let firstError: unknown;
+
   try {
     const parsed = JSON.parse(stripped);
     if (!Array.isArray(parsed)) throw new Error('Claude response JSON was not an array');
     return parsed as RawClaudeQuestion[];
-  } catch (firstError) {
-    const arrayText = extractFirstJsonArray(stripped);
-    if (!arrayText) throw firstError;
-    const parsed = JSON.parse(arrayText);
+  } catch (error) {
+    firstError = error;
+  }
+
+  const arrayText = extractFirstJsonArray(stripped);
+  if (arrayText) {
+    try {
+      const parsed = JSON.parse(arrayText);
+      if (!Array.isArray(parsed)) throw new Error('Claude response JSON was not an array');
+      return parsed as RawClaudeQuestion[];
+    } catch {
+      // Continue to jsonrepair fallback below.
+    }
+  }
+
+  if (arrayText) {
+    try {
+      const repaired = jsonrepair(arrayText);
+      const parsed = JSON.parse(repaired);
+      if (!Array.isArray(parsed)) throw new Error('Claude response JSON was not an array');
+      return parsed as RawClaudeQuestion[];
+    } catch {
+      // Continue to full-response jsonrepair fallback below.
+    }
+  }
+
+  try {
+    const repaired = jsonrepair(prepareClaudeJsonForRepair(stripped));
+    const parsed = JSON.parse(repaired);
     if (!Array.isArray(parsed)) throw new Error('Claude response JSON was not an array');
     return parsed as RawClaudeQuestion[];
+  } catch {
+    throw firstError;
   }
 }
 
@@ -312,7 +397,7 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   const client = new Anthropic({ apiKey });
   const response = await client.messages.create({
     model: model ?? env.GENERATION_MODEL,
-    max_tokens: 16000,
+    max_tokens: 64000,
     messages: [{ role: 'user', content: prompt }],
   });
 
