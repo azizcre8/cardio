@@ -580,10 +580,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
       {/* Scrollable body */}
       <div style={{ flex: 1, overflow: 'auto', padding: focusMode ? '72px 40px 120px' : '32px 40px' }}>
         <div style={{
-          maxWidth: 1100,
+          maxWidth: revealed ? 1100 : 640,
           margin: '0 auto',
           display: 'flex',
-          gap: 48,
+          gap: revealed ? 48 : 0,
           alignItems: 'flex-start',
         }}>
 
@@ -807,6 +807,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
           {/* ── Right column: explanation + evidence ── */}
           <div style={{
+            display: revealed ? undefined : 'none',
             flex: '1 1 0', minWidth: 0,
             paddingTop: 38,
             opacity: revealed ? 1 : 0,
