@@ -53,8 +53,9 @@ function findEvidenceOffsets(quote: string, pdfText: string): { start: number | 
 
 function stripMarkdownFence(text: string): string {
   const trimmed = text.trim();
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
-  return fenceMatch?.[1]?.trim() ?? trimmed;
+  const withoutOpen = trimmed.replace(/^```[a-z]*\s*/i, '');
+  const withoutClose = withoutOpen.replace(/\s*```\s*$/i, '');
+  return withoutClose.trim();
 }
 
 function extractFirstJsonArray(text: string): string | null {

@@ -345,7 +345,8 @@ Output rules:
     const content = response.choices[0]?.message?.content;
     if (!content) return jsonOk(fallback);
 
-    const parsed = JSON.parse(content) as Partial<ValidatorResponse>;
+    const rawContent = content.trim().replace(/^```[a-z]*\s*/i, '').replace(/\s*```\s*$/i, '');
+    const parsed = JSON.parse(rawContent) as Partial<ValidatorResponse>;
 
     // Guard: LLM sometimes returns issues as an object {stem: "...", A: "..."} instead of array
     let llmIssues: string[] = [];
