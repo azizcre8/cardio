@@ -103,7 +103,14 @@ export default function LibraryView({
     const resp = await fetch('/api/process', { method: 'POST', body: form });
     if (!resp.ok) {
       const txt = await resp.text();
-      setLogs([{ phase: 0, message: `Upload failed: ${txt}`, pct: 0 }]);
+      let msg = `Upload failed: ${txt}`;
+      try {
+        const json = JSON.parse(txt) as { error?: string; tier?: string; limit?: number };
+        if (json.error === 'Plan limit exceeded') {
+          msg = `Plan limit reached: your ${json.tier ?? 'free'} plan allows ${json.limit} PDF${json.limit === 1 ? '' : 's'} per month. Upgrade your plan to continue.`;
+        }
+      } catch { /* not JSON, use raw text */ }
+      setLogs([{ phase: 0, message: msg, pct: 0 }]);
       return;
     }
     setProcessing('__uploading__');
@@ -303,6 +310,7 @@ export default function LibraryView({
             onRevoke={revokePdf}
             onUpload={() => fileInputRef.current?.click()}
             processing={processing}
+            logs={logs}
           />
         ) : (
           <TodayPanel
@@ -556,7 +564,7 @@ function TodayPanel({
 
 function SubjectPanel({
   deck, pdfs, decks, getPdfDisplayName, nodeMap,
-  onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke, onUpload, processing,
+  onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke, onUpload, processing, logs,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
@@ -571,6 +579,7 @@ function SubjectPanel({
   onRevoke: (slug: string) => Promise<void>;
   onUpload: () => void;
   processing: string | null;
+  logs: import('@/types').ProcessEvent[];
 }) {
   const [filter, setFilter] = useState<'all' | 'processed' | 'shared'>('all');
   const totalQ = pdfs.reduce((s, p) => s + (p.question_count ?? 0), 0);
@@ -616,6 +625,12 @@ function SubjectPanel({
           {processing ? 'Processing…' : 'Add PDF'}
         </Btn>
       </div>
+
+      {logs.length > 0 && (
+        <div style={{ marginTop: 16, animation: 'fade-up 0.3s ease' }}>
+          <ProcessingLog events={logs} />
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div style={{

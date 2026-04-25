@@ -4,8 +4,8 @@
     {
       "name": "MedStudy App",
       "cwd": "cardio",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "/Users/sajedaziz/Documents/Claude/pdf/cardio/node_modules/.bin/next",
+      "runtimeArgs": ["dev"],
       "port": 3000,
       "autoPort": false
     }

@@ -300,6 +300,26 @@ export function runOptionSetAudit(
       }
     }
 
+    // Detect broader model-padding labels such as "Fluid Exchange Mechanism",
+    // "Electrolyte Regulation Process", or "Osmotic Pressure Control". A single
+    // legitimate named concept like "Lymphatic System" should not fail, but a
+    // whole option set built from generic trailing labels is not board-like.
+    const BROAD_LABEL_SUFFIX_WORDS = new Set([
+      'activity', 'control', 'function', 'mechanism', 'mechanisms',
+      'process', 'processes', 'regulation', 'response', 'structure',
+      'structures',
+    ]);
+    if (opts.length >= 3) {
+      const broadLabelCount = opts.filter(o => {
+        const words = o.trim().toLowerCase().split(/\s+/);
+        if (words.length < 3) return false;
+        return BROAD_LABEL_SUFFIX_WORDS.has(words[words.length - 1] ?? '');
+      }).length;
+      if (broadLabelCount >= Math.ceil(opts.length * 0.6)) {
+        flags.push('GENERIC_LABEL_SUFFIX');
+      }
+    }
+
     // Detect mixing of anatomical structures and physiological processes/mechanisms.
     // These comparisons are "fundamentally broken" — a student cannot reason across them.
     const isAnatomyTerm = (o: string) =>
@@ -391,6 +411,9 @@ export function buildDeterministicQuestionValidation(
       case 'DESCRIPTOR_SUFFIX':
         issues.push('Options contain artificial descriptor suffixes (Level/Rate/Measurement/Evaluation/Value etc.) — use bare concept names or natural phrases without tacked-on descriptor nouns.');
         break;
+      case 'GENERIC_LABEL_SUFFIX':
+        issues.push('Options are padded with generic labels such as Mechanism/Process/Structure/Regulation/Control — use real named concepts or natural answer phrases instead.');
+        break;
       case 'ANATOMY_MECHANISM_MIX':
         issues.push('Options mix anatomical structures with physiological mechanisms/processes — all options must stay in one comparison class.');
         break;
@@ -411,17 +434,21 @@ export function buildDeterministicQuestionValidation(
     issues.push('Level 1 questions should avoid negation stems such as NOT/EXCEPT/LEAST.');
   }
 
-  // Detect definition-soup stems — template-style stems that just ask students to match a
-  // definition rather than reason clinically or mechanistically.
-  const DEFINITION_SOUP_PATTERNS = [
+  // Detect low-value template stems — stems that ask students to match a generic
+  // label rather than reason from a specific clue, mechanism, or presentation.
+  const TEMPLATE_STEM_PATTERNS = [
     /^the concept defined by/i,
     /^the condition defined by/i,
     /^the (renal|glomerular|tubular|interstitial|pathological?) (pathology|condition|disease|process) (best )?characterized by/i,
     /^which (renal|glomerular|tubular|pathological?) (condition|disease|process|pathology) is (best )?characterized by/i,
+    /^which anatomical structure\b/i,
+    /^which physiological mechanism\b/i,
+    /^which condition is characterized by\b/i,
+    /^which factor is crucial for\b/i,
   ];
-  if (DEFINITION_SOUP_PATTERNS.some(p => p.test(question.stem.trim()))) {
+  if (TEMPLATE_STEM_PATTERNS.some(p => p.test(question.stem.trim()))) {
     issues.push(
-      'Stem uses a definition-lookup template ("The concept defined by…" / "The condition characterized by…") — rewrite as a clinical or mechanistic question requiring the student to reason, not match a dictionary entry.',
+      'Stem uses a low-value template ("Which anatomical structure…", "Which physiological mechanism…", or "Which condition is characterized by…") — rewrite as a clinical, mechanistic, or applied question that can be answered before seeing the options.',
     );
   }
 

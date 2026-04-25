@@ -435,6 +435,79 @@ describe('question validation', () => {
     expect(issues.some(i => /descriptor suffix/i.test(i))).toBe(true);
   });
 
+  it('flags option sets padded with generic mechanism/process labels', () => {
+    const { issues } = buildDeterministicQuestionValidation(
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 2,
+        stem: 'A patient develops dilute urine despite high plasma osmolality. What best explains the abnormal water handling?',
+        options: [
+          'Fluid Exchange Mechanism',
+          'Electrolyte Regulation Process',
+          'Osmotic Pressure Regulation',
+          'Antidiuretic Hormone Deficiency',
+        ],
+        answer: 3,
+        explanation: 'Antidiuretic Hormone Deficiency is correct because loss of ADH signaling prevents normal water retention. Osmotic Pressure Regulation is tempting because osmotic gradients affect water movement, but it does not explain the hormone-dependent concentrating defect.',
+        source_quote: 'Antidiuretic hormone increases the water permeability of the collecting ducts and helps conserve body water.',
+        evidence_start: 0,
+        evidence_end: 97,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'mechanism',
+        deciding_clue: 'increases the water permeability',
+        most_tempting_distractor: 'Osmotic Pressure Regulation',
+        why_tempting: 'both involve water movement',
+        why_fails: 'it does not explain the hormone-dependent defect',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+      'Antidiuretic Hormone',
+      'Antidiuretic hormone increases the water permeability of the collecting ducts and helps conserve body water.',
+    );
+    expect(issues.some(i => /generic labels/i.test(i))).toBe(true);
+  });
+
+  it('flags low-value generic stem frames in accepted-question validation', () => {
+    const { issues } = buildDeterministicQuestionValidation(
+      {
+        pdf_id: 'pdf-1',
+        concept_id: 'concept-1',
+        user_id: 'user-1',
+        level: 1,
+        stem: 'Which anatomical structure comprises about 20% of body weight and includes interstitial fluid and plasma?',
+        options: [
+          'Intracellular Fluid',
+          'Extracellular Fluid',
+          'Blood Volume',
+          'Lymphatic System',
+          'Capillary Membranes',
+        ],
+        answer: 1,
+        explanation: 'Extracellular Fluid is correct because it includes plasma and interstitial fluid. Intracellular Fluid is tempting because it is another major body-fluid compartment, but it is inside cells rather than outside them.',
+        source_quote: 'The extracellular fluid compartment includes plasma and interstitial fluid and accounts for about 20 percent of body weight.',
+        evidence_start: 0,
+        evidence_end: 112,
+        chunk_id: null,
+        evidence_match_type: null,
+        decision_target: 'definition',
+        deciding_clue: 'includes plasma and interstitial fluid',
+        most_tempting_distractor: 'Intracellular Fluid',
+        why_tempting: 'both are major body-fluid compartments',
+        why_fails: 'it is inside cells rather than outside them',
+        option_set_flags: null,
+        flagged: false,
+        flag_reason: null,
+      },
+      'Extracellular Fluid',
+      'The extracellular fluid compartment includes plasma and interstitial fluid and accounts for about 20 percent of body weight.',
+    );
+    expect(issues.some(i => /low-value template/i.test(i))).toBe(true);
+  });
+
   it('flags options that mix anatomical structures with physiological mechanisms', () => {
     const { issues } = buildDeterministicQuestionValidation(
       {

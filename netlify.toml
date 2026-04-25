@@ -1,2 +1,5 @@
+# Repo root wrapper only. The real app lives in `cardio`.
 [build]
-  publish = "."
+  base = "cardio"
+  publish = ".next"
+  command = "npm run build"
