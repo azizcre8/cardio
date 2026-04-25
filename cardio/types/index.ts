@@ -458,3 +458,48 @@ export interface FeatureFlags {
   enableL3GroundingGuard: boolean;
   enableStructuralChunking: boolean;
 }
+
+// ─── Question Quality Analytics ───────────────────────────────────────────────
+
+export type AttemptFlagReason = 'wrong_answer_key' | 'confusing_wording' | 'out_of_scope' | 'other';
+export type AttemptSource = 'quiz' | 'study';
+
+export interface QuestionAttempt {
+  id: string;
+  question_id: string;
+  user_id: string;
+  pdf_id: string;
+  selected_option: number;  // 0-indexed; -1 = skipped
+  is_correct: boolean;
+  time_spent_ms: number;
+  explanation_helpful: boolean | null;
+  flag_reason: AttemptFlagReason | null;
+  source: AttemptSource;
+  created_at: string;
+}
+
+export interface AttemptRequestBody {
+  questionId: string;
+  pdfId: string;
+  selectedOption: number;
+  isCorrect: boolean;
+  timeSpentMs: number;
+  explanationHelpful?: boolean | null;
+  flagReason?: AttemptFlagReason | null;
+  source?: AttemptSource;
+}
+
+export interface QuestionStatRow {
+  question_id: string;
+  stem: string;
+  level: QuestionLevel;
+  concept_name: string;
+  total_attempts: number;
+  difficulty_index: number;        // correct / total (0–1)
+  discrimination_index: number;    // p_top27 - p_bottom27
+  option_counts: number[];         // count per option slot
+  avg_time_ms: number;
+  flag_count: number;
+  flag_reasons: Partial<Record<AttemptFlagReason, number>>;
+  helpful_pct: number | null;      // null when no ratings yet
+}

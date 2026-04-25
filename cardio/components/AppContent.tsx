@@ -5,6 +5,7 @@ import BankSelectView from '@/components/BankSelectView';
 import ConceptMapView from '@/components/ConceptMapView';
 import LibraryView from '@/components/LibraryView';
 import ProcessingView, { type ActiveJob } from '@/components/ProcessingView';
+import QuestionStatsView from '@/components/QuestionStatsView';
 import QuizView from '@/components/QuizView';
 import SettingsView from '@/components/SettingsView';
 import StatsView from '@/components/StatsView';
@@ -132,6 +133,10 @@ export default function AppContent({
 
       {view === 'stats' && (
         <StatsView pdfs={pdfs} examDate={examDate} />
+      )}
+
+      {view === 'question-stats' && (
+        <QuestionStatsView pdfs={pdfs} />
       )}
 
       {view === 'settings' && (

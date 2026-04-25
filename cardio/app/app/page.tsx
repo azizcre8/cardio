@@ -6,7 +6,7 @@ import AppNav from '@/components/AppNav';
 import CommandPalette from '@/components/CommandPalette';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
 
-export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'settings';
+export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'question-stats' | 'settings';
 
 export default function AppPage() {
   const [view, setView] = useState<AppView>('library');

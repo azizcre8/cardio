@@ -119,6 +119,10 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
         Stats
       </NavButton>
 
+      <NavButton view={view} target="question-stats" onClick={() => onSetView('question-stats')} style={navButtonStyle('question-stats')}>
+        Q·Stats
+      </NavButton>
+
       <NavButton view={view} target="settings" onClick={() => onSetView('settings')} style={navButtonStyle('settings')}>
         Settings
       </NavButton>
