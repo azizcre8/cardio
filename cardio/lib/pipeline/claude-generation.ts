@@ -245,7 +245,7 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
     evidence_match_type: evidenceResult.evidenceMatchType ?? 'none',
     evidence_start: offsets.start,
     evidence_end: offsets.end,
-    chunk_id: '',
+    chunk_id: null,
     flagged,
     decision_target: null,
     deciding_clue: null,
