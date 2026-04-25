@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { Question } from '@/types';
+import type { AttemptFlagReason, Question } from '@/types';
 import { Icon, Kbd } from './ui';
 
 interface Props {
@@ -132,6 +132,12 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const startRef = useRef<number>(Date.now());
   const stemRef = useRef<HTMLParagraphElement>(null);
 
+  // ── Question analytics state ──
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [flagByIdx,     setFlagByIdx]     = useState<Map<number, AttemptFlagReason>>(new Map());
+  const [helpfulByIdx,  setHelpfulByIdx]  = useState<Map<number, boolean>>(new Map());
+  const [flagDropOpen,  setFlagDropOpen]  = useState(false);
+
   useEffect(() => {
     fetch(`/api/pdfs/${pdfId}/questions`)
       .then(r => r.json())
@@ -190,6 +196,12 @@ export default function QuizView({ pdfId, onDone }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  // Reset per-question analytics state when navigating to a new question
+  useEffect(() => {
+    setQuestionStartTime(Date.now());
+    setFlagDropOpen(false);
+  }, [idx]);
+
   const current = questions[idx];
 
   function selectOption(optIdx: number) {
@@ -223,6 +235,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
     setHighlights(new Map());
     setStrikeouts(new Map());
     setValidationByIdx(new Map());
+    setFlagByIdx(new Map());
+    setHelpfulByIdx(new Map());
+    setFlagDropOpen(false);
+    setQuestionStartTime(Date.now());
   }
 
   function reviewMissed() {
@@ -240,6 +256,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
     setQualityError(null);
     setHighlights(new Map());
     setStrikeouts(new Map());
+    setFlagByIdx(new Map());
+    setHelpfulByIdx(new Map());
+    setFlagDropOpen(false);
+    setQuestionStartTime(Date.now());
   }
 
   async function submitQuality(quality: number) {
@@ -249,6 +269,18 @@ export default function QuizView({ pdfId, onDone }: Props) {
     setQualityError(null);
 
     try {
+      // Fire analytics attempt (fire-and-forget, non-blocking)
+      const timeSpentMs = Date.now() - questionStartTime;
+      fireAttempt({
+        questionId: current.id,
+        pdfId,
+        selectedOption: selected ?? -1,
+        isCorrect: selected === current.answer,
+        timeSpentMs,
+        explanationHelpful: helpfulByIdx.get(idx) ?? null,
+        flagReason: flagByIdx.get(idx) ?? null,
+      });
+
       const res = await fetch('/api/study/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -326,6 +358,22 @@ export default function QuizView({ pdfId, onDone }: Props) {
       next.set(idx, set);
       return next;
     });
+  }
+
+  function fireAttempt(opts: {
+    questionId: string;
+    pdfId: string;
+    selectedOption: number;
+    isCorrect: boolean;
+    timeSpentMs: number;
+    explanationHelpful?: boolean | null;
+    flagReason?: AttemptFlagReason | null;
+  }) {
+    void fetch('/api/questions/attempt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...opts, source: 'quiz' }),
+    }).catch(() => {});
   }
 
   async function validateCurrentQuestion() {
@@ -803,6 +851,68 @@ export default function QuizView({ pdfId, onDone }: Props) {
                 </div>
               </div>
             )}
+
+            {/* Flag issue UI */}
+            {revealed && (
+              <div style={{ marginTop: 12, position: 'relative', display: 'inline-block' }}>
+                <button
+                  onClick={() => setFlagDropOpen(o => !o)}
+                  style={{
+                    fontSize: '0.7rem', padding: '3px 10px', borderRadius: 99,
+                    border: '1px solid var(--border)', background: 'none',
+                    color: flagByIdx.get(idx) ? 'var(--amber)' : 'var(--text-dim)',
+                    cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                    transition: 'color 0.15s, border-color 0.15s',
+                  }}
+                >
+                  {flagByIdx.get(idx)
+                    ? `⚑ ${(flagByIdx.get(idx) as string).replace(/_/g, ' ')}`
+                    : '⚑ Flag issue'}
+                </button>
+                {flagDropOpen && (
+                  <>
+                    <div
+                      style={{ position: 'fixed', inset: 0, zIndex: 9 }}
+                      onClick={() => setFlagDropOpen(false)}
+                    />
+                    <div style={{
+                      position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 10,
+                      background: 'var(--bg-card)', border: '1px solid var(--border)',
+                      borderRadius: 'var(--r2)', boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                      minWidth: 200, padding: '4px 0',
+                    }}>
+                      {(['wrong_answer_key', 'confusing_wording', 'out_of_scope', 'other'] as AttemptFlagReason[]).map(reason => (
+                        <button
+                          key={reason}
+                          onClick={() => {
+                            setFlagByIdx(prev => {
+                              const m = new Map(prev);
+                              m.set(idx, reason);
+                              return m;
+                            });
+                            setFlagDropOpen(false);
+                          }}
+                          style={{
+                            width: '100%', textAlign: 'left', padding: '7px 14px',
+                            background: flagByIdx.get(idx) === reason ? 'var(--amber-dim)' : 'none',
+                            border: 'none', cursor: 'pointer', fontSize: '0.76rem',
+                            color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)',
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-sunken)'; }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background =
+                              flagByIdx.get(idx) === reason ? 'var(--amber-dim)' : 'none';
+                          }}
+                        >
+                          {reason.replace(/_/g, ' ')}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>{/* end left column */}
 
           {/* ── Right column: explanation + evidence ── */}
@@ -837,6 +947,32 @@ export default function QuizView({ pdfId, onDone }: Props) {
                 )}
               </div>
             )}
+
+            {/* Helpful rating */}
+            {revealed && (
+              <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.76rem', color: 'var(--text-dim)' }}>
+                <span>Helpful?</span>
+                {([true, false] as boolean[]).map(val => (
+                  <button
+                    key={String(val)}
+                    onClick={() => setHelpfulByIdx(prev => {
+                      const m = new Map(prev);
+                      if (m.get(idx) === val) { m.delete(idx); } else { m.set(idx, val); }
+                      return m;
+                    })}
+                    style={{
+                      fontSize: '1rem', padding: '2px 6px',
+                      border: `1px solid ${helpfulByIdx.get(idx) === val ? 'var(--accent)' : 'var(--border)'}`,
+                      borderRadius: 'var(--r2)',
+                      background: helpfulByIdx.get(idx) === val ? 'var(--accent-dim)' : 'none',
+                      cursor: 'pointer', lineHeight: 1, transition: 'background 0.15s, border-color 0.15s',
+                    }}
+                  >
+                    {val ? '👍' : '👎'}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>{/* end two-column row */}
@@ -853,7 +989,18 @@ export default function QuizView({ pdfId, onDone }: Props) {
           <>
             <span style={{ fontSize: 11, color: 'var(--text-dim)', position: 'absolute', left: 24 }}>Select an answer to reveal</span>
             <button
-              onClick={goForward}
+              onClick={() => {
+                if (current) {
+                  fireAttempt({
+                    questionId: current.id,
+                    pdfId,
+                    selectedOption: -1,
+                    isCorrect: false,
+                    timeSpentMs: Date.now() - questionStartTime,
+                  });
+                }
+                goForward();
+              }}
               style={{
                 padding: '8px 14px', background: 'transparent',
                 border: '1px solid var(--border)', borderRadius: 'var(--r2)',

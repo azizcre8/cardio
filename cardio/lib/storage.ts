@@ -16,6 +16,7 @@ import type {
   UserProfile,
   SharedBank,
   SharedBankMember,
+  QuestionAttempt,
 } from '@/types';
 
 // ─── Decks ───────────────────────────────────────────────────────────────────
@@ -543,4 +544,22 @@ export async function insertFlaggedQuestion(entry: {
 }): Promise<void> {
   const { error } = await supabaseAdmin.from('flagged_questions').insert(entry);
   if (error) throw new Error(`insertFlaggedQuestion: ${error.message}`);
+}
+
+// ─── Question Attempts ────────────────────────────────────────────────────────
+
+export async function insertQuestionAttempt(
+  attempt: Omit<QuestionAttempt, 'id' | 'created_at'>,
+): Promise<void> {
+  const { error } = await supabaseAdmin.from('question_attempts').insert(attempt);
+  if (error) throw new Error(`insertQuestionAttempt: ${error.message}`);
+}
+
+export async function getQuestionAttemptsForPdf(pdfId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('question_attempts')
+    .select('question_id, user_id, selected_option, is_correct, time_spent_ms, explanation_helpful, flag_reason')
+    .eq('pdf_id', pdfId);
+  if (error) throw new Error(`getQuestionAttemptsForPdf: ${error.message}`);
+  return data ?? [];
 }
