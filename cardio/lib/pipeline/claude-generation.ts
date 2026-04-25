@@ -131,24 +131,25 @@ function buildPrompt(pdfText: string, targetCount: number): string {
   const fewShotL2 = formatFewShot(randomExample('L2'));
   const fewShotL3 = formatFewShot(randomExample('L3'));
 
-  return `You are a medical education expert creating board-style MCQs.
+  return `You are a medical education expert creating board-style MCQs for medical students preparing for USMLE Step 1 and Step 2 CK.
 
-STEP 1 — COVERAGE MAP (do this silently before generating any questions):
-Read the entire text. Identify every major section or topic. Count them.
-Divide ${targetCount} questions proportionally across those sections so no single
-section receives more than 30% of the total questions. Keep this map in mind
-throughout generation.
+STEP 1A — CONCEPT INVENTORY (silent):
+Read the entire text. List every distinct clinical concept, mechanism, named structure, or physiological process. This is your master concept list.
+
+STEP 1B — COVERAGE PLAN (silent):
+Assign at least 1 question to every concept on your list. If ${targetCount} is less than your concept count, generate enough questions to cover every concept — do not leave any concept unrepresented. Concepts involving disease mechanisms, regulatory physiology, or clinical syndromes should get 2–3 questions at L2/L3.
 
 STEP 2 — GENERATE the questions according to these requirements:
-1. Distribute questions across the ENTIRE document per your coverage map — late sections must be represented equally to early ones
-2. Mix: ~40% 1st-order (recall of specific values/facts), ~35% 2nd-order (comprehension/application), ~25% 3rd-order (analysis/clinical reasoning/calculation)
+1. Distribute questions across the ENTIRE document per your coverage plan — every concept must appear at least once
+2. Level mix: ≤15% 1st-order (recall only when the value has direct clinical significance, e.g. a threshold that changes management), ≥40% 2nd-order (mechanism, cause-effect, physiological comparison), ≥45% 3rd-order (clinical vignette). Every L3 question MUST open with a patient scenario: "A [age]-year-old [sex] presents with..." then ask about mechanism, diagnosis, or physiological consequence
 3. LOW DISCRIMINABILITY — answer choices must be intentionally similar (e.g. nearby numbers, related mechanisms, related anatomical structures). This is the most important requirement.
 4. EQUAL OPTION LENGTH — all answer choices must be within ±20% of each other in word count. The correct answer must NEVER be the longest option. If the correct answer requires detail, make the distractors equally detailed/specific. A student should not be able to identify the correct answer by length alone.
 5. Each question MUST include a verbatim quote (≥10 words) from the text body (NOT from the references or bibliography section) that directly supports the correct answer
 6. Include a brief explanation (2 sentences: why correct, why closest wrong answer fails)
 7. 1st-order questions: 5 options (A–E). 2nd/3rd-order: 4 or 5 options
-8. No 'All of the above' / 'None of the above'
+8. No 'All of the above' / 'None of the above' / negatively worded stems ("which is NOT...")
 9. RANDOMISE CORRECT ANSWER POSITION — across the full question set, the correct answer (index 0=A, 1=B, 2=C, 3=D, 4=E) must be distributed roughly evenly. Do not cluster correct answers at positions B or C. Aim for each position to be correct ~20% of the time.
+10. CLINICAL RELEVANCE — every question must test something a medical student would encounter on USMLE Step 1 or Step 2 CK. Do not test exact anatomical measurements or organ weights unless the value has direct clinical significance. Prefer applying a concept over recalling a number.
 
 --- EXAMPLES OF THE EXACT QUALITY REQUIRED ---
 
