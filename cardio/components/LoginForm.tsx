@@ -53,7 +53,7 @@ export default function LoginForm() {
     if (joinSlug) localStorage.setItem('pendingJoin', joinSlug);
     await supabaseBrowser.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/app` },
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
   }
 
