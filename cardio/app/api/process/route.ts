@@ -215,6 +215,14 @@ export async function POST(req: NextRequest) {
           });
         }
 
+        // Signal readiness so use-app-state.ts proceeds to call /api/process/generate (stub)
+        emit({
+          phase: 6,
+          message: 'Questions generated — finalising…',
+          pct: 95,
+          data: { readyForGenerate: true, pdfId, cappedConceptCount: 0 },
+        });
+
         emit({
           phase: 7,
           message: 'Done',
