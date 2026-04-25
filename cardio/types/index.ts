@@ -170,7 +170,7 @@ export interface Chunk {
 export interface Question {
   id: string;
   pdf_id: string;
-  concept_id: string;
+  concept_id: string | null;
   user_id: string;
   level: QuestionLevel;
 

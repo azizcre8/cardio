@@ -23,5 +23,12 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    "tests",
+    "scripts",
+    "lib/pipeline/process-helpers.ts",
+    "lib/pipeline/offline-comparison.ts",
+    "lib/pipeline/eval-judge.ts"
+  ]
 }

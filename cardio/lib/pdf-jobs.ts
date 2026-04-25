@@ -1,6 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase';
-import { roundUsdAmount } from '@/lib/openai-cost';
 import type { PDFJob, PDFJobStatus, Density } from '@/types';
+
+function roundUsdAmount(value: number): number {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
 
 function isMissingPdfJobsSchema(message: string): boolean {
   return message.includes('pdf_jobs') || message.includes('plan_name') || message.includes('openai_cost_usd');
