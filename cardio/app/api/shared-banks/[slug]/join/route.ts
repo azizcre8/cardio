@@ -1,5 +1,7 @@
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
+import { addSharedBankMember, getSharedBankBySlug } from '@/lib/storage';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { PDF, SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -11,35 +13,20 @@ export async function POST(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const { data: bankRow, error: bankError } = await auth.supabase
-    .from('shared_banks')
-    .select('*')
-    .eq('slug', params.slug)
-    .eq('is_active', true)
-    .single();
-
-  if (bankError || !bankRow) return jsonNotFound('Shared bank not found');
-
-  const bank = bankRow as SharedBank;
+  const bank = await getSharedBankBySlug(params.slug);
+  if (!bank || !bank.is_active) return jsonNotFound('Shared bank not found');
 
   if (bank.owner_user_id !== auth.userId) {
-    const { error: joinError } = await auth.supabase
-      .from('shared_bank_members')
-      .upsert(
-        {
-          shared_bank_id: bank.id,
-          user_id: auth.userId,
-          role: 'member',
-        },
-        { onConflict: 'shared_bank_id,user_id' },
-      );
-
-    if (joinError) return jsonError(joinError.message);
+    try {
+      await addSharedBankMember(bank.id, auth.userId, 'member');
+    } catch (err) {
+      return jsonError(err instanceof Error ? err.message : 'Failed to join');
+    }
   }
 
   const [{ data: sourcePdf }, { data: membership }] = await Promise.all([
-    auth.supabase.from('pdfs').select('*').eq('id', bank.source_pdf_id).maybeSingle(),
-    auth.supabase
+    supabaseAdmin.from('pdfs').select('*').eq('id', bank.source_pdf_id).maybeSingle(),
+    supabaseAdmin
       .from('shared_bank_members')
       .select('role, joined_at')
       .eq('shared_bank_id', bank.id)
