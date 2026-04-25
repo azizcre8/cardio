@@ -43,28 +43,63 @@ function median(values: number[]): number {
     : sorted[mid] ?? 0;
 }
 
-function findEvidenceOffsets(quote: string, pdfText: string): { start: number; end: number } {
-  if (!quote) return { start: 0, end: 0 };
+function findEvidenceOffsets(quote: string, pdfText: string): { start: number | null; end: number | null } {
+  if (!quote) return { start: null, end: null };
   const exact = pdfText.indexOf(quote);
   if (exact >= 0) return { start: exact, end: exact + quote.length };
 
-  const normalize = (value: string) => value.replace(/\s+/g, ' ').trim().toLowerCase();
-  const normalizedQuote = normalize(quote);
-  const normalizedText = normalize(pdfText);
-  const normalizedStart = normalizedText.indexOf(normalizedQuote);
-  if (normalizedStart < 0) return { start: 0, end: 0 };
-  return { start: normalizedStart, end: normalizedStart + normalizedQuote.length };
+  return { start: null, end: null };
+}
+
+function stripMarkdownFence(text: string): string {
+  const trimmed = text.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenceMatch?.[1]?.trim() ?? trimmed;
+}
+
+function extractFirstJsonArray(text: string): string | null {
+  const start = text.indexOf('[');
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = inString;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (char === '[') depth += 1;
+    if (char === ']') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, index + 1);
+    }
+  }
+
+  return null;
 }
 
 function parseClaudeJson(text: string): RawClaudeQuestion[] {
+  const stripped = stripMarkdownFence(text);
   try {
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(stripped);
     if (!Array.isArray(parsed)) throw new Error('Claude response JSON was not an array');
     return parsed as RawClaudeQuestion[];
   } catch (firstError) {
-    const match = text.match(/\[[\s\S]*\]/);
-    if (!match) throw firstError;
-    const parsed = JSON.parse(match[0]);
+    const arrayText = extractFirstJsonArray(stripped);
+    if (!arrayText) throw firstError;
+    const parsed = JSON.parse(arrayText);
     if (!Array.isArray(parsed)) throw new Error('Claude response JSON was not an array');
     return parsed as RawClaudeQuestion[];
   }
@@ -177,6 +212,15 @@ function splitTextIntoSegments(pdfText: string): string[] {
   return boundedSegments;
 }
 
+function getClaudeCostRates(model: string): { inputCostPerM: number; outputCostPerM: number } {
+  const normalized = model.toLowerCase();
+  if (normalized.includes('opus')) return { inputCostPerM: 15, outputCostPerM: 75 };
+  if (normalized.includes('sonnet')) return { inputCostPerM: 3, outputCostPerM: 15 };
+
+  console.warn(`Unknown Claude generation model "${model}", using Sonnet pricing fallback.`);
+  return { inputCostPerM: 3, outputCostPerM: 15 };
+}
+
 async function callClaude(prompt: string): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set');
@@ -190,10 +234,9 @@ async function callClaude(prompt: string): Promise<{ rawQuestions: RawClaudeQues
   const textBlock = response.content[0];
   const text = textBlock && 'text' in textBlock ? textBlock.text : '';
   const rawQuestions = parseClaudeJson(text);
-  const INPUT_COST_PER_M = env.GENERATION_MODEL.includes('opus') ? 15 : 3;
-  const OUTPUT_COST_PER_M = env.GENERATION_MODEL.includes('opus') ? 75 : 15;
-  const costUSD = (response.usage.input_tokens / 1_000_000) * INPUT_COST_PER_M
-    + (response.usage.output_tokens / 1_000_000) * OUTPUT_COST_PER_M;
+  const { inputCostPerM, outputCostPerM } = getClaudeCostRates(env.GENERATION_MODEL);
+  const costUSD = (response.usage.input_tokens / 1_000_000) * inputCostPerM
+    + (response.usage.output_tokens / 1_000_000) * outputCostPerM;
 
   return { rawQuestions, costUSD };
 }
@@ -202,10 +245,11 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
   const options = Array.isArray(raw.options)
     ? raw.options.filter((option): option is string => typeof option === 'string')
     : [];
-  const answer = typeof raw.answer === 'number' ? raw.answer : 0;
+  const rawAnswer = typeof raw.answer === 'number' && Number.isInteger(raw.answer) ? raw.answer : 0;
+  const answer = rawAnswer >= 0 && rawAnswer < options.length ? rawAnswer : 0;
   const sourceQuote = typeof raw.source_quote === 'string' ? raw.source_quote : '';
   const offsets = findEvidenceOffsets(sourceQuote, pdfText);
-  const evidenceResult = verifyEvidenceSpan(sourceQuote, offsets.start, offsets.end, pdfText);
+  const evidenceResult = verifyEvidenceSpan(sourceQuote, offsets.start ?? 0, offsets.end ?? 0, pdfText);
 
   let flagged = false;
   let flagReason: string | null = null;
@@ -216,6 +260,11 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
   if (mismatch) {
     flagged = true;
     flagReason = 'ANSWER_KEY_MISMATCH';
+  }
+
+  if (rawAnswer !== answer || !options.length) {
+    flagged = true;
+    flagReason = flagReason ?? 'INVALID_ANSWER';
   }
 
   if (evidenceResult.evidenceMatchType === 'none') {
