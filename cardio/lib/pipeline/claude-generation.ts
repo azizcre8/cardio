@@ -402,8 +402,11 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   });
   const response = await stream.finalMessage();
 
-  const textBlock = response.content[0];
-  const text = textBlock && 'text' in textBlock ? textBlock.text : '';
+  const textBlock = response.content.find(b => b.type === 'text');
+  if (!textBlock || !('text' in textBlock) || !textBlock.text.trim()) {
+    throw new Error(`Claude returned no text content (stop_reason: ${response.stop_reason})`);
+  }
+  const text = textBlock.text;
   const rawQuestions = parseClaudeJson(text);
   const usedModel = model ?? env.GENERATION_MODEL;
   const { inputCostPerM, outputCostPerM } = getClaudeCostRates(usedModel);
@@ -421,6 +424,8 @@ async function callClaudeInBatches(
   totalTarget: number,
   model: string,
 ): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
+  if (totalTarget <= 0) return { rawQuestions: [], costUSD: 0 };
+
   const batches: number[] = [];
   let remaining = totalTarget;
   while (remaining > 0) {
@@ -434,12 +439,16 @@ async function callClaudeInBatches(
 
   for (let i = 0; i < batches.length; i += CONCURRENCY) {
     const group = batches.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(
+    const settled = await Promise.allSettled(
       group.map(size => callClaude(buildPromptFn(segment, size), model)),
     );
-    for (const result of results) {
-      allQuestions.push(...result.rawQuestions);
-      costUSD += result.costUSD;
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        allQuestions.push(...result.value.rawQuestions);
+        costUSD += result.value.costUSD;
+      } else {
+        console.warn('callClaudeInBatches: batch failed, skipping:', result.reason);
+      }
     }
   }
 
@@ -540,13 +549,30 @@ export async function generateQuestionsWithClaude(
     const l3Target = Math.max(1, Math.round(segmentTarget * 0.45));
     const l1l2Target = Math.max(1, segmentTarget - l3Target);
 
-    const [l1l2Result, l3Result] = await Promise.all([
+    const [l1l2Settled, l3Settled] = await Promise.allSettled([
       callClaudeInBatches(buildL1L2Prompt, segment, l1l2Target, 'claude-sonnet-4-6'),
       callClaudeInBatches(buildL3Prompt, segment, l3Target, env.GENERATION_MODEL),
     ]);
 
-    costUSD += l1l2Result.costUSD + l3Result.costUSD;
-    const rawAll = [...l1l2Result.rawQuestions, ...l3Result.rawQuestions];
+    let segCost = 0;
+    const rawAll: RawClaudeQuestion[] = [];
+
+    if (l1l2Settled.status === 'fulfilled') {
+      rawAll.push(...l1l2Settled.value.rawQuestions);
+      segCost += l1l2Settled.value.costUSD;
+    } else {
+      console.warn('L1L2 generation failed for segment:', l1l2Settled.reason);
+    }
+    if (l3Settled.status === 'fulfilled') {
+      rawAll.push(...l3Settled.value.rawQuestions);
+      segCost += l3Settled.value.costUSD;
+    } else {
+      console.warn('L3 generation failed for segment:', l3Settled.reason);
+    }
+    if (!rawAll.length && l1l2Settled.status === 'rejected' && l3Settled.status === 'rejected') {
+      throw l1l2Settled.reason;
+    }
+    costUSD += segCost;
     questions.push(...rawAll.map(raw => toQuestion(raw, pdfText, pdfId, userId)));
   }
 

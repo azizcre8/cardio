@@ -1,4 +1,6 @@
 import type { Question } from '@/types';
+import type { OpenAICostTracker } from '@/lib/openai-cost';
+import { embedTexts } from './embeddings';
 
 const STOP_WORDS = new Set([
   'a', 'an', 'the', 'and', 'or', 'but', 'of', 'to', 'in', 'on', 'for', 'with', 'by', 'at', 'from', 'into',
@@ -36,6 +38,24 @@ export function buildStemFingerprint(stem: string): string {
   return tokenizeStem(stem).slice(0, 12).join(' ');
 }
 
+function cosineSimilarity(left: number[], right: number[]): number {
+  if (!left.length || left.length !== right.length) return 0;
+
+  let dot = 0;
+  let leftNorm = 0;
+  let rightNorm = 0;
+  for (let i = 0; i < left.length; i++) {
+    const l = left[i] ?? 0;
+    const r = right[i] ?? 0;
+    dot += l * r;
+    leftNorm += l * l;
+    rightNorm += r * r;
+  }
+
+  if (leftNorm === 0 || rightNorm === 0) return 0;
+  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+}
+
 function importanceWeight(importance: string | null | undefined): number {
   if (importance === 'high') return 3;
   if (importance === 'medium') return 2;
@@ -59,6 +79,7 @@ function compareQuestions(
 export async function dedupQuestions(
   questions: AuditedQuestion[],
   conceptImportance: Record<string, string>,
+  onCost?: OpenAICostTracker,
 ): Promise<DedupResult> {
   if (questions.length < 2) return { kept: questions, dropped: [] };
 
@@ -82,6 +103,14 @@ export async function dedupQuestions(
 
   if (!candidatePairs.length) return { kept: questions, dropped: [] };
 
+  let vectors: number[][] = [];
+  let useEmbeddingDedup = true;
+  try {
+    vectors = await embedTexts(questions.map(question => question.stem), onCost);
+  } catch (error) {
+    console.warn('dedupQuestions: embedTexts failed, falling back to fingerprint-only dedup:', error);
+    useEmbeddingDedup = false;
+  }
   const droppedIndices = new Set<number>();
   const dropped: DedupDrop[] = [];
 
@@ -89,7 +118,20 @@ export async function dedupQuestions(
     if (droppedIndices.has(pair.left) || droppedIndices.has(pair.right)) continue;
 
     const exactFingerprint = fingerprints[pair.left] === fingerprints[pair.right];
-    if (!exactFingerprint) continue;
+    const similarity = useEmbeddingDedup
+      ? cosineSimilarity(vectors[pair.left] ?? [], vectors[pair.right] ?? [])
+      : 0;
+
+    // L1 entity-recall stems use a fixed template ("In the source passage,
+    // which named concept is described by...") so two L1 stems for adjacent
+    // concepts hit very high lexical overlap legitimately. Audit found L1
+    // pairs at 0.82 and 0.79 cosine that were clearly redundant — the 0.92
+    // ceiling let them through. Lower the threshold for L1-vs-L1 pairs to
+    // 0.78, which the pathology audit shows is the right cut.
+    // See reports/20a-audit.md "Highest-similarity repetitive pairs" for evidence.
+    const bothL1 = questions[pair.left]!.level === 1 && questions[pair.right]!.level === 1;
+    const threshold = bothL1 ? 0.78 : 0.92;
+    if (!exactFingerprint && similarity < threshold) continue;
 
     const winner = compareQuestions(questions[pair.left]!, questions[pair.right]!, conceptImportance) <= 0
       ? pair.left
@@ -101,7 +143,7 @@ export async function dedupQuestions(
       droppedStem: questions[loser]!.stem,
       keptConceptId: questions[winner]!.concept_id ?? '',
       keptStem: questions[winner]!.stem,
-      reason: 'fingerprint',
+      reason: exactFingerprint ? 'fingerprint' : 'embedding',
     });
   }
 

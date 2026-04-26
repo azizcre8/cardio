@@ -28,7 +28,7 @@ import {
   updatePdfJob,
 } from '@/lib/pdf-jobs';
 
-export const maxDuration = 300;
+export const maxDuration = 600;
 export const runtime = 'nodejs';
 
 function encodeEvent(ev: ProcessEvent): string {
@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       let isClosed = false;
+      let timedOut = false;
       let runningCostUSD = 0;
       let latestPageCount = 0;
       let latestQuestionCount = 0;
@@ -148,8 +149,9 @@ export async function POST(req: NextRequest) {
       const INTERNAL_TIMEOUT_MS = 480_000;
       const timeoutHandle = setTimeout(() => {
         if (!isClosed) {
+          timedOut = true;
           void (async () => {
-            await failJobAndStop('Processing timed out after 5 minutes. Try a shorter PDF or lower density setting.');
+            await failJobAndStop('Processing timed out after 8 minutes. Try a shorter PDF or lower density setting.');
           })();
         }
       }, INTERNAL_TIMEOUT_MS);
@@ -176,16 +178,23 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        if (timedOut) return;
         await updatePDF(pdfId, { page_count: pages.length });
+        if (timedOut) return;
         latestPageCount = pages.length;
         if (pdfJob?.id) {
+          if (timedOut) return;
           await updatePdfJob(pdfJob.id, { page_count: pages.length });
+          if (timedOut) return;
         }
         const pdfText = pages.map(page => page.text).join('\n\n');
+        if (timedOut) return;
         emit({ phase: 1, message: `Phase 1: Extracted ${pages.length} pages`, pct: 30 });
 
+        if (timedOut) return;
         emit({ phase: 2, message: 'Preparing document…', pct: 30 });
 
+        if (timedOut) return;
         emit({ phase: 6, message: 'Generating questions with Claude…', pct: 60 });
         const targetCount = PLAN_LIMITS[planTier]?.maxQuestionsPerPdf ?? 50;
         const { questions, costUSD } = await generateQuestionsWithClaude(
@@ -198,24 +207,31 @@ export async function POST(req: NextRequest) {
         runningCostUSD = roundUsdAmount(costUSD);
         latestQuestionCount = questions.length;
 
+        if (timedOut) return;
         await insertQuestions(questions);
+        if (timedOut) return;
         await updatePDF(pdfId, {
           processed_at: new Date().toISOString(),
           question_count: questions.length,
           processing_cost_usd: runningCostUSD,
         });
+        if (timedOut) return;
         await incrementMonthlyCount(userId);
+        if (timedOut) return;
 
         if (pdfJob?.id) {
+          if (timedOut) return;
           await finishPdfJobSuccess(pdfJob.id, {
             page_count: latestPageCount,
             concept_count: 0,
             question_count: questions.length,
             openai_cost_usd: runningCostUSD,
           });
+          if (timedOut) return;
         }
 
         // Signal readiness so use-app-state.ts proceeds to call /api/process/generate (stub)
+        if (timedOut) return;
         emit({
           phase: 6,
           message: 'Questions generated — finalising…',
@@ -224,6 +240,7 @@ export async function POST(req: NextRequest) {
         });
 
         const questionsAccepted = questions.filter(q => !q.flagged).length;
+        if (timedOut) return;
         emit({
           phase: 7,
           message: 'Done',
