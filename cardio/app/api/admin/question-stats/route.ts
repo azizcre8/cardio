@@ -13,6 +13,8 @@
 
 import { NextRequest } from 'next/server';
 import { getQuestionAttemptsForPdf } from '@/lib/storage';
+
+export const dynamic = 'force-dynamic';
 import { supabaseAdmin } from '@/lib/supabase';
 import { requireUser } from '@/lib/auth';
 import { jsonBadRequest, jsonOk } from '@/lib/api';
