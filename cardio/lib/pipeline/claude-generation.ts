@@ -395,11 +395,12 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set');
   const client = new Anthropic({ apiKey });
-  const response = await client.messages.create({
+  const stream = client.messages.stream({
     model: model ?? env.GENERATION_MODEL,
     max_tokens: 64000,
     messages: [{ role: 'user', content: prompt }],
   });
+  const response = await stream.finalMessage();
 
   const textBlock = response.content[0];
   const text = textBlock && 'text' in textBlock ? textBlock.text : '';
