@@ -40,6 +40,7 @@ function roundUsdAmount(value: number): number {
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartMs = Date.now();
   const auth = await requireUser();
   if (!auth.ok) {
     return auth.response;
@@ -118,11 +119,12 @@ export async function POST(req: NextRequest) {
       let runningCostUSD = 0;
       let latestPageCount = 0;
       let latestQuestionCount = 0;
+      const encoder = new TextEncoder();
 
       const emit = (ev: ProcessEvent) => {
         if (isClosed) return;
         try {
-          controller.enqueue(new TextEncoder().encode(encodeEvent(ev)));
+          controller.enqueue(encoder.encode(encodeEvent(ev)));
         } catch {
           isClosed = true;
         }
@@ -146,7 +148,7 @@ export async function POST(req: NextRequest) {
         fail(msg);
       };
 
-      const INTERNAL_TIMEOUT_MS = 240_000;
+      const INTERNAL_TIMEOUT_MS = 200_000;
       const timeoutHandle = setTimeout(() => {
         if (!isClosed) {
           timedOut = true;
@@ -197,13 +199,25 @@ export async function POST(req: NextRequest) {
         if (timedOut) return;
         emit({ phase: 6, message: 'Generating questions with Claude…', pct: 60 });
         const targetCount = PLAN_LIMITS[planTier]?.maxQuestionsPerPdf ?? 50;
-        const { questions, costUSD } = await generateQuestionsWithClaude(
+        const generationPromise = generateQuestionsWithClaude(
           pdfText,
           targetCount,
           pdfId,
           userId,
           message => emit({ phase: 6, message, pct: 60 }),
+          requestStartMs,
         );
+        const heartbeatHandle = setInterval(() => {
+          if (isClosed) return;
+          try {
+            controller.enqueue(encoder.encode(': heartbeat\n\n'));
+          } catch {
+            isClosed = true;
+          }
+        }, 20_000);
+        const { questions, costUSD } = await generationPromise.finally(() => {
+          clearInterval(heartbeatHandle);
+        });
         runningCostUSD = roundUsdAmount(costUSD);
         latestQuestionCount = questions.length;
 
