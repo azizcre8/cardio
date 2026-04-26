@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
         fail(msg);
       };
 
-      const INTERNAL_TIMEOUT_MS = 280_000;
+      const INTERNAL_TIMEOUT_MS = 480_000;
       const timeoutHandle = setTimeout(() => {
         if (!isClosed) {
           void (async () => {

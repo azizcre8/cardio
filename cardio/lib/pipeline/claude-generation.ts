@@ -397,7 +397,7 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   const client = new Anthropic({ apiKey });
   const stream = client.messages.stream({
     model: model ?? env.GENERATION_MODEL,
-    max_tokens: 64000,
+    max_tokens: 10000,
     messages: [{ role: 'user', content: prompt }],
   });
   const response = await stream.finalMessage();
@@ -411,6 +411,39 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
     + (response.usage.output_tokens / 1_000_000) * outputCostPerM;
 
   return { rawQuestions, costUSD };
+}
+
+const GENERATION_BATCH_SIZE = 20;
+
+async function callClaudeInBatches(
+  buildPromptFn: (text: string, count: number) => string,
+  segment: string,
+  totalTarget: number,
+  model: string,
+): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
+  const batches: number[] = [];
+  let remaining = totalTarget;
+  while (remaining > 0) {
+    batches.push(Math.min(GENERATION_BATCH_SIZE, remaining));
+    remaining -= GENERATION_BATCH_SIZE;
+  }
+
+  const CONCURRENCY = 3;
+  let costUSD = 0;
+  const allQuestions: RawClaudeQuestion[] = [];
+
+  for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    const group = batches.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      group.map(size => callClaude(buildPromptFn(segment, size), model)),
+    );
+    for (const result of results) {
+      allQuestions.push(...result.rawQuestions);
+      costUSD += result.costUSD;
+    }
+  }
+
+  return { rawQuestions: allQuestions, costUSD };
 }
 
 function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, userId: string): Question {
@@ -508,8 +541,8 @@ export async function generateQuestionsWithClaude(
     const l1l2Target = Math.max(1, segmentTarget - l3Target);
 
     const [l1l2Result, l3Result] = await Promise.all([
-      callClaude(buildL1L2Prompt(segment, l1l2Target), 'claude-sonnet-4-6'),
-      callClaude(buildL3Prompt(segment, l3Target), env.GENERATION_MODEL),
+      callClaudeInBatches(buildL1L2Prompt, segment, l1l2Target, 'claude-sonnet-4-6'),
+      callClaudeInBatches(buildL3Prompt, segment, l3Target, env.GENERATION_MODEL),
     ]);
 
     costUSD += l1l2Result.costUSD + l3Result.costUSD;
