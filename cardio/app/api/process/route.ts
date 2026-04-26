@@ -28,7 +28,7 @@ import {
   updatePdfJob,
 } from '@/lib/pdf-jobs';
 
-export const maxDuration = 600;
+export const maxDuration = 300;
 export const runtime = 'nodejs';
 
 function encodeEvent(ev: ProcessEvent): string {
@@ -146,12 +146,12 @@ export async function POST(req: NextRequest) {
         fail(msg);
       };
 
-      const INTERNAL_TIMEOUT_MS = 480_000;
+      const INTERNAL_TIMEOUT_MS = 240_000;
       const timeoutHandle = setTimeout(() => {
         if (!isClosed) {
           timedOut = true;
           void (async () => {
-            await failJobAndStop('Processing timed out after 8 minutes. Try a shorter PDF or lower density setting.');
+            await failJobAndStop('Processing timed out after 4 minutes. Try a shorter PDF or lower density setting.');
           })();
         }
       }, INTERNAL_TIMEOUT_MS);

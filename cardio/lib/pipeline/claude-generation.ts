@@ -397,7 +397,7 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   const client = new Anthropic({ apiKey });
   const stream = client.messages.stream({
     model: model ?? env.GENERATION_MODEL,
-    max_tokens: 10000,
+    max_tokens: 14000,
     messages: [{ role: 'user', content: prompt }],
   });
   const response = await stream.finalMessage();
@@ -416,7 +416,7 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   return { rawQuestions, costUSD };
 }
 
-const GENERATION_BATCH_SIZE = 20;
+const GENERATION_BATCH_SIZE = 30;
 
 async function callClaudeInBatches(
   buildPromptFn: (text: string, count: number) => string,
@@ -433,7 +433,7 @@ async function callClaudeInBatches(
     remaining -= GENERATION_BATCH_SIZE;
   }
 
-  const CONCURRENCY = 3;
+  const CONCURRENCY = 4;
   let costUSD = 0;
   const allQuestions: RawClaudeQuestion[] = [];
 
@@ -534,12 +534,18 @@ export async function generateQuestionsWithClaude(
 ): Promise<{ questions: Question[]; costUSD: number }> {
   const totalTokens = estimateTokens(pdfText);
   const segments = totalTokens <= TOKENS_PER_SEGMENT ? [pdfText] : splitTextIntoSegments(pdfText);
+  const GENERATION_DEADLINE_MS = Date.now() + 4 * 60 * 1000;
   const segmentTokens = segments.map(estimateTokens);
   const tokenDenominator = segmentTokens.reduce((sum, tokens) => sum + tokens, 0) || totalTokens || 1;
 
   let costUSD = 0;
   const questions: Question[] = [];
   for (let i = 0; i < segments.length; i += 1) {
+    if (Date.now() > GENERATION_DEADLINE_MS) {
+      onProgress?.(`Generation time limit reached — saving ${questions.length} questions generated so far`);
+      break;
+    }
+
     const segment = segments[i] ?? '';
     const segmentTarget = segments.length === 1
       ? targetCount
