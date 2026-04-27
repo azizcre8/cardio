@@ -148,12 +148,12 @@ export async function POST(req: NextRequest) {
         fail(msg);
       };
 
-      const INTERNAL_TIMEOUT_MS = 200_000;
+      const INTERNAL_TIMEOUT_MS = 270_000;
       const timeoutHandle = setTimeout(() => {
         if (!isClosed) {
           timedOut = true;
           void (async () => {
-            await failJobAndStop('Processing timed out after 4 minutes. Try a shorter PDF or lower density setting.');
+            await failJobAndStop('Processing timed out after 4.5 minutes. Try a shorter PDF or lower density setting.');
           })();
         }
       }, INTERNAL_TIMEOUT_MS);
