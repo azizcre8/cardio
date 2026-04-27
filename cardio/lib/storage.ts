@@ -375,6 +375,7 @@ export async function insertQuestions(
       const missingColumn = error.message.match(/Could not find the '([^']+)' column of 'questions'/)?.[1];
       if (!missingColumn) break;
 
+      console.error(`insertQuestions: dropping unsupported column '${missingColumn}' from insert payload`);
       batch = batch.map(question => {
         const next = { ...question };
         delete next[missingColumn];
@@ -507,8 +508,10 @@ export async function getAndMaybeResetMonthlyCount(userId: string): Promise<numb
 
   const now = new Date();
   const resetAt = new Date(profile.month_reset_at);
+  const nowYearMonth = now.getFullYear() * 12 + now.getMonth();
+  const resetYearMonth = resetAt.getFullYear() * 12 + resetAt.getMonth();
 
-  if (now.getFullYear() > resetAt.getFullYear() || now.getMonth() > resetAt.getMonth()) {
+  if (nowYearMonth > resetYearMonth) {
     // New month — reset counter
     await updateUserProfile(userId, {
       pdfs_this_month: 0,

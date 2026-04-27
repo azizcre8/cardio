@@ -541,6 +541,9 @@ export async function generateQuestionsWithClaude(
 ): Promise<{ questions: Question[]; costUSD: number }> {
   const totalTokens = estimateTokens(pdfText);
   const segments = totalTokens <= TOKENS_PER_SEGMENT ? [pdfText] : splitTextIntoSegments(pdfText);
+  if (!segments.length || segments.every(s => !s.trim())) {
+    throw new Error('No text segments to generate questions from');
+  }
   const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 120_000;
   const segmentTokens = segments.map(estimateTokens);
   const tokenDenominator = segmentTokens.reduce((sum, tokens) => sum + tokens, 0) || totalTokens || 1;
@@ -588,11 +591,25 @@ export async function generateQuestionsWithClaude(
     } else {
       console.warn('L3 generation failed for segment:', l3Settled.reason);
     }
-    if (!rawAll.length && l1l2Settled.status === 'rejected' && l3Settled.status === 'rejected') {
-      throw l1l2Settled.reason;
+    if (!rawAll.length) {
+      if (l1l2Settled.status === 'rejected' && l3Settled.status === 'rejected') {
+        throw l1l2Settled.reason;
+      }
+      throw new Error('Claude generation returned no questions');
+    }
+    if (l1l2Settled.status === 'rejected' || (l1l2Settled.status === 'fulfilled' && !l1l2Settled.value.rawQuestions.length)) {
+      console.warn('[generation] L1L2 generation returned no questions for segment');
+    }
+    if (l3Settled.status === 'rejected' || (l3Settled.status === 'fulfilled' && !l3Settled.value.rawQuestions.length)) {
+      console.warn('[generation] L3 generation returned no questions for segment');
     }
     costUSD += segCost;
-    questions.push(...rawAll.map(raw => toQuestion(raw, pdfText, pdfId, userId)));
+    const mapped = rawAll.map(raw => toQuestion(raw, pdfText, pdfId, userId));
+    const valid = mapped.filter(q => q.stem.trim().length > 0 && q.options.length >= 2);
+    if (valid.length < mapped.length) {
+      console.warn(`[generation] Filtered ${mapped.length - valid.length} malformed questions (empty stem or <2 options)`);
+    }
+    questions.push(...valid);
   }
 
   const dedupResult = await dedupQuestions(questions, {});
