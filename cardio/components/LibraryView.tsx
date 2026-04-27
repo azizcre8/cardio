@@ -5,6 +5,8 @@ import type { PDF, Deck, Density, ProcessEvent, SharedBank } from '@/types';
 import ProcessingLog from './ProcessingLog';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 import { Eyebrow, Icon, Btn } from './ui';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { uploadPdfToStorage } from '@/lib/upload-pdf';
 
 interface Props {
   pdfs:                  PDF[];
@@ -116,10 +118,24 @@ export default function LibraryView({
 
   async function handleUpload(file: File) {
     setLogs([]);
-    const form = new FormData();
-    form.append('pdf', file);
-    form.append('density', density);
-    const resp = await fetch('/api/process', { method: 'POST', body: form });
+    let resp: Response;
+    try {
+      const { data: { user } } = await supabaseBrowser.auth.getUser();
+      if (!user?.id) {
+        setLogs([{ phase: 0, message: 'Error: You must be signed in to upload PDFs.', pct: 0 }]);
+        return;
+      }
+
+      const storagePath = await uploadPdfToStorage(file, user.id);
+      resp = await fetch('/api/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storagePath, density }),
+      });
+    } catch (error) {
+      setLogs([{ phase: 0, message: `Upload failed: ${(error as Error).message}`, pct: 0 }]);
+      return;
+    }
     if (!resp.ok) {
       const txt = await resp.text();
       let msg = `Upload failed: ${txt}`;

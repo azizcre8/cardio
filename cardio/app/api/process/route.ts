@@ -1,7 +1,7 @@
 /**
  * POST /api/process — single-pass PDF ingestion and Claude question generation.
  *
- * Request: multipart/form-data { pdf: File, density: string }
+ * Request: application/json { storagePath: string, density: string }
  * Response: text/event-stream of ProcessEvent JSON objects
  */
 
@@ -19,6 +19,7 @@ import {
 import { DENSITY_CONFIG, PLAN_LIMITS, type ProcessEvent, type Density } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
+import { supabaseAdmin } from '@/lib/supabase';
 import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
 import {
   createPdfJob,
@@ -47,22 +48,27 @@ export async function POST(req: NextRequest) {
   }
 
   const { supabase, userId } = auth;
-  await ensureUserProfile(userId, auth.session.user.email ?? '');
+  await ensureUserProfile(userId, auth.session?.user.email ?? '');
 
-  let formData: FormData;
+  let payload: { storagePath?: unknown; density?: unknown };
   try {
-    formData = await req.formData();
+    payload = await req.json();
   } catch {
-    return new Response('Invalid form data', { status: 400 });
+    return new Response('Invalid JSON', { status: 400 });
   }
 
-  const pdfFile = formData.get('pdf') as File | null;
-  const density = (formData.get('density') as Density | null) ?? 'standard';
+  const storagePath = typeof payload.storagePath === 'string' ? payload.storagePath : '';
+  const density = (typeof payload.density === 'string' ? payload.density : 'standard') as Density;
 
-  if (!pdfFile) return new Response('No PDF file', { status: 400 });
+  if (!storagePath) return new Response('No PDF storage path', { status: 400 });
+  if (storagePath.split('/')[0] !== userId) {
+    return new Response('Invalid PDF storage path', { status: 403 });
+  }
   if (!['standard', 'comprehensive', 'boards'].includes(density)) {
     return new Response('Invalid density', { status: 400 });
   }
+
+  const pdfName = storagePath.split('/').pop() ?? 'upload.pdf';
 
   const { data: profileRow } = await supabase.from('users').select('plan').eq('id', userId).single();
   const planTier = normalizePlanTier(profileRow?.plan);
@@ -85,9 +91,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const { data: fileData, error: dlError } = await supabaseAdmin.storage
+    .from('pdfs')
+    .download(storagePath);
+  if (dlError || !fileData) {
+    return new Response(JSON.stringify({ error: 'Failed to fetch PDF from storage' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  const buffer = Buffer.from(await fileData.arrayBuffer());
+
   const pdfRow = await insertPDF({
     user_id: userId,
-    name: pdfFile.name,
+    name: pdfName,
     page_count: 0,
     density,
     processed_at: null,
@@ -107,7 +124,7 @@ export async function POST(req: NextRequest) {
   const createdPdfJob = await createPdfJob({
     user_id: userId,
     pdf_id: pdfId,
-    pdf_name: pdfFile.name,
+    pdf_name: pdfName,
     density,
     plan_name: planName,
   });
@@ -161,7 +178,6 @@ export async function POST(req: NextRequest) {
       try {
         emit({ phase: 1, message: 'Phase 1: Extracting text from PDF…', pct: 5 });
 
-        const buffer = Buffer.from(await pdfFile.arrayBuffer());
         const pages = await extractTextServer(buffer);
 
         if (!pages.length) {
@@ -271,6 +287,7 @@ export async function POST(req: NextRequest) {
             costUSD: runningCostUSD,
           },
         });
+        supabaseAdmin.storage.from('pdfs').remove([storagePath]).catch(() => {});
       } catch (e) {
         console.error('[process] Pipeline crashed:', e);
         try {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
+import { uploadPdfToStorage } from '@/lib/upload-pdf';
 import type { Deck, Density, PDF, ProcessEvent } from '@/types';
 import type { ActiveJob } from '@/components/ProcessingView';
 import type { AppView } from './page';
@@ -113,11 +114,6 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
     setActiveJob(job);
     setView('processing');
 
-    const form = new FormData();
-    form.append('pdf', file);
-    form.append('density', density);
-    if (maxQuestions > 0) form.append('maxQuestions', String(maxQuestions));
-
     // Streams SSE events from a response into the active job log.
     // Returns the last pdfId seen in event data, or null if an error terminal event was seen.
     const streamSSE = async (
@@ -148,8 +144,24 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
     };
 
     try {
+      const { data: { user } } = await supabaseBrowser.auth.getUser();
+      if (!user?.id) {
+        setActiveJob(prev => prev ? {
+          ...prev,
+          isRunning: false,
+          logs: [...prev.logs, { phase: 0, message: 'Error: You must be signed in to upload PDFs.', pct: 0 }],
+        } : null);
+        return;
+      }
+
+      const storagePath = await uploadPdfToStorage(file, user.id);
+
       // ── Phase 1: Call /api/process (prepare: phases 1-5) ──
-      const prepResp = await fetch('/api/process', { method: 'POST', body: form });
+      const prepResp = await fetch('/api/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storagePath, density }),
+      });
       if (!prepResp.ok) {
         const txt = await prepResp.text();
         setActiveJob(prev => prev ? {
