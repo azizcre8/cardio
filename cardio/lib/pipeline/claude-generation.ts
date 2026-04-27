@@ -385,9 +385,10 @@ function splitTextIntoSegments(pdfText: string): string[] {
 function getClaudeCostRates(model: string): { inputCostPerM: number; outputCostPerM: number } {
   const normalized = model.toLowerCase();
   if (normalized.includes('opus')) return { inputCostPerM: 15, outputCostPerM: 75 };
+  if (normalized.includes('haiku')) return { inputCostPerM: 0.8, outputCostPerM: 4 };
   if (normalized.includes('sonnet')) return { inputCostPerM: 3, outputCostPerM: 15 };
 
-  console.warn(`Unknown Claude generation model "${model}", using Sonnet pricing fallback.`);
+  console.warn('Unknown Claude generation model "' + model + '", using Sonnet pricing fallback.');
   return { inputCostPerM: 3, outputCostPerM: 15 };
 }
 
@@ -423,6 +424,7 @@ async function callClaudeInBatches(
   segment: string,
   totalTarget: number,
   model: string,
+  deadlineMs?: number,
 ): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
   if (totalTarget <= 0) return { rawQuestions: [], costUSD: 0 };
 
@@ -438,6 +440,10 @@ async function callClaudeInBatches(
   const allQuestions: RawClaudeQuestion[] = [];
 
   for (let i = 0; i < batches.length; i += CONCURRENCY) {
+    if (deadlineMs && Date.now() > deadlineMs) {
+      console.warn('callClaudeInBatches: deadline reached after ' + allQuestions.length + ' questions, stopping');
+      break;
+    }
     const group = batches.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
       group.map(size => callClaude(buildPromptFn(segment, size), model)),
@@ -557,8 +563,14 @@ export async function generateQuestionsWithClaude(
     const l1l2Target = Math.max(1, segmentTarget - l3Target);
 
     const [l1l2Settled, l3Settled] = await Promise.allSettled([
-      callClaudeInBatches(buildL1L2Prompt, segment, l1l2Target, 'claude-sonnet-4-6'),
-      callClaudeInBatches(buildL3Prompt, segment, l3Target, env.GENERATION_MODEL),
+      callClaudeInBatches(
+        buildL1L2Prompt,
+        segment,
+        l1l2Target,
+        'claude-haiku-4-5-20251001',
+        GENERATION_DEADLINE_MS,
+      ),
+      callClaudeInBatches(buildL3Prompt, segment, l3Target, env.GENERATION_MODEL, GENERATION_DEADLINE_MS),
     ]);
 
     let segCost = 0;
