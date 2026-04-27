@@ -392,6 +392,7 @@ export interface DensityConfig {
   max: number;                  // max questions per concept
   levels: Record<ImportanceLevel, QuestionLevel[]>;
   diagCount: number;            // diagnostic session question count
+  questionsPerPage: number;     // Claude flat question target per page
 }
 
 export const DENSITY_CONFIG: Record<Density, DensityConfig> = {
@@ -399,16 +400,19 @@ export const DENSITY_CONFIG: Record<Density, DensityConfig> = {
     words: 2000, overlap: 0.15, min: 15, max: 28,
     levels: { high: [1, 2, 3], medium: [1, 2], low: [1] },
     diagCount: 20,
+    questionsPerPage: 7,
   },
   comprehensive: {
     words: 1800, overlap: 0.18, min: 28, max: 45,
     levels: { high: [1, 2, 3], medium: [1, 2, 3], low: [1, 2] },
     diagCount: 25,
+    questionsPerPage: 13,
   },
   boards: {
     words: 1500, overlap: 0.20, min: 40, max: 60,
     levels: { high: [1, 2, 3], medium: [1, 2, 3], low: [1, 2, 3] },
     diagCount: 30,
+    questionsPerPage: 18,
   },
 };
 

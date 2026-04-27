@@ -44,12 +44,114 @@ function median(values: number[]): number {
     : sorted[mid] ?? 0;
 }
 
+function stripTrailingLengthTellClause(text: string): string {
+  const trimmed = text.trim();
+  const sentenceParts = trimmed.split(/(?<=[.!?])\s+/).filter(Boolean);
+  if (sentenceParts.length > 1) {
+    return sentenceParts.slice(0, -1).join(' ').trim();
+  }
+
+  return trimmed
+    .replace(
+      /(?:\s*[,;:]\s*|\s+-\s+|\s+)(?:because|which|allowing|while|since|as|so that)\b[\s\S]*$/i,
+      '',
+    )
+    .replace(/[\s,;:.-]+$/g, '')
+    .trim();
+}
+
+function isWithinLengthTellThreshold(correctOption: string, otherOptions: string[]): boolean {
+  const medianOtherLength = median(otherOptions.map(wordCount));
+  return medianOtherLength > 0 && wordCount(correctOption) <= medianOtherLength * 1.4;
+}
+
+function trimLengthTell(question: Question): Question {
+  const flags = question.option_set_flags ?? [];
+  if (!flags.includes('LENGTH_TELL')) return question;
+
+  const correctOption = question.options[question.answer];
+  if (typeof correctOption !== 'string') return question;
+
+  const otherOptions = question.options.filter((_, index) => index !== question.answer);
+  const trimmedCorrectOption = stripTrailingLengthTellClause(correctOption);
+  if (!trimmedCorrectOption || trimmedCorrectOption === correctOption.trim()) return question;
+  if (!isWithinLengthTellThreshold(trimmedCorrectOption, otherOptions)) return question;
+
+  const nextFlags = flags.filter(flag => flag !== 'LENGTH_TELL');
+  const nextOptions = [...question.options];
+  nextOptions[question.answer] = trimmedCorrectOption;
+
+  return {
+    ...question,
+    options: nextOptions,
+    option_set_flags: nextFlags.length ? nextFlags : null,
+    flagged: nextFlags.length > 0 || question.flag_reason !== null,
+  };
+}
+
 function findEvidenceOffsets(quote: string, pdfText: string): { start: number | null; end: number | null } {
   if (!quote) return { start: null, end: null };
   const exact = pdfText.indexOf(quote);
   if (exact >= 0) return { start: exact, end: exact + quote.length };
 
+  const normalizedQuote = normalizeEvidenceForSearch(quote);
+  if (!normalizedQuote) return { start: null, end: null };
+
+  const normalizedText = buildNormalizedEvidenceIndex(pdfText);
+  const normalizedStart = normalizedText.text.indexOf(normalizedQuote);
+  if (normalizedStart >= 0) {
+    const normalizedEnd = normalizedStart + normalizedQuote.length;
+    const start = normalizedText.originalIndices[normalizedStart] ?? null;
+    const endBase = normalizedText.originalIndices[normalizedEnd - 1] ?? null;
+    if (start !== null && endBase !== null) {
+      return { start, end: endBase + 1 };
+    }
+  }
+
   return { start: null, end: null };
+}
+
+function normalizeEvidenceChar(char: string): string {
+  if (/[\u2018\u2019\u201A\u201B\u2032\u2035]/.test(char)) return "'";
+  if (/[\u201C\u201D\u201E\u201F\u2033\u2036]/.test(char)) return '"';
+  if (/[\u2013\u2014\u2015]/.test(char)) return '-';
+  return char.toLowerCase();
+}
+
+function normalizeEvidenceForSearch(text: string): string {
+  return text
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    .replace(/[\u2013\u2014\u2015]/g, '-')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .trim();
+}
+
+function buildNormalizedEvidenceIndex(text: string): { text: string; originalIndices: number[] } {
+  let normalized = '';
+  const originalIndices: number[] = [];
+  let pendingWhitespaceIndex: number | null = null;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index] ?? '';
+    if (/\s/.test(char)) {
+      if (normalized.length > 0) pendingWhitespaceIndex = pendingWhitespaceIndex ?? index;
+      continue;
+    }
+
+    if (pendingWhitespaceIndex !== null) {
+      normalized += ' ';
+      originalIndices.push(pendingWhitespaceIndex);
+      pendingWhitespaceIndex = null;
+    }
+
+    normalized += normalizeEvidenceChar(char);
+    originalIndices.push(index);
+  }
+
+  const trimmedNormalized = normalized.trimEnd();
+  return { text: trimmedNormalized, originalIndices: originalIndices.slice(0, trimmedNormalized.length) };
 }
 
 function stripMarkdownFence(text: string): string {
@@ -379,6 +481,58 @@ function splitTextIntoSegments(pdfText: string): string[] {
   return boundedSegments;
 }
 
+function extractSections(text: string): Array<{ heading: string; content: string }> {
+  const lines = text.split(/\n/);
+  const headingIndices: number[] = [];
+  const headingPattern = /^\s*(?:[IVXLCDM]+\b[.)-]?|[A-Z][A-Z0-9 ,:;()/-]{5,})\s*$/;
+
+  lines.forEach((line, index) => {
+    if (headingPattern.test(line.trim())) headingIndices.push(index);
+  });
+
+  return headingIndices
+    .map((start, index) => {
+      const end = headingIndices[index + 1] ?? lines.length;
+      const heading = (lines[start] ?? '').trim();
+      const content = lines.slice(start, end).join('\n').trim();
+      return { heading, content };
+    })
+    .filter(section => section.heading && section.content);
+}
+
+function allocateTargetsByTokens(texts: string[], targetCount: number): number[] {
+  if (!texts.length || targetCount <= 0) return [];
+
+  const tokenCounts = texts.map(estimateTokens);
+  const denominator = tokenCounts.reduce((sum, tokens) => sum + tokens, 0) || 1;
+  const rawTargets = tokenCounts.map(tokens => (targetCount * tokens) / denominator);
+  const targets = rawTargets.map(raw => Math.max(1, Math.floor(raw)));
+  let delta = targetCount - targets.reduce((sum, target) => sum + target, 0);
+
+  const fractionalOrder = rawTargets
+    .map((raw, index) => ({ index, fraction: raw - Math.floor(raw) }))
+    .sort((a, b) => b.fraction - a.fraction);
+
+  for (let i = 0; delta > 0 && fractionalOrder.length; i += 1, delta -= 1) {
+    targets[fractionalOrder[i % fractionalOrder.length]?.index ?? 0] += 1;
+  }
+
+  const sizeOrder = tokenCounts
+    .map((tokens, index) => ({ index, tokens }))
+    .sort((a, b) => a.tokens - b.tokens);
+
+  for (let i = 0; delta < 0 && sizeOrder.length; i += 1) {
+    const targetIndex = sizeOrder[i % sizeOrder.length]?.index ?? 0;
+    if ((targets[targetIndex] ?? 0) > 1) {
+      targets[targetIndex] -= 1;
+      delta += 1;
+    }
+    if (i > sizeOrder.length * targetCount) break;
+  }
+
+  return targets;
+}
+
 function getClaudeCostRates(model: string): { inputCostPerM: number; outputCostPerM: number } {
   const normalized = model.toLowerCase();
   if (normalized.includes('opus')) return { inputCostPerM: 15, outputCostPerM: 75 };
@@ -490,8 +644,15 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
   const rawAnswer = typeof raw.answer === 'number' && Number.isInteger(raw.answer) ? raw.answer : 0;
   const answer = rawAnswer >= 0 && rawAnswer < options.length ? rawAnswer : 0;
   const sourceQuote = typeof raw.source_quote === 'string' ? raw.source_quote : '';
-  const offsets = findEvidenceOffsets(sourceQuote, pdfText);
+  let offsets = findEvidenceOffsets(sourceQuote, pdfText);
   const evidenceResult = verifyEvidenceSpan(sourceQuote, offsets.start ?? 0, offsets.end ?? 0, pdfText);
+  if (
+    offsets.start === null &&
+    evidenceResult.evidenceMatchType !== 'none' &&
+    evidenceResult.evidenceMatchedText
+  ) {
+    offsets = findEvidenceOffsets(evidenceResult.evidenceMatchedText, pdfText);
+  }
 
   let flagged = false;
   let flagReason: string | null = null;
@@ -530,6 +691,7 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
     pdf_id: pdfId,
     user_id: userId,
     concept_id: null,
+    concept_name: typeof raw.topic === 'string' ? raw.topic.trim() : null,
     level: raw.level === 2 || raw.level === 3 ? raw.level : 1,
     stem: typeof raw.stem === 'string' ? raw.stem : '',
     options,
@@ -562,13 +724,18 @@ export async function generateQuestionsWithClaude(
   requestStartMs?: number,
 ): Promise<{ questions: Question[]; costUSD: number }> {
   const totalTokens = estimateTokens(pdfText);
-  const segments = totalTokens <= TOKENS_PER_SEGMENT ? [pdfText] : splitTextIntoSegments(pdfText);
+  const singleSegmentSections = totalTokens <= TOKENS_PER_SEGMENT ? extractSections(pdfText) : [];
+  const useSections = singleSegmentSections.length >= 2;
+  const segments = totalTokens <= TOKENS_PER_SEGMENT
+    ? (useSections ? singleSegmentSections.map(section => section.content) : [pdfText])
+    : splitTextIntoSegments(pdfText);
   if (!segments.length || segments.every(s => !s.trim())) {
     throw new Error('No text segments to generate questions from');
   }
   const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 120_000;
   const segmentTokens = segments.map(estimateTokens);
   const tokenDenominator = segmentTokens.reduce((sum, tokens) => sum + tokens, 0) || totalTokens || 1;
+  const sectionTargets = useSections ? allocateTargetsByTokens(segments, targetCount) : [];
 
   let costUSD = 0;
   const questions: Question[] = [];
@@ -579,10 +746,20 @@ export async function generateQuestionsWithClaude(
     }
 
     const segment = segments[i] ?? '';
-    const segmentTarget = segments.length === 1
-      ? targetCount
-      : Math.max(1, Math.round(targetCount * (segmentTokens[i] ?? 0) / tokenDenominator));
-    onProgress?.(`Generating questions for segment ${i + 1}/${segments.length}…`);
+    let segmentTarget: number;
+    if (useSections) {
+      segmentTarget = sectionTargets[i] ?? 1;
+    } else if (segments.length === 1) {
+      segmentTarget = targetCount;
+    } else {
+      segmentTarget = Math.max(1, Math.round(targetCount * (segmentTokens[i] ?? 0) / tokenDenominator));
+    }
+    const section = useSections ? singleSegmentSections[i] : null;
+    onProgress?.(
+      section
+        ? `Generating questions for section ${i + 1}/${segments.length}: ${section.heading}…`
+        : `Generating questions for segment ${i + 1}/${segments.length}…`,
+    );
 
     const l3Target = Math.max(1, Math.round(segmentTarget * 0.45));
     const l1l2Target = Math.max(1, segmentTarget - l3Target);
@@ -626,7 +803,7 @@ export async function generateQuestionsWithClaude(
       console.warn('[generation] L3 generation returned no questions for segment');
     }
     costUSD += segCost;
-    const mapped = rawAll.map(raw => toQuestion(raw, pdfText, pdfId, userId));
+    const mapped = rawAll.map(raw => trimLengthTell(toQuestion(raw, pdfText, pdfId, userId)));
     const valid = mapped.filter(q => q.stem.trim().length > 0 && q.options.length >= 2);
     if (valid.length < mapped.length) {
       console.warn(`[generation] Filtered ${mapped.length - valid.length} malformed questions (empty stem or <2 options)`);

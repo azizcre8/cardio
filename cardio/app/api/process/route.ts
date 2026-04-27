@@ -16,7 +16,7 @@ import {
   ensureUserProfile,
   incrementMonthlyCount,
 } from '@/lib/storage';
-import { PLAN_LIMITS, type ProcessEvent, type Density } from '@/types';
+import { DENSITY_CONFIG, PLAN_LIMITS, type ProcessEvent, type Density } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { env } from '@/lib/env';
 import { getPlanLimits, normalizePlanTier } from '@/lib/plans';
@@ -198,7 +198,8 @@ export async function POST(req: NextRequest) {
 
         if (timedOut) return;
         emit({ phase: 6, message: 'Generating questions with Claude…', pct: 60 });
-        const targetCount = PLAN_LIMITS[planTier]?.maxQuestionsPerPdf ?? 50;
+        const planLimit = PLAN_LIMITS[planTier]?.maxQuestionsPerPdf ?? 50;
+        const targetCount = Math.min(planLimit, pages.length * DENSITY_CONFIG[density].questionsPerPage);
         const generationPromise = generateQuestionsWithClaude(
           pdfText,
           targetCount,

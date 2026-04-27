@@ -392,7 +392,8 @@ export async function getQuestions(pdfId: string): Promise<Question[]> {
   const { data, error } = await supabaseAdmin
     .from('questions')
     .select('*')
-    .eq('pdf_id', pdfId);
+    .eq('pdf_id', pdfId)
+    .eq('flagged', false);
   if (error) throw new Error(`getQuestions: ${error.message}`);
   return (data ?? []) as Question[];
 }
