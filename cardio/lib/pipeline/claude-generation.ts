@@ -541,7 +541,7 @@ export async function generateQuestionsWithClaude(
 ): Promise<{ questions: Question[]; costUSD: number }> {
   const totalTokens = estimateTokens(pdfText);
   const segments = totalTokens <= TOKENS_PER_SEGMENT ? [pdfText] : splitTextIntoSegments(pdfText);
-  const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 160_000;
+  const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 120_000;
   const segmentTokens = segments.map(estimateTokens);
   const tokenDenominator = segmentTokens.reduce((sum, tokens) => sum + tokens, 0) || totalTokens || 1;
 

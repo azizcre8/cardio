@@ -221,7 +221,10 @@ export async function POST(req: NextRequest) {
         runningCostUSD = roundUsdAmount(costUSD);
         latestQuestionCount = questions.length;
 
-        if (timedOut) return;
+        // Always persist questions even if the hard timeout has already fired —
+        // generation may have completed just before the kill; discarding results
+        // would be wasteful. The guards below skip non-essential SSE/job updates
+        // when timedOut, but the data write must always happen.
         await insertQuestions(questions);
         if (timedOut) return;
         await updatePDF(pdfId, {
