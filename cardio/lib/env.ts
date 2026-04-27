@@ -18,7 +18,7 @@ export const env = {
   supabaseAnonKey: required('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
   supabaseServiceRoleKey: required('SUPABASE_SERVICE_ROLE_KEY'),
   ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ?? '',
-  GENERATION_MODEL: process.env.GENERATION_MODEL ?? 'claude-opus-4-7',
+  GENERATION_MODEL: process.env.GENERATION_MODEL ?? 'claude-sonnet-4-5',
   openAiApiKey: process.env.OPENAI_API_KEY ?? '',
   stripeSecretKey: () => required('STRIPE_SECRET_KEY'),
   stripeWebhookSecret: () => required('STRIPE_WEBHOOK_SECRET'),

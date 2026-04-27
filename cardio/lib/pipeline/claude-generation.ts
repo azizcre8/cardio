@@ -261,14 +261,16 @@ Return ONLY a JSON array (no markdown, no wrapper):
 ${pdfText}`;
 }
 
-function buildL1L2Prompt(pdfText: string, targetCount: number): string {
+// Returns the instruction-only portion of the L1/L2 prompt (no PDF text).
+// The PDF text is passed as a separate cached context block in callClaude.
+function buildL1L2Instructions(targetCount: number): string {
   const fewShotL1 = formatFewShot(randomExample('L1'));
   const fewShotL2 = formatFewShot(randomExample('L2'));
 
-  return `You are a medical education expert creating board-style MCQs.
+  return `You are a medical education expert creating board-style MCQs from the medical text above.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
-Read the entire text. Identify every major section or topic. Divide ${targetCount} questions proportionally across those sections so no single section receives more than 30% of the total questions.
+Identify every major section or topic in the text above. Divide ${targetCount} questions proportionally across those sections so no single section receives more than 30% of the total questions.
 
 STEP 2 — GENERATE only 1st-order and 2nd-order questions:
 1. Distribute questions across the ENTIRE document per your coverage map
@@ -300,19 +302,17 @@ Return ONLY a JSON array (no markdown, no wrapper):
   "answer": 0,
   "source_quote": "exact verbatim quote from the text body",
   "explanation": "why correct + why closest distractor fails"
-}]
-
---- MEDICAL TEXT ---
-${pdfText}`;
+}]`;
 }
 
-function buildL3Prompt(pdfText: string, targetCount: number): string {
+// Returns the instruction-only portion of the L3 prompt (no PDF text).
+function buildL3Instructions(targetCount: number): string {
   const fewShotL3 = formatFewShot(randomExample('L3'));
 
-  return `You are a medical education expert creating board-style clinical vignette MCQs for medical students.
+  return `You are a medical education expert creating board-style clinical vignette MCQs from the medical text above.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
-Read the entire text. Identify every major clinical concept, mechanism, or syndrome. Divide ${targetCount} questions across those concepts so each is represented.
+Identify every major clinical concept, mechanism, or syndrome in the text above. Divide ${targetCount} questions across those concepts so each is represented.
 
 STEP 2 — GENERATE only 3rd-order clinical vignette questions:
 1. EVERY question MUST open with a patient scenario: "A [age]-year-old [sex] presents with..." then ask about mechanism, diagnosis, or physiological consequence
@@ -341,10 +341,7 @@ Return ONLY a JSON array (no markdown, no wrapper):
   "answer": 0,
   "source_quote": "exact verbatim quote from the text body",
   "explanation": "why correct + why closest distractor fails"
-}]
-
---- MEDICAL TEXT ---
-${pdfText}`;
+}]`;
 }
 
 function splitTextIntoSegments(pdfText: string): string[] {
@@ -392,14 +389,28 @@ function getClaudeCostRates(model: string): { inputCostPerM: number; outputCostP
   return { inputCostPerM: 3, outputCostPerM: 15 };
 }
 
-async function callClaude(prompt: string, model?: string): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
+// context   — the PDF segment text, sent as a cached content block (same across all batches
+//             for a given segment, so batches 2-N pay only 10% of normal input cost).
+// instructions — the task-specific prompt (question count, few-shot examples); not cached.
+async function callClaude(
+  context: string,
+  instructions: string,
+  model?: string,
+): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set');
   const client = new Anthropic({ apiKey });
   const stream = client.messages.stream({
     model: model ?? env.GENERATION_MODEL,
     max_tokens: 14000,
-    messages: [{ role: 'user', content: prompt }],
+    messages: [{
+      role: 'user',
+      content: [
+        // The PDF segment is the large stable block — mark it for caching.
+        { type: 'text', text: `--- MEDICAL TEXT ---\n${context}`, cache_control: { type: 'ephemeral' } },
+        { type: 'text', text: instructions },
+      ],
+    }],
   });
   const response = await stream.finalMessage();
 
@@ -411,8 +422,18 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
   const rawQuestions = parseClaudeJson(text);
   const usedModel = model ?? env.GENERATION_MODEL;
   const { inputCostPerM, outputCostPerM } = getClaudeCostRates(usedModel);
-  const costUSD = (response.usage.input_tokens / 1_000_000) * inputCostPerM
-    + (response.usage.output_tokens / 1_000_000) * outputCostPerM;
+  const usage = response.usage as {
+    input_tokens: number;
+    output_tokens: number;
+    cache_creation_input_tokens?: number;
+    cache_read_input_tokens?: number;
+  };
+  // Cache write costs 1.25× normal; cache read costs 0.1× normal.
+  const costUSD =
+    (usage.input_tokens / 1_000_000) * inputCostPerM +
+    ((usage.cache_creation_input_tokens ?? 0) / 1_000_000) * inputCostPerM * 1.25 +
+    ((usage.cache_read_input_tokens ?? 0) / 1_000_000) * inputCostPerM * 0.1 +
+    (usage.output_tokens / 1_000_000) * outputCostPerM;
 
   return { rawQuestions, costUSD };
 }
@@ -420,7 +441,7 @@ async function callClaude(prompt: string, model?: string): Promise<{ rawQuestion
 const GENERATION_BATCH_SIZE = 30;
 
 async function callClaudeInBatches(
-  buildPromptFn: (text: string, count: number) => string,
+  buildInstructionsFn: (count: number) => string,
   segment: string,
   totalTarget: number,
   model: string,
@@ -446,7 +467,8 @@ async function callClaudeInBatches(
     }
     const group = batches.slice(i, i + CONCURRENCY);
     const settled = await Promise.allSettled(
-      group.map(size => callClaude(buildPromptFn(segment, size), model)),
+      // segment is the cached context; instructions vary per batch size.
+      group.map(size => callClaude(segment, buildInstructionsFn(size), model)),
     );
     for (const result of settled) {
       if (result.status === 'fulfilled') {
@@ -567,13 +589,13 @@ export async function generateQuestionsWithClaude(
 
     const [l1l2Settled, l3Settled] = await Promise.allSettled([
       callClaudeInBatches(
-        buildL1L2Prompt,
+        buildL1L2Instructions,
         segment,
         l1l2Target,
         'claude-haiku-4-5-20251001',
         GENERATION_DEADLINE_MS,
       ),
-      callClaudeInBatches(buildL3Prompt, segment, l3Target, env.GENERATION_MODEL, GENERATION_DEADLINE_MS),
+      callClaudeInBatches(buildL3Instructions, segment, l3Target, env.GENERATION_MODEL, GENERATION_DEADLINE_MS),
     ]);
 
     let segCost = 0;
