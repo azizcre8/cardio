@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback } from 'react';
 import type { PDF, Density } from '@/types';
-import type { AnalyzeResult } from '@/app/api/analyze/route';
+import { analyzePdfClient, type AnalyzeResult } from '@/lib/analyze-pdf-client';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,11 +63,7 @@ export default function AddView({ pdfs, isJobRunning, onStartProcessing, onViewP
     setStep('analyzing');
 
     try {
-      const form = new FormData();
-      form.append('pdf', file);
-      const resp = await fetch('/api/analyze', { method: 'POST', body: form });
-      if (!resp.ok) throw new Error(await resp.text());
-      const result: AnalyzeResult = await resp.json();
+      const result = await analyzePdfClient(file);
       setAnalysis(result);
       setStep('configure');
       // Default max Q to Standard's expected midpoint
