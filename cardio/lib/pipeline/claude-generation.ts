@@ -600,8 +600,8 @@ async function callClaudeInBatches(
   totalTarget: number,
   model: string,
   deadlineMs?: number,
-): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number }> {
-  if (totalTarget <= 0) return { rawQuestions: [], costUSD: 0 };
+): Promise<{ rawQuestions: RawClaudeQuestion[]; costUSD: number; errors: unknown[] }> {
+  if (totalTarget <= 0) return { rawQuestions: [], costUSD: 0, errors: [] };
 
   const batches: number[] = [];
   let remaining = totalTarget;
@@ -613,6 +613,7 @@ async function callClaudeInBatches(
   const CONCURRENCY = 4;
   let costUSD = 0;
   const allQuestions: RawClaudeQuestion[] = [];
+  const errors: unknown[] = [];
 
   for (let i = 0; i < batches.length; i += CONCURRENCY) {
     if (deadlineMs && Date.now() > deadlineMs) {
@@ -629,12 +630,13 @@ async function callClaudeInBatches(
         allQuestions.push(...result.value.rawQuestions);
         costUSD += result.value.costUSD;
       } else {
+        errors.push(result.reason);
         console.warn('callClaudeInBatches: batch failed, skipping:', result.reason);
       }
     }
   }
 
-  return { rawQuestions: allQuestions, costUSD };
+  return { rawQuestions: allQuestions, costUSD, errors };
 }
 
 function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, userId: string): Question {
@@ -794,7 +796,19 @@ export async function generateQuestionsWithClaude(
       if (l1l2Settled.status === 'rejected' && l3Settled.status === 'rejected') {
         throw l1l2Settled.reason;
       }
-      throw new Error('Claude generation returned no questions');
+      const firstError = [l1l2Settled, l3Settled]
+        .map(result => result.status === 'fulfilled' ? result.value.errors[0] : result.reason)
+        .find(error => error !== undefined && error !== null);
+      if (firstError instanceof Error) {
+        throw firstError;
+      }
+      throw new Error(
+        typeof firstError === 'string'
+          ? firstError
+          : firstError
+            ? String(firstError)
+            : 'Claude generation returned no questions',
+      );
     }
     if (l1l2Settled.status === 'rejected' || (l1l2Settled.status === 'fulfilled' && !l1l2Settled.value.rawQuestions.length)) {
       console.warn('[generation] L1L2 generation returned no questions for segment');
