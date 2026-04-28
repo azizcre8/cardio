@@ -25,6 +25,7 @@ async function fetchQuestionWithSRS(
     .select('*')
     .eq('id', questionId)
     .eq('pdf_id', pdfId)
+    .eq('user_id', userId)
     .single();
   if (!q) return null;
 

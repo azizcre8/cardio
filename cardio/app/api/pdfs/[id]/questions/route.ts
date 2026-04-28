@@ -4,7 +4,7 @@
 
 import { NextRequest } from 'next/server';
 import { requireUser } from '@/lib/auth';
-import { jsonError, jsonOk } from '@/lib/api';
+import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
 
 export async function GET(
   req: NextRequest,
@@ -14,6 +14,15 @@ export async function GET(
   if (!auth.ok) return auth.response;
 
   const { supabase } = auth;
+
+  const { data: pdf, error: pdfError } = await supabase
+    .from('pdfs')
+    .select('id')
+    .eq('id', params.id)
+    .eq('user_id', auth.userId)
+    .maybeSingle();
+  if (pdfError) return jsonError(pdfError.message);
+  if (!pdf) return jsonNotFound('PDF not found');
 
   const { data, error } = await supabase
     .from('questions')
@@ -37,6 +46,7 @@ export async function GET(
       concepts(name)
     `)
     .eq('pdf_id', params.id)
+    .eq('user_id', auth.userId)
     .eq('flagged', false);
 
   if (error) return jsonError(error.message);

@@ -43,14 +43,17 @@ export async function GET(req: NextRequest) {
 
   const userId = auth.userId;
 
-  const [questionRes, conceptRes, profileRes, srsRes, deckDeadline] = await Promise.all([
-    auth.supabase.from('questions').select('*').eq('pdf_id', pdfId).eq('flagged', false),
-    auth.supabase.from('concepts').select('*').eq('pdf_id', pdfId),
+  const [pdfRes, questionRes, conceptRes, profileRes, srsRes, deckDeadline] = await Promise.all([
+    auth.supabase.from('pdfs').select('id').eq('id', pdfId).eq('user_id', userId).maybeSingle(),
+    auth.supabase.from('questions').select('*').eq('pdf_id', pdfId).eq('user_id', userId).eq('flagged', false),
+    auth.supabase.from('concepts').select('*').eq('pdf_id', pdfId).eq('user_id', userId),
     auth.supabase.from('users').select('exam_date').eq('id', userId).single(),
     auth.supabase.from('srs_state').select('*').eq('pdf_id', pdfId).eq('user_id', userId),
     getExamDeadlineForPdf(pdfId),
   ]);
 
+  if (pdfRes.error) return jsonError(pdfRes.error.message);
+  if (!pdfRes.data) return jsonBadRequest('PDF not found');
   if (questionRes.error) return jsonError(questionRes.error.message);
   if (conceptRes.error) return jsonError(conceptRes.error.message);
   if (profileRes.error) return jsonError(profileRes.error.message);

@@ -114,33 +114,69 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
     setActiveJob(job);
     setView('processing');
 
+    const getEventPdfId = (ev: ProcessEvent): string | null => (
+      typeof ev.data?.pdfId === 'string' ? ev.data.pdfId : null
+    );
+    const getEventNumber = (value: unknown): number => (
+      typeof value === 'number' && Number.isFinite(value) ? value : 0
+    );
+    const isDoneEvent = (ev: ProcessEvent): boolean => (
+      ev.phase === 7 || ev.message.trim().toLowerCase() === 'done'
+    );
+
     // Streams SSE events from a response into the active job log.
-    // Returns the last pdfId seen in event data, or null if an error terminal event was seen.
+    // Returns true when the caller stopped on a terminal event.
     const streamSSE = async (
       resp: Response,
       onTerminal: (ev: ProcessEvent) => boolean, // return true to stop streaming
-    ): Promise<void> => {
-      const reader = resp.body!.getReader();
+    ): Promise<boolean> => {
+      if (!resp.body) {
+        throw new Error('Streaming response had no body');
+      }
+
+      const reader = resp.body.getReader();
       const dec = new TextDecoder();
       let buf = '';
 
+      const processBlock = (block: string): boolean => {
+        const dataLines = block
+          .split(/\r?\n/)
+          .map(line => line.trimEnd())
+          .filter(line => line.startsWith('data:'))
+          .map(line => line.slice(5).trimStart());
+        if (!dataLines.length) return false;
+
+        const payload = dataLines.join('\n').trim();
+        if (!payload) return false;
+
+        try {
+          const ev = JSON.parse(payload) as ProcessEvent;
+          setActiveJob(prev => prev ? { ...prev, logs: [...prev.logs, ev] } : null);
+          return onTerminal(ev);
+        } catch {
+          return false;
+        }
+      };
+
       while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done) {
+          const tail = dec.decode();
+          if (tail) buf += tail;
+          const finalBlock = buf.trim();
+          if (finalBlock && processBlock(finalBlock)) return true;
+          break;
+        }
         buf += dec.decode(value, { stream: true });
-        const lines = buf.split('\n\n');
+        const lines = buf.split(/\r?\n\r?\n/);
         buf = lines.pop() ?? '';
 
         for (const line of lines) {
-          const trimmed = line.replace(/^data: /, '').trim();
-          if (!trimmed) continue;
-          try {
-            const ev: ProcessEvent = JSON.parse(trimmed);
-            setActiveJob(prev => prev ? { ...prev, logs: [...prev.logs, ev] } : null);
-            if (onTerminal(ev)) return;
-          } catch { /* ignore parse errors */ }
+          if (processBlock(line)) return true;
         }
       }
+
+      return false;
     };
 
     try {
@@ -175,12 +211,23 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
       let preparedPdfId: string | null = null;
       let _cappedConceptCount = 0;
       let prepError = false;
+      let prepCompleted = false;
 
       await streamSSE(prepResp, ev => {
         if (ev.phase === 0) { prepError = true; return true; }
-        if (ev.phase === 6 && ev.data?.readyForGenerate && ev.data?.pdfId) {
-          preparedPdfId = ev.data.pdfId as string;
-          _cappedConceptCount = (ev.data.cappedConceptCount as number) || 0;
+        const pdfId = getEventPdfId(ev);
+        if (ev.phase === 6 && ev.data?.readyForGenerate && pdfId) {
+          preparedPdfId = pdfId;
+          _cappedConceptCount = getEventNumber(ev.data.cappedConceptCount);
+        }
+        if (isDoneEvent(ev) && pdfId) {
+          prepCompleted = true;
+          preparedPdfId = pdfId;
+          void fetch('/api/pdfs').then(r => r.ok ? r.json() : null).then((data: PDF[] | null) => {
+            if (data) setPdfs(data);
+          });
+          setActiveJob(prev => prev ? { ...prev, isRunning: false, completedPdfId: pdfId } : null);
+          return true;
         }
         return false;
       });
@@ -198,6 +245,8 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
         } : null);
         return;
       }
+
+      if (prepCompleted) return;
 
       // ── Phase 2: Call /api/process/generate in batches of 15 concepts ──
       const CONCEPTS_PER_CALL = 15;
@@ -230,9 +279,9 @@ export function useProcessingJob(setView: (view: AppView) => void, setPdfs: (pdf
 
         let batchDone = false;
         await streamSSE(genResp, ev => {
-          if (ev.phase === 7 && ev.data?.pdfId) {
+          const pdfId = getEventPdfId(ev);
+          if (isDoneEvent(ev) && pdfId) {
             genSawTerminal = true;
-            const pdfId = ev.data.pdfId as string;
             void fetch('/api/pdfs').then(r => r.ok ? r.json() : null).then((data: PDF[] | null) => {
               if (data) setPdfs(data);
             });

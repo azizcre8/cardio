@@ -9,7 +9,7 @@ import { NextRequest } from 'next/server';
 import { insertQuestionAttempt } from '@/lib/storage';
 import type { AttemptFlagReason, AttemptRequestBody, AttemptSource } from '@/types';
 import { requireUser } from '@/lib/auth';
-import { jsonBadRequest, jsonOk, parseJsonBody } from '@/lib/api';
+import { jsonBadRequest, jsonNotFound, jsonOk, parseJsonBody } from '@/lib/api';
 
 const VALID_FLAG_REASONS = new Set(['wrong_answer_key', 'confusing_wording', 'out_of_scope', 'other']);
 const VALID_SOURCES = new Set(['quiz', 'study']);
@@ -39,6 +39,16 @@ export async function POST(req: NextRequest) {
   if (source != null && !VALID_SOURCES.has(source)) {
     return jsonBadRequest('Invalid source');
   }
+
+  const { data: question, error: questionError } = await auth.supabase
+    .from('questions')
+    .select('id')
+    .eq('id', questionId)
+    .eq('pdf_id', pdfId)
+    .eq('user_id', auth.userId)
+    .maybeSingle();
+  if (questionError) throw new Error(`questions/attempt lookup failed: ${questionError.message}`);
+  if (!question) return jsonNotFound('Question not found');
 
   await insertQuestionAttempt({
     question_id:         questionId,

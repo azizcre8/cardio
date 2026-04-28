@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const { data: fileData, error: dlError } = await supabaseAdmin.storage
+  const { data: fileData, error: dlError } = await supabase.storage
     .from('pdfs')
     .download(storagePath);
   if (dlError || !fileData) {
@@ -287,7 +287,7 @@ export async function POST(req: NextRequest) {
             costUSD: runningCostUSD,
           },
         });
-        supabaseAdmin.storage.from('pdfs').remove([storagePath]).catch(() => {});
+        supabase.storage.from('pdfs').remove([storagePath]).catch(() => {});
       } catch (e) {
         console.error('[process] Pipeline crashed:', e);
         try {

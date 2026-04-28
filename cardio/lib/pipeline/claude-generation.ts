@@ -14,6 +14,7 @@ type RawClaudeQuestion = {
   options?: unknown;
   answer?: unknown;
   source_quote?: unknown;
+  sourceQuote?: unknown;
   explanation?: unknown;
 };
 
@@ -472,6 +473,9 @@ function splitTextIntoSegments(pdfText: string): string[] {
 
   const segments: string[] = [];
   if (headingIndices.length) {
+    const preamble = lines.slice(0, headingIndices[0] ?? 0).join('\n').trim();
+    if (preamble) segments.push(preamble);
+
     for (let i = 0; i < headingIndices.length; i += 1) {
       const start = headingIndices[i] ?? 0;
       const end = headingIndices[i + 1] ?? lines.length;
@@ -518,31 +522,22 @@ function extractSections(text: string): Array<{ heading: string; content: string
 function allocateTargetsByTokens(texts: string[], targetCount: number): number[] {
   if (!texts.length || targetCount <= 0) return [];
 
-  const tokenCounts = texts.map(estimateTokens);
+  const tokenCounts = texts.map(text => Math.max(0, estimateTokens(text.trim())));
+  if (tokenCounts.every(tokens => tokens === 0)) return texts.map(() => 0);
+
   const denominator = tokenCounts.reduce((sum, tokens) => sum + tokens, 0) || 1;
   const rawTargets = tokenCounts.map(tokens => (targetCount * tokens) / denominator);
-  const targets = rawTargets.map(raw => Math.max(1, Math.floor(raw)));
+  const targets = rawTargets.map(raw => Math.floor(raw));
   let delta = targetCount - targets.reduce((sum, target) => sum + target, 0);
 
   const fractionalOrder = rawTargets
     .map((raw, index) => ({ index, fraction: raw - Math.floor(raw) }))
-    .sort((a, b) => b.fraction - a.fraction);
+    .filter(entry => (tokenCounts[entry.index] ?? 0) > 0)
+    .sort((a, b) => b.fraction - a.fraction || (tokenCounts[b.index] ?? 0) - (tokenCounts[a.index] ?? 0));
 
   for (let i = 0; delta > 0 && fractionalOrder.length; i += 1, delta -= 1) {
-    targets[fractionalOrder[i % fractionalOrder.length]?.index ?? 0] += 1;
-  }
-
-  const sizeOrder = tokenCounts
-    .map((tokens, index) => ({ index, tokens }))
-    .sort((a, b) => a.tokens - b.tokens);
-
-  for (let i = 0; delta < 0 && sizeOrder.length; i += 1) {
-    const targetIndex = sizeOrder[i % sizeOrder.length]?.index ?? 0;
-    if ((targets[targetIndex] ?? 0) > 1) {
-      targets[targetIndex] -= 1;
-      delta += 1;
-    }
-    if (i > sizeOrder.length * targetCount) break;
+    const targetIndex = fractionalOrder[i % fractionalOrder.length]?.index ?? 0;
+    targets[targetIndex] = (targets[targetIndex] ?? 0) + 1;
   }
 
   return targets;
@@ -702,13 +697,42 @@ async function callClaudeInBatches(
   return { rawQuestions: allQuestions, costUSD, errors };
 }
 
+function parseAnswerIndex(value: unknown): number {
+  if (typeof value === 'number' && Number.isInteger(value)) return value;
+  if (typeof value !== 'string') return 0;
+
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+
+  const letter = trimmed.toUpperCase();
+  if (/^[A-E]$/.test(letter)) return letter.charCodeAt(0) - 65;
+
+  return 0;
+}
+
+function parseQuestionLevel(value: unknown): Question['level'] {
+  if (value === 2 || value === '2' || value === 'L2') return 2;
+  if (value === 3 || value === '3' || value === 'L3') return 3;
+  return 1;
+}
+
 function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, userId: string): Question {
   const options = Array.isArray(raw.options)
-    ? raw.options.filter((option): option is string => typeof option === 'string')
+    ? raw.options
+      .map(option => {
+        if (typeof option === 'string') return option.trim();
+        if (typeof option === 'number' || typeof option === 'boolean') return String(option);
+        return '';
+      })
+      .filter(option => option.length > 0)
     : [];
-  const rawAnswer = typeof raw.answer === 'number' && Number.isInteger(raw.answer) ? raw.answer : 0;
+  const rawAnswer = parseAnswerIndex(raw.answer);
   const answer = rawAnswer >= 0 && rawAnswer < options.length ? rawAnswer : 0;
-  const sourceQuote = typeof raw.source_quote === 'string' ? raw.source_quote : '';
+  const sourceQuote = typeof raw.source_quote === 'string'
+    ? raw.source_quote
+    : typeof raw.sourceQuote === 'string'
+      ? raw.sourceQuote
+      : '';
   let offsets = findEvidenceOffsets(sourceQuote, pdfText);
   const evidenceResult = verifyEvidenceSpan(sourceQuote, offsets.start ?? 0, offsets.end ?? 0, pdfText);
   if (
@@ -756,8 +780,8 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
     pdf_id: pdfId,
     user_id: userId,
     concept_id: null,
-    concept_name: typeof raw.topic === 'string' ? raw.topic.trim() : null,
-    level: raw.level === 2 || raw.level === 3 ? raw.level : 1,
+    concept_name: typeof raw.topic === 'string' && raw.topic.trim() ? raw.topic.trim() : undefined,
+    level: parseQuestionLevel(raw.level),
     stem: typeof raw.stem === 'string' ? raw.stem : '',
     options,
     answer,
@@ -798,9 +822,9 @@ export async function generateQuestionsWithClaude(
     throw new Error('No text segments to generate questions from');
   }
   const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 120_000;
-  const segmentTokens = segments.map(estimateTokens);
-  const tokenDenominator = segmentTokens.reduce((sum, tokens) => sum + tokens, 0) || totalTokens || 1;
-  const sectionTargets = useSections ? allocateTargetsByTokens(segments, targetCount) : [];
+  const segmentTargets = segments.length === 1
+    ? [Math.max(0, targetCount)]
+    : allocateTargetsByTokens(segments, targetCount);
 
   let costUSD = 0;
   const questions: Question[] = [];
@@ -811,14 +835,9 @@ export async function generateQuestionsWithClaude(
     }
 
     const segment = segments[i] ?? '';
-    let segmentTarget: number;
-    if (useSections) {
-      segmentTarget = sectionTargets[i] ?? 1;
-    } else if (segments.length === 1) {
-      segmentTarget = targetCount;
-    } else {
-      segmentTarget = Math.max(1, Math.round(targetCount * (segmentTokens[i] ?? 0) / tokenDenominator));
-    }
+    const segmentTarget = segmentTargets[i] ?? 0;
+    if (segmentTarget <= 0 || !segment.trim()) continue;
+
     const section = useSections ? singleSegmentSections[i] : null;
     onProgress?.(
       section
@@ -826,8 +845,8 @@ export async function generateQuestionsWithClaude(
         : `Generating questions for segment ${i + 1}/${segments.length}…`,
     );
 
-    const l3Target = Math.max(1, Math.round(segmentTarget * 0.45));
-    const l1l2Target = Math.max(1, segmentTarget - l3Target);
+    const l3Target = segmentTarget >= 2 ? Math.max(1, Math.round(segmentTarget * 0.45)) : 0;
+    const l1l2Target = Math.max(0, segmentTarget - l3Target);
 
     const [l1l2Settled, l3Settled] = await Promise.allSettled([
       callClaudeInBatches(
