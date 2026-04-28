@@ -17,6 +17,10 @@ import type {
   SharedBank,
   SharedBankMember,
   QuestionAttempt,
+  WaitlistSubmission,
+  AllQuestionRow,
+  FlaggedQuestionRow,
+  FactCheckResult,
 } from '@/types';
 
 // ─── Decks ───────────────────────────────────────────────────────────────────
@@ -396,6 +400,141 @@ export async function getQuestions(pdfId: string): Promise<Question[]> {
     .eq('flagged', false);
   if (error) throw new Error(`getQuestions: ${error.message}`);
   return (data ?? []) as Question[];
+}
+
+export async function getQuestionForUser(questionId: string, userId: string): Promise<Question | null> {
+  const { data, error } = await supabaseAdmin
+    .from('questions')
+    .select('*')
+    .eq('id', questionId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw new Error(`getQuestionForUser: ${error.message}`);
+  return (data as Question | null) ?? null;
+}
+
+export async function getAllQuestionsForUser(userId: string): Promise<AllQuestionRow[]> {
+  const { data, error } = await supabaseAdmin
+    .from('questions')
+    .select('id, pdf_id, stem, options, answer, explanation, level, flagged, flag_reason, pdfs!inner(name, display_name)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(`getAllQuestionsForUser: ${error.message}`);
+
+  return ((data ?? []) as Array<Record<string, unknown>>).map(row => {
+    const options = (row.options as string[]) ?? [];
+    const answer = Number(row.answer ?? 0);
+    const pdf = row.pdfs as { name?: string | null; display_name?: string | null } | null;
+    return {
+      id: row.id as string,
+      pdf_id: row.pdf_id as string,
+      stem: row.stem as string,
+      options,
+      answer,
+      answer_text: options[answer] ?? '',
+      explanation: (row.explanation as string) ?? '',
+      level: row.level as AllQuestionRow['level'],
+      flagged: Boolean(row.flagged),
+      flag_reason: (row.flag_reason as string | null) ?? null,
+      pdf_name: pdf?.display_name ?? pdf?.name?.replace(/\.pdf$/i, '') ?? 'Untitled source',
+    };
+  });
+}
+
+export async function getFlaggedQuestionsForUser(userId: string): Promise<FlaggedQuestionRow[]> {
+  const [{ data: flaggedRows, error: flaggedError }, { data: srsRows, error: srsError }] = await Promise.all([
+    supabaseAdmin
+      .from('questions')
+      .select('id, pdf_id, stem, options, answer, level, flag_reason, pdfs!inner(name, display_name)')
+      .eq('user_id', userId)
+      .eq('flagged', true),
+    supabaseAdmin
+      .from('srs_state')
+      .select('question_id, pdf_id, questions!inner(id, stem, options, answer, level, flag_reason, pdfs!inner(name, display_name))')
+      .eq('user_id', userId)
+      .contains('quality_history', [1]),
+  ]);
+  if (flaggedError) throw new Error(`getFlaggedQuestionsForUser flagged: ${flaggedError.message}`);
+  if (srsError) throw new Error(`getFlaggedQuestionsForUser srs: ${srsError.message}`);
+
+  const rows: FlaggedQuestionRow[] = [];
+  const seen = new Set<string>();
+
+  function pushQuestion(row: Record<string, unknown>, source: FlaggedQuestionRow['source'], reason: string | null) {
+    const id = row.id as string;
+    if (!id || seen.has(`${source}:${id}`)) return;
+    seen.add(`${source}:${id}`);
+    const options = (row.options as string[]) ?? [];
+    const answer = Number(row.answer ?? 0);
+    const pdf = row.pdfs as { name?: string | null; display_name?: string | null } | null;
+    rows.push({
+      question_id: id,
+      pdf_id: row.pdf_id as string,
+      stem: row.stem as string,
+      answer_text: options[answer] ?? '',
+      level: row.level as FlaggedQuestionRow['level'],
+      pdf_name: pdf?.display_name ?? pdf?.name?.replace(/\.pdf$/i, '') ?? 'Untitled source',
+      flag_reason: reason,
+      source,
+    });
+  }
+
+  for (const row of (flaggedRows ?? []) as Array<Record<string, unknown>>) {
+    pushQuestion(row, 'question_flag', (row.flag_reason as string | null) ?? 'Flagged during generation');
+  }
+  for (const row of (srsRows ?? []) as Array<Record<string, unknown>>) {
+    const question = row.questions as Record<string, unknown> | null;
+    if (question) pushQuestion({ ...question, pdf_id: row.pdf_id }, 'srs_quality', 'Marked Again in study');
+  }
+
+  return rows;
+}
+
+export async function unflagQuestionForUser(questionId: string, userId: string): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from('questions')
+    .update({ flagged: false, flag_reason: null })
+    .eq('id', questionId)
+    .eq('user_id', userId);
+  if (error) throw new Error(`unflagQuestionForUser: ${error.message}`);
+}
+
+export async function checkPdfHasConcepts(pdfId: string): Promise<boolean> {
+  const { count, error } = await supabaseAdmin
+    .from('concepts')
+    .select('id', { count: 'exact', head: true })
+    .eq('pdf_id', pdfId);
+  if (error) throw new Error(`checkPdfHasConcepts: ${error.message}`);
+  return (count ?? 0) > 0;
+}
+
+export async function createWaitlistSubmission(entry: {
+  user_id: string;
+  email: string;
+  use_case: string;
+}): Promise<WaitlistSubmission> {
+  const { data, error } = await supabaseAdmin
+    .from('waitlist')
+    .insert(entry)
+    .select()
+    .single();
+  if (error) throw new Error(`createWaitlistSubmission: ${error.message}`);
+  return data as WaitlistSubmission;
+}
+
+export async function factCheckQuestionForUser(questionId: string, userId: string): Promise<FactCheckResult | null> {
+  const question = await getQuestionForUser(questionId, userId);
+  if (!question) return null;
+  const evidence = [
+    question.source_quote,
+    question.chunk_id,
+    question.evidence_match_type && question.evidence_match_type !== 'none' ? question.evidence_match_type : '',
+  ].filter(Boolean).join(' ').trim();
+
+  return {
+    medicallyAccurate: !question.flagged && !((question.option_set_flags ?? []).length > 0),
+    sourcedFromText: evidence.length > 0 && question.source_quote !== 'UNGROUNDED',
+  };
 }
 
 export async function deleteQuestions(ids: string[]): Promise<void> {

@@ -6,7 +6,9 @@ import AppNav from '@/components/AppNav';
 import CommandPalette from '@/components/CommandPalette';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
 
-export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'question-stats' | 'settings';
+export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'question-stats' | 'allquestions' | 'settings';
+
+const APP_VIEWS: AppView[] = ['library', 'add', 'processing', 'conceptmap', 'bankselect', 'quiz', 'study', 'stats', 'question-stats', 'allquestions', 'settings'];
 
 export default function AppPage() {
   const [view, setView] = useState<AppView>('library');
@@ -17,7 +19,8 @@ export default function AppPage() {
   const handledSharedSlug = useRef<string | null>(null);
   const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId, userEmail, userPlan } = useUserLibraryData();
   const { darkMode, toggleDark } = useThemePreference();
-  const { activeJob, isJobRunning, startProcessing } = useProcessingJob(setView, setPdfs);
+  const setAppView = useCallback((next: AppView) => setView(next), []);
+  const { activeJob, isJobRunning, startProcessing } = useProcessingJob(setAppView, setPdfs);
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   /* ── Cmd+K keyboard shortcut ── */
@@ -32,26 +35,69 @@ export default function AppPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlView = params.get('view');
+    if (urlView && APP_VIEWS.includes(urlView as AppView)) setView(urlView as AppView);
+    const pdfId = params.get('pdfId');
+    if (pdfId) {
+      setConceptMapPdfId(pdfId);
+      if (urlView === 'quiz') setQuizPdfId(pdfId);
+      if (urlView === 'study') setStudyPdfId(pdfId);
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set('view', view);
+    const pdfId = view === 'quiz'
+      ? quizPdfId
+      : view === 'study'
+      ? studyPdfId
+      : view === 'conceptmap'
+      ? conceptMapPdfId
+      : null;
+    if (pdfId) params.set('pdfId', pdfId);
+    else params.delete('pdfId');
+    window.history.replaceState(null, '', `/app?${params.toString()}`);
+  }, [conceptMapPdfId, quizPdfId, studyPdfId, view]);
+
   /* ── Navigation helpers ── */
-  function openConceptMap(pdfId: string) {
+  const startQuiz = useCallback((pdfId: string) => {
+    setQuizPdfId(pdfId);
+    setAppView('quiz');
+  }, [setAppView]);
+
+  const startStudy = useCallback((pdfId: string) => {
+    setStudyPdfId(pdfId);
+    setAppView('study');
+  }, [setAppView]);
+
+  async function openConceptMap(pdfId: string) {
+    try {
+      const res = await fetch(`/api/pdfs/${pdfId}/has-concepts`);
+      const data = await res.json().catch(() => null) as { hasConcepts?: boolean } | null;
+      if (res.ok && data?.hasConcepts === false) {
+        startQuiz(pdfId);
+        return;
+      }
+    } catch { /* fall through to concept map */ }
     setConceptMapPdfId(pdfId);
-    setView('conceptmap');
+    setAppView('conceptmap');
   }
-  function startQuiz(pdfId: string) { setQuizPdfId(pdfId); setView('quiz'); }
-  function startStudy(pdfId: string) { setStudyPdfId(pdfId); setView('study'); }
 
   const handlePaletteNavigate = useCallback((navView: string, pdfId?: string) => {
     if (pdfId) { startQuiz(pdfId); }
-    else { setView(navView as AppView); }
+    else { setAppView(navView as AppView); }
     setPaletteOpen(false);
-  }, []);
+  }, [setAppView, startQuiz]);
   function quizDone() {
     if (quizPdfId) setConceptMapPdfId(quizPdfId);
-    setView('conceptmap');
+    setAppView('conceptmap');
   }
   function studyDone() {
     if (studyPdfId) setConceptMapPdfId(studyPdfId);
-    setView('conceptmap');
+    setAppView('conceptmap');
   }
 
   useEffect(() => {
@@ -83,10 +129,10 @@ export default function AppPage() {
       const sharedPdfId = data?.bank?.source_pdf_id ?? null;
       if (sharedPdfId) {
         setConceptMapPdfId(sharedPdfId);
-        setView('conceptmap');
+        setAppView('conceptmap');
       }
     })();
-  }, [refreshPdfs, sharedSlug, userId]);
+  }, [refreshPdfs, setAppView, sharedSlug, userId]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -94,7 +140,7 @@ export default function AppPage() {
         view={view}
         isJobRunning={isJobRunning}
         darkMode={darkMode}
-        onSetView={setView}
+        onSetView={setAppView}
         onToggleDark={toggleDark}
         onOpenPalette={() => setPaletteOpen(true)}
         userEmail={userEmail}
@@ -113,12 +159,14 @@ export default function AppPage() {
         decks={decks}
         examDate={examDate}
         userId={userId}
+        userEmail={userEmail}
+        userPlan={userPlan}
         activeJob={activeJob}
         isJobRunning={isJobRunning}
         conceptMapPdfId={conceptMapPdfId}
         quizPdfId={quizPdfId}
         studyPdfId={studyPdfId}
-        onSetView={setView}
+        onSetView={setAppView}
         onStartProcessing={startProcessing}
         onOpenConceptMap={openConceptMap}
         onStartQuiz={startQuiz}

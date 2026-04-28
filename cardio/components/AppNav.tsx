@@ -123,6 +123,10 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
         Q·Stats
       </NavButton>
 
+      <NavButton view={view} target="allquestions" onClick={() => onSetView('allquestions')} style={navButtonStyle('allquestions')}>
+        All Q
+      </NavButton>
+
       <NavButton view={view} target="settings" onClick={() => onSetView('settings')} style={navButtonStyle('settings')}>
         Settings
       </NavButton>
@@ -201,7 +205,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
               background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 10, fontWeight: 700, color: '#fff', flexShrink: 0,
             }}>
-              {userEmail ? userEmail[0].toUpperCase() : '?'}
+              {userEmail?.charAt(0).toUpperCase() || '?'}
             </span>
             <span style={{ textTransform: 'capitalize' }}>{PLAN_LABELS[userPlan] ?? userPlan}</span>
           </button>

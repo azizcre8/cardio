@@ -1,6 +1,7 @@
 'use client';
 
 import AddView from '@/components/AddView';
+import AllQuestionsView from '@/components/AllQuestionsView';
 import BankSelectView from '@/components/BankSelectView';
 import ConceptMapView from '@/components/ConceptMapView';
 import LibraryView from '@/components/LibraryView';
@@ -19,6 +20,8 @@ interface Props {
   decks: Deck[];
   examDate: string | null;
   userId: string | null;
+  userEmail: string | null;
+  userPlan: string;
   activeJob: ActiveJob | null;
   isJobRunning: boolean;
   conceptMapPdfId: string | null;
@@ -42,6 +45,8 @@ export default function AppContent({
   decks,
   examDate,
   userId,
+  userEmail,
+  userPlan,
   activeJob,
   isJobRunning,
   conceptMapPdfId,
@@ -78,13 +83,14 @@ export default function AppContent({
           onOpenConceptMap={onOpenConceptMap}
           onPdfsChange={onPdfsChange}
           onDecksChange={onDecksChange}
-          onProcessingComplete={onOpenConceptMap}
         />
       )}
 
       {view === 'add' && (
         <AddView
           pdfs={pdfs}
+          userEmail={userEmail}
+          userPlan={userPlan}
           isJobRunning={isJobRunning}
           onStartProcessing={onStartProcessing}
           onViewProcessing={() => onSetView('processing')}
@@ -99,6 +105,8 @@ export default function AppContent({
       {view === 'processing' && !activeJob && (
         <AddView
           pdfs={pdfs}
+          userEmail={userEmail}
+          userPlan={userPlan}
           isJobRunning={false}
           onStartProcessing={onStartProcessing}
           onViewProcessing={() => onSetView('processing')}
@@ -137,6 +145,10 @@ export default function AppContent({
 
       {view === 'question-stats' && (
         <QuestionStatsView pdfs={pdfs} />
+      )}
+
+      {view === 'allquestions' && (
+        <AllQuestionsView pdfs={pdfs} />
       )}
 
       {view === 'settings' && (

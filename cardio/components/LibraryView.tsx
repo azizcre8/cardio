@@ -1,12 +1,9 @@
 'use client';
 
 import { useRef, useState, useMemo, useEffect } from 'react';
-import type { PDF, Deck, Density, ProcessEvent, SharedBank } from '@/types';
-import ProcessingLog from './ProcessingLog';
+import type { PDF, Deck, Density, SharedBank, FlaggedQuestionRow } from '@/types';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 import { Eyebrow, Icon, Btn } from './ui';
-import { supabaseBrowser } from '@/lib/supabase-browser';
-import { uploadPdfToStorage } from '@/lib/upload-pdf';
 
 interface Props {
   pdfs:                  PDF[];
@@ -15,25 +12,21 @@ interface Props {
   onOpenConceptMap:      (pdfId: string) => void;
   onPdfsChange:          (pdfs: PDF[]) => void;
   onDecksChange:         (decks: Deck[]) => void;
-  onProcessingComplete?: (pdfId: string) => void;
 }
 
 export default function LibraryView({
   pdfs, decks, examDate,
-  onOpenConceptMap, onPdfsChange, onDecksChange, onProcessingComplete,
+  onOpenConceptMap, onPdfsChange, onDecksChange,
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
-  const [processing,     setProcessing]     = useState<string | null>(null);
   const [joinSlug,       setJoinSlug]       = useState('');
   const [joinStatus,     setJoinStatus]     = useState<string | null>(null);
   const [shareToast,     setShareToast]     = useState<string | null>(null);
   const [folderShareStatus, setFolderShareStatus] = useState<string | null>(null);
   const [sharedBanks,    setSharedBanks]    = useState<SharedBank[]>([]);
-  const [logs,           setLogs]           = useState<ProcessEvent[]>([]);
   const [search,         setSearch]         = useState('');
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [showJoinPanel,  setShowJoinPanel]  = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const daysLeft = examDate
     ? Math.ceil((new Date(examDate).getTime() - Date.now()) / 86_400_000)
@@ -113,85 +106,6 @@ export default function LibraryView({
       if (sourcePdfId) onOpenConceptMap(sourcePdfId);
     } catch (error) {
       setJoinStatus(error instanceof Error ? error.message : 'Failed to join shared bank.');
-    }
-  }
-
-  async function handleUpload(file: File) {
-    setLogs([]);
-    let resp: Response;
-    try {
-      const { data: { user } } = await supabaseBrowser.auth.getUser();
-      if (!user?.id) {
-        setLogs([{ phase: 0, message: 'Error: You must be signed in to upload PDFs.', pct: 0 }]);
-        return;
-      }
-
-      const storagePath = await uploadPdfToStorage(file, user.id);
-      resp = await fetch('/api/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storagePath, density }),
-      });
-    } catch (error) {
-      setLogs([{ phase: 0, message: `Upload failed: ${(error as Error).message}`, pct: 0 }]);
-      return;
-    }
-    if (!resp.ok) {
-      const txt = await resp.text();
-      let msg = `Upload failed: ${txt}`;
-      try {
-        const json = JSON.parse(txt) as { error?: string; tier?: string; limit?: number };
-        if (json.error === 'Plan limit exceeded') {
-          msg = `Plan limit reached: your ${json.tier ?? 'free'} plan allows ${json.limit} PDF${json.limit === 1 ? '' : 's'} per month. Upgrade your plan to continue.`;
-        }
-      } catch { /* not JSON, use raw text */ }
-      setLogs([{ phase: 0, message: msg, pct: 0 }]);
-      return;
-    }
-    setProcessing('__uploading__');
-    const reader = resp.body!.getReader();
-    const dec    = new TextDecoder();
-    let buf      = '';
-    let completedPdfId: string | null = null;
-    let sawTerminalEvent = false;
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\n\n');
-      buf = lines.pop() ?? '';
-      for (const line of lines) {
-        const trimmed = line.replace(/^data: /, '').trim();
-        if (!trimmed) continue;
-        try {
-          const ev: ProcessEvent = JSON.parse(trimmed);
-          setLogs(prev => [...prev, ev]);
-          if (ev.phase === 7 && ev.data?.pdfId) {
-            sawTerminalEvent = true;
-            completedPdfId = ev.data.pdfId as string;
-            if (selectedDeckId && selectedDeckId !== '__uncategorized__') {
-              await fetch(`/api/pdfs/${completedPdfId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deck_id: selectedDeckId }),
-              });
-            }
-            const res = await fetch('/api/pdfs');
-            if (res.ok) onPdfsChange(await res.json() as PDF[]);
-            setProcessing(null);
-          } else if (ev.phase === 0) {
-            sawTerminalEvent = true;
-            setProcessing(null);
-          }
-        } catch { /* ignore */ }
-      }
-    }
-    if (!sawTerminalEvent) {
-      setLogs(prev => [...prev, { phase: 0, message: 'Stream ended before completion.', pct: 0 }]);
-    }
-    setProcessing(null);
-    if (completedPdfId && onProcessingComplete) {
-      setTimeout(() => onProcessingComplete(completedPdfId!), 400);
     }
   }
 
@@ -335,8 +249,6 @@ export default function LibraryView({
     onPdfsChange(pdfs.map(p => p.id === pdfId ? { ...p, deck_id: deckId } : p));
   }
 
-  const ready     = pdfs.filter(p => p.processed_at);
-  const totalQ    = ready.reduce((s, p) => s + (p.question_count ?? 0), 0);
   const selectedDeck = selectedDeckId ? nodeMap.get(selectedDeckId) : null;
   const selectedDeckBank = selectedDeck
     ? sharedBanks.find(bank => bank.is_active && bank.source_deck_id === selectedDeck.id) ?? null
@@ -382,7 +294,7 @@ export default function LibraryView({
       {/* ── Center panel ── */}
       <div style={{ overflow: 'auto' }}>
         {pdfs.length === 0 ? (
-          <EmptyState onUpload={() => fileInputRef.current?.click()} />
+          <EmptyState />
         ) : selectedDeck ? (
           <SubjectPanel
             deck={selectedDeck}
@@ -400,9 +312,6 @@ export default function LibraryView({
             onRevokeDeck={revokeDeck}
             sharedBank={selectedDeckBank}
             shareStatus={folderShareStatus}
-            onUpload={() => fileInputRef.current?.click()}
-            processing={processing}
-            logs={logs}
           />
         ) : (
           <TodayPanel
@@ -413,8 +322,6 @@ export default function LibraryView({
             onSearchChange={setSearch}
             density={density}
             onDensityChange={setDensity}
-            processing={processing}
-            onUpload={() => fileInputRef.current?.click()}
             onStudy={onOpenConceptMap}
             onDelete={deletePdf}
             onRename={renamePdf}
@@ -424,7 +331,6 @@ export default function LibraryView({
             getPdfDisplayName={getPdfDisplayName}
             nodeMap={nodeMap}
             daysLeft={daysLeft}
-            logs={logs}
             joinStatus={joinStatus}
             joinSlug={joinSlug}
             showJoinPanel={showJoinPanel}
@@ -435,9 +341,6 @@ export default function LibraryView({
         )}
       </div>
 
-      {/* Hidden file input */}
-      <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }}
-        onChange={e => { const f = e.target.files?.[0]; if (f) { void handleUpload(f); } e.target.value = ''; }} />
     </div>
   );
 }
@@ -446,15 +349,13 @@ export default function LibraryView({
 
 function TodayPanel({
   pdfs, filtered, decks, search, onSearchChange, density, onDensityChange,
-  processing, onUpload, onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
-  getPdfDisplayName, nodeMap, daysLeft, logs, joinStatus, joinSlug,
+  onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
+  getPdfDisplayName, nodeMap, daysLeft, joinStatus, joinSlug,
   showJoinPanel, onShowJoinPanel, onJoinSlugChange, onJoinBank,
 }: {
   pdfs: PDF[]; filtered: PDF[]; decks: Deck[]; search: string;
   onSearchChange: (v: string) => void;
   density: Density; onDensityChange: (v: Density) => void;
-  processing: string | null;
-  onUpload: () => void;
   onStudy: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (pdf: PDF) => void;
@@ -464,7 +365,6 @@ function TodayPanel({
   getPdfDisplayName: (pdf: PDF) => string;
   nodeMap: Map<string, import('@/types').DeckNode>;
   daysLeft: number | null;
-  logs: ProcessEvent[];
   joinStatus: string | null;
   joinSlug: string;
   showJoinPanel: boolean;
@@ -474,6 +374,7 @@ function TodayPanel({
 }) {
   const ready = pdfs.filter(p => p.processed_at);
   const totalQ = ready.reduce((s, p) => s + (p.question_count ?? 0), 0);
+  const [tab, setTab] = useState<'sources' | 'flagged'>('sources');
 
   return (
     <div style={{ padding: '32px 40px 60px', maxWidth: 900 }}>
@@ -551,10 +452,6 @@ function TodayPanel({
           <option value="boards">Boards</option>
         </select>
 
-        <Btn kind="primary" icon="plus" onClick={onUpload} disabled={!!processing}>
-          {processing ? 'Processing…' : 'Upload PDF'}
-        </Btn>
-
         <button
           onClick={onShowJoinPanel}
           style={{
@@ -605,26 +502,39 @@ function TodayPanel({
         </div>
       )}
 
-      {/* Processing log */}
-      {logs.length > 0 && (
-        <div style={{ marginTop: 16, animation: 'fade-up 0.3s ease' }}>
-          <ProcessingLog events={logs} />
-        </div>
-      )}
-
       {/* Source list */}
       <div style={{ marginTop: 28, borderTop: '1px solid var(--border)' }}>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 10,
           padding: '12px 0 10px', borderBottom: '1px solid var(--border)',
         }}>
-          <Eyebrow>Sources</Eyebrow>
+          {([['sources', 'Sources'], ['flagged', 'Flagged']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                color: tab === key ? 'var(--accent)' : 'var(--text-dim)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              {label}
+            </button>
+          ))}
           <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
-            {filtered.length}
+            {tab === 'sources' ? filtered.length : ''}
           </span>
         </div>
 
-        {filtered.length === 0 ? (
+        {tab === 'flagged' ? (
+          <FlaggedQuestionsTab />
+        ) : filtered.length === 0 ? (
           <p style={{ textAlign: 'center', padding: '32px 0', fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic', fontFamily: 'var(--font-serif)' }}>
             {search.trim() ? `No sources match "${search}"` : 'No PDFs in this folder yet.'}
           </p>
@@ -651,6 +561,80 @@ function TodayPanel({
   );
 }
 
+function FlaggedQuestionsTab() {
+  const [rows, setRows] = useState<FlaggedQuestionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function refresh() {
+    setLoading(true);
+    const res = await fetch('/api/questions/flagged');
+    const data = await res.json().catch(() => null) as { questions?: FlaggedQuestionRow[] } | null;
+    setRows(data?.questions ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { void refresh(); }, []);
+
+  async function unflag(questionId: string) {
+    await fetch('/api/questions/flagged', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId }),
+    });
+    setRows(prev => prev.filter(row => row.question_id !== questionId));
+  }
+
+  if (loading) {
+    return <p style={{ padding: '32px 0', color: 'var(--text-dim)', fontSize: 13 }}>Loading flagged questions...</p>;
+  }
+
+  if (!rows.length) {
+    return (
+      <p style={{ textAlign: 'center', padding: '32px 0', fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic', fontFamily: 'var(--font-serif)' }}>
+        No flagged questions yet.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      {rows.map(row => (
+        <div key={`${row.source}:${row.question_id}`} style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 180px auto',
+          gap: 18,
+          padding: '16px 0',
+          borderBottom: '1px solid var(--border)',
+          alignItems: 'start',
+        }}>
+          <div>
+            <p style={{ margin: '0 0 6px', color: 'var(--text-primary)', lineHeight: 1.45 }}>{row.stem}</p>
+            <p style={{ margin: 0, color: 'var(--green)', fontSize: 12 }}>Answer: {row.answer_text}</p>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+            <div>{row.pdf_name}</div>
+            <div>L{row.level} · {row.flag_reason ?? 'Flagged'}</div>
+          </div>
+          <button
+            onClick={() => void unflag(row.question_id)}
+            style={{
+              border: '1px solid var(--border)',
+              background: 'var(--bg-raised)',
+              color: 'var(--text-secondary)',
+              borderRadius: 'var(--r2)',
+              padding: '6px 10px',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 
 // ── Subject / deck detail panel ───────────────────────────────────────────────
 
@@ -658,7 +642,6 @@ function SubjectPanel({
   deck, pdfs, decks, getPdfDisplayName, nodeMap,
   onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
   onShareDeck, onRevokeDeck, sharedBank, shareStatus,
-  onUpload, processing, logs,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
@@ -675,9 +658,6 @@ function SubjectPanel({
   onRevokeDeck: (slug: string) => Promise<void>;
   sharedBank: SharedBank | null;
   shareStatus: string | null;
-  onUpload: () => void;
-  processing: string | null;
-  logs: import('@/types').ProcessEvent[];
 }) {
   const [filter, setFilter] = useState<'all' | 'processed' | 'shared'>('all');
   const totalQ = pdfs.reduce((s, p) => s + (p.question_count ?? 0), 0);
@@ -719,9 +699,6 @@ function SubjectPanel({
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
-        <Btn kind="primary" icon="plus" onClick={onUpload} disabled={!!processing}>
-          {processing ? 'Processing…' : 'Add PDF'}
-        </Btn>
         {sharedBank ? (
           <>
             <Btn kind="secondary" icon="eye" onClick={() => { void onShareDeck(deck.id); }}>
@@ -747,12 +724,6 @@ function SubjectPanel({
           </span>
         )}
       </div>
-
-      {logs.length > 0 && (
-        <div style={{ marginTop: 16, animation: 'fade-up 0.3s ease' }}>
-          <ProcessingLog events={logs} />
-        </div>
-      )}
 
       {/* Filter tabs */}
       <div style={{
@@ -973,7 +944,7 @@ function StatCell({ label, value }: { label: string; value: string }) {
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyState({ onUpload }: { onUpload: () => void }) {
+function EmptyState() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px 20px' }}>
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
@@ -982,9 +953,8 @@ function EmptyState({ onUpload }: { onUpload: () => void }) {
           No sources yet
         </p>
         <p style={{ fontSize: 14, marginBottom: 24, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-          Upload a PDF to generate a full question bank in 10–15 minutes.
+          Use the Add page to join the private-generation waitlist or upload with a paid beta seat.
         </p>
-        <Btn kind="primary" icon="plus" onClick={onUpload}>Upload your first PDF</Btn>
       </div>
     </div>
   );

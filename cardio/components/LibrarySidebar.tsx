@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Deck, DeckNode, PDF } from '@/types';
+import { isBinding, loadKeybindings } from '@/lib/keybindings';
 
 // ─── Tree assembly ────────────────────────────────────────────────────────────
 
@@ -125,11 +126,21 @@ export default function LibrarySidebar({
   const [creating,   setCreating]   = useState<CreationState | null>(null);
   const [dragOver,   setDragOver]   = useState<string | 'root' | null>(null);
   const [errorToast, setErrorToast] = useState<string | null>(null);
+  const [keybindings, setKeybindings] = useState(loadKeybindings);
   const renameRef      = useRef<HTMLInputElement>(null);
   const createRef      = useRef<HTMLInputElement>(null);
   const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => { setExpanded(loadExpanded()); }, []);
+  useEffect(() => {
+    function refresh() { setKeybindings(loadKeybindings()); }
+    window.addEventListener('storage', refresh);
+    window.addEventListener('cardio:keybindings-changed', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('cardio:keybindings-changed', refresh);
+    };
+  }, []);
 
   const { roots, nodeMap } = useMemo(() => buildDeckTree(decks, pdfs), [decks, pdfs]);
 
@@ -242,9 +253,9 @@ export default function LibrarySidebar({
     if (!selectedDeckId || selectedDeckId === '__uncategorized__') return;
     const node = nodeMap.get(selectedDeckId);
     if (!node) return;
-    if (e.key === 'n') { e.preventDefault(); startCreate(selectedDeckId); }
-    if (e.key === 'r') { e.preventDefault(); startRename(node); }
-    if (e.key === 'Delete' && !renaming && !creating) {
+    if (isBinding(e, keybindings, 'library.newDeck')) { e.preventDefault(); startCreate(selectedDeckId); }
+    if (isBinding(e, keybindings, 'library.renameDeck')) { e.preventDefault(); startRename(node); }
+    if (isBinding(e, keybindings, 'library.deleteDeck') && !renaming && !creating) {
       e.preventDefault();
       if (confirm(`Delete "${node.name}"? PDFs will become uncategorized.`)) void onDeleteDeck(selectedDeckId);
     }

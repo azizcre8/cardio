@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { KeybindingAction } from '@/types';
+import { DEFAULT_KEYBINDINGS, formatKey, KEYBINDING_LABELS, loadKeybindings, normalizeCapturedKey, saveKeybindings } from '@/lib/keybindings';
 
 interface Props {
   examDate:         string | null;
@@ -12,6 +15,8 @@ export default function SettingsView({ examDate, onExamDateChange, userId }: Pro
   const [date,    setDate]    = useState(examDate ?? '');
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
+  const [bindings, setBindings] = useState(loadKeybindings);
+  const [capturing, setCapturing] = useState<KeybindingAction | null>(null);
 
   async function save() {
     setSaving(true);
@@ -28,6 +33,22 @@ export default function SettingsView({ examDate, onExamDateChange, userId }: Pro
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function capture(action: KeybindingAction, e: ReactKeyboardEvent<HTMLButtonElement>) {
+    const key = normalizeCapturedKey(e);
+    if (!key) return;
+    e.preventDefault();
+    const next = { ...bindings, [action]: key };
+    setBindings(next);
+    saveKeybindings(next);
+    setCapturing(null);
+  }
+
+  function resetBindings() {
+    setBindings(DEFAULT_KEYBINDINGS);
+    saveKeybindings(DEFAULT_KEYBINDINGS);
+    setCapturing(null);
   }
 
   return (
@@ -61,6 +82,32 @@ export default function SettingsView({ examDate, onExamDateChange, userId }: Pro
       <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
         <p className="text-xs text-gray-500 uppercase tracking-widest mb-2">Account</p>
         <p className="text-xs text-gray-400">User ID: <span className="font-mono text-gray-600">{userId}</span></p>
+      </div>
+
+      <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs text-gray-500 uppercase tracking-widest">Keyboard Shortcuts</p>
+          <button type="button" onClick={resetBindings} className="text-xs text-gray-500 hover:text-gray-300">Reset</button>
+        </div>
+        <div className="space-y-2">
+          {(Object.keys(KEYBINDING_LABELS) as KeybindingAction[]).map(action => {
+            const meta = KEYBINDING_LABELS[action];
+            return (
+              <div key={action} className="grid grid-cols-[110px_1fr_120px] gap-3 items-center text-xs">
+                <span className="text-gray-600">{meta.group}</span>
+                <span className="text-gray-300">{meta.label}</span>
+                <button
+                  type="button"
+                  onClick={() => setCapturing(action)}
+                  onKeyDown={e => capturing === action && capture(action, e)}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 font-mono text-gray-200 hover:border-cyan-700"
+                >
+                  {capturing === action ? 'Press key' : formatKey(bindings[action])}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { StudyQueueItem, QueueResponse } from '@/types';
+import { loadKeybindings, isBinding } from '@/lib/keybindings';
+import { simplifyExplanation } from '@/lib/explanations';
 
 interface Props {
   pdfId:    string;
@@ -42,6 +44,7 @@ export default function StudyView({ pdfId, onDone }: Props) {
   const [correct,  setCorrect]  = useState(0);
   const [total,    setTotal]    = useState(0);
   const [showQuote, setShowQuote] = useState(false);
+  const [keybindings, setKeybindings] = useState(loadKeybindings);
   const abortRef = useRef<AbortController | null>(null);
   const replayCountsRef = useRef<Record<string, number>>({});
 
@@ -66,6 +69,16 @@ export default function StudyView({ pdfId, onDone }: Props) {
     return () => ctrl.abort();
   }, [pdfId]);
 
+  useEffect(() => {
+    function refresh() { setKeybindings(loadKeybindings()); }
+    window.addEventListener('storage', refresh);
+    window.addEventListener('cardio:keybindings-changed', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('cardio:keybindings-changed', refresh);
+    };
+  }, []);
+
   /* keyboard shortcuts */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -74,7 +87,8 @@ export default function StudyView({ pdfId, onDone }: Props) {
         if (n >= 1 && n <= 4) selectOption(n - 1);
       } else {
         const current = queue[idx];
-        if (n >= 1 && n <= 4 && current && !rated[current._sessionId]) rateQuality(n);
+        const quality = ([1, 2, 3, 4] as const).find(q => isBinding(e, keybindings, `study.quality${q}`));
+        if (quality && current && !rated[current._sessionId]) rateQuality(quality);
       }
     }
     window.addEventListener('keydown', onKey);
@@ -210,6 +224,7 @@ export default function StudyView({ pdfId, onDone }: Props) {
   if (!current) return null;
 
   const isCorrect = selected === current.answer;
+  const displayExplanation = simplifyExplanation(current.explanation, current.options[current.answer] ?? '');
 
   return (
     /* Full-height flex column so quality bar can stick to bottom */
@@ -383,7 +398,7 @@ export default function StudyView({ pdfId, onDone }: Props) {
               fontSize: '0.84rem', lineHeight: 1.7,
               color: 'var(--text-primary)', marginBottom: '0',
             }}>
-              {current.explanation}
+              {displayExplanation}
             </p>
 
             {/* Source quote (collapsed by default) */}

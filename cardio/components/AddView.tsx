@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import type { PDF, Density } from '@/types';
 import { analyzePdfClient, type AnalyzeResult } from '@/lib/analyze-pdf-client';
 
@@ -8,6 +8,8 @@ import { analyzePdfClient, type AnalyzeResult } from '@/lib/analyze-pdf-client';
 
 interface Props {
   pdfs:               PDF[];
+  userEmail:          string | null;
+  userPlan:           string;
   isJobRunning:       boolean;
   onStartProcessing:  (file: File, density: Density, maxQuestions: number) => void;
   onViewProcessing:   () => void;
@@ -40,7 +42,7 @@ function fmtDate(iso: string): string {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function AddView({ pdfs, isJobRunning, onStartProcessing, onViewProcessing, onOpenDeck }: Props) {
+export default function AddView({ pdfs, userEmail, userPlan, isJobRunning, onStartProcessing, onViewProcessing, onOpenDeck }: Props) {
   const [step,         setStep]         = useState<Step>('drop');
   const [dragOver,     setDragOver]     = useState(false);
   const [search,       setSearch]       = useState('');
@@ -51,6 +53,7 @@ export default function AddView({ pdfs, isJobRunning, onStartProcessing, onViewP
   const [maxQEnabled,  setMaxQEnabled]  = useState(false);
   const [maxQ,         setMaxQ]         = useState(50);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canGenerate = userPlan === 'student' || userPlan === 'boards' || userPlan === 'institution';
 
   /* ── file handling ── */
   const handleFile = useCallback(async (file: File) => {
@@ -74,6 +77,10 @@ export default function AddView({ pdfs, isJobRunning, onStartProcessing, onViewP
       setStep('drop');
     }
   }, []);
+
+  if (!canGenerate) {
+    return <WaitlistGate email={userEmail ?? ''} />;
+  }
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault(); setDragOver(false);
@@ -204,6 +211,127 @@ export default function AddView({ pdfs, isJobRunning, onStartProcessing, onViewP
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function WaitlistGate({ email }: { email: string }) {
+  const [formEmail, setFormEmail] = useState(email);
+  const [useCase, setUseCase] = useState('');
+  const [status, setStatus] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (email && !formEmail) setFormEmail(email);
+  }, [email, formEmail]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setStatus(null);
+    const res = await fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: formEmail, use_case: useCase }),
+    });
+    const data = await res.json().catch(() => null) as { error?: string } | null;
+    setSubmitting(false);
+    if (!res.ok) {
+      setStatus(data?.error ?? 'Could not join the waitlist.');
+      return;
+    }
+    setStatus('You are on the waitlist. We will email you when private PDF generation opens.');
+    setUseCase('');
+  }
+
+  return (
+    <div style={{ maxWidth: 560, margin: '56px auto 0' }}>
+      <div style={{
+        background: 'var(--bg-raised)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-lg)',
+        padding: 28,
+        boxShadow: 'var(--shadow-1)',
+      }}>
+        <p style={{
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: 'var(--accent)',
+          marginBottom: 8,
+        }}>
+          Private generation waitlist
+        </p>
+        <h1 style={{
+          fontFamily: 'var(--font-serif)',
+          fontSize: 32,
+          fontWeight: 400,
+          color: 'var(--text-primary)',
+          margin: '0 0 10px',
+        }}>
+          PDF generation is reserved for paid beta seats.
+        </h1>
+        <p style={{ fontSize: 14, lineHeight: 1.7, color: 'var(--text-secondary)', margin: '0 0 22px' }}>
+          Free accounts can study shared banks now. Join the waitlist to get access to private medical-study question generation.
+        </p>
+        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input
+            type="email"
+            value={formEmail}
+            onChange={e => setFormEmail(e.target.value)}
+            placeholder="Email"
+            required
+            style={{
+              height: 40,
+              borderRadius: 'var(--r2)',
+              background: 'var(--bg-sunken)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              padding: '0 12px',
+              outline: 'none',
+            }}
+          />
+          <textarea
+            value={useCase}
+            onChange={e => setUseCase(e.target.value)}
+            placeholder="What will you use it for?"
+            required
+            rows={4}
+            style={{
+              borderRadius: 'var(--r2)',
+              background: 'var(--bg-sunken)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+              padding: 12,
+              resize: 'vertical',
+              outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              height: 40,
+              borderRadius: 'var(--r2)',
+              border: 'none',
+              background: 'var(--accent)',
+              color: 'var(--accent-ink)',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: submitting ? 'default' : 'pointer',
+              opacity: submitting ? 0.65 : 1,
+            }}
+          >
+            {submitting ? 'Joining...' : 'Join waitlist'}
+          </button>
+        </form>
+        {status && (
+          <p style={{ margin: '14px 0 0', fontSize: 12, color: status.startsWith('You are') ? 'var(--green)' : 'var(--red)' }}>
+            {status}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

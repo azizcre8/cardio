@@ -1,34 +1,34 @@
 import Link from 'next/link';
 
 const metrics = [
-  { value: '1 bank', label: 'Shared across a cohort' },
-  { value: 'Private', label: 'Uploads stay isolated per user' },
-  { value: 'Exam-led', label: 'Scheduling adapts to deadlines' },
+  { value: 'Evidence', label: 'Every question grounded in source text' },
+  { value: 'SRS', label: 'Practice questions scheduled for memory' },
+  { value: 'Remote', label: 'Anki remote compatible study flow' },
 ];
 
 const workflow = [
   {
     eyebrow: '01',
-    title: 'Publish a canonical deck once.',
-    body: 'A class, study group, or tutor can maintain one shared question bank so everyone studies the same source material without duplicating setup.',
+    title: 'Upload medical source material.',
+    body: 'Turn assigned chapters, board-review PDFs, and lecture packets into a private or shared practice-question bank.',
   },
   {
     eyebrow: '02',
-    title: 'Track progress independently.',
-    body: 'Each learner keeps separate quiz history, ratings, and spaced repetition state, even when the underlying bank is shared.',
+    title: 'Practice like Anki, but with questions.',
+    body: 'Answer clinically focused prompts, rate recall quality, and let spaced repetition bring weak concepts back on schedule.',
   },
   {
     eyebrow: '03',
-    title: 'Monetize private generation separately.',
-    body: 'Uploading personal PDFs and generating a private library stays on the paid path, which keeps launch scope and pricing clean.',
+    title: 'Keep every answer tied to evidence.',
+    body: 'Questions carry source quotes and lightweight checks so learners can trace why an answer is correct.',
   },
 ];
 
 const capabilities = [
-  'Shared banks for cohorts, labs, and tutoring groups',
-  'Private PDF-to-question generation for paid users',
-  'Concept maps, study queues, and spaced repetition review',
-  'Supabase-backed auth and persistent learner progress',
+  'Like Anki, but for practice questions',
+  'Anki remote compatible keyboard-driven review',
+  'Every question grounded in evidence',
+  'Practice questions with spaced repetition for memory',
 ];
 
 export default function RootPage() {
@@ -58,17 +58,17 @@ export default function RootPage() {
           <div className="marketing-hero-copy">
             <div className="marketing-pill">
               <span className="marketing-pill-dot" />
-              Shared study banks are free. Private generation is paid.
+              Like Anki, but for practice questions
             </div>
-            <p className="marketing-kicker">Clinical spaced repetition for assigned reading</p>
+            <p className="marketing-kicker">Medical-study SaaS for evidence-grounded recall</p>
             <h1>
-              One question bank for the cohort,
-              <span> separate mastery for every learner.</span>
+              Practice questions with spaced repetition,
+              <span> grounded in your medical sources.</span>
             </h1>
             <p className="marketing-lead">
-              Cardio turns medical source material into a study system that works in two modes: a free shared bank that
-              many learners can join, and a paid private workflow for users who want to upload their own PDFs and
-              generate a personal library.
+              Cardio turns medical PDFs into answerable question banks for class, boards, and clinical review. Study with
+              evidence-backed explanations, keyboard-first flow, and scheduling that behaves like Anki without reducing
+              everything to flashcards.
             </p>
             <div className="marketing-cta-row">
               <Link href="/login" className="button button-primary">
@@ -124,19 +124,13 @@ export default function RootPage() {
         </div>
       </section>
 
-      <section className="marketing-band" id="product">
-        <div className="marketing-band-inner">
-          <p>The same Next.js app serves the public site at `/`, authentication at `/login`, and the signed-in product at `/app`.</p>
-        </div>
-      </section>
-
       <section className="marketing-section" id="workflow">
         <div className="section-heading">
           <p className="section-label">Workflow</p>
-          <h2>A launch shape that keeps the product legible.</h2>
+          <h2>Build a medical question bank from the material you actually need to know.</h2>
           <p>
-            The core design decision is simple: shared banks reduce friction for group adoption, while private generation
-            remains the premium workflow.
+            Cardio keeps the familiar Anki rhythm while shifting the unit of practice from flashcards to source-grounded
+            multiple-choice questions.
           </p>
         </div>
         <div className="workflow-grid">
@@ -154,7 +148,7 @@ export default function RootPage() {
         <div className="access-grid" id="access">
           <article className="access-card access-card-light">
             <p className="section-label">Free path</p>
-            <h3>Join a published bank and study immediately.</h3>
+            <h3>Join a published medical-study bank and start practicing.</h3>
             <p>
               Best for classes and shared cohorts. Learners sign in, join one bank, and keep their own progress without
               paying to regenerate the same material.
@@ -168,15 +162,15 @@ export default function RootPage() {
 
           <article className="access-card access-card-dark">
             <p className="section-label section-label-dark">Paid path</p>
-            <h3>Generate a private library from personal PDFs.</h3>
+            <h3>Generate private practice questions from personal PDFs.</h3>
             <p>
               Best for individual learners who need isolated uploads, custom source sets, and their own bank generation
               pipeline.
             </p>
             <ul className="marketing-list marketing-list-dark">
               <li>Private uploads and processing</li>
-              <li>Separate PDF libraries per user</li>
-              <li>Billing only where generation adds cost</li>
+              <li>Source quotes for answer evidence</li>
+              <li>Spaced repetition for question memory</li>
             </ul>
           </article>
         </div>
@@ -186,7 +180,7 @@ export default function RootPage() {
         <div className="platform-card">
           <div className="section-heading section-heading-compact">
             <p className="section-label">Platform</p>
-            <h2>Relevant product capabilities already fit this design direction.</h2>
+            <h2>Purpose-built for medical practice questions.</h2>
           </div>
           <div className="platform-grid">
             {capabilities.map(item => (
@@ -203,7 +197,7 @@ export default function RootPage() {
         <div className="marketing-footer-card">
           <div>
             <p className="section-label">Ready to ship</p>
-            <h2>Deploy the Next app in `cardio` and use this page as the public front door.</h2>
+            <h2>Start practicing from shared banks or join the private-generation waitlist.</h2>
           </div>
           <div className="marketing-cta-row">
             <Link href="/login" className="button button-primary">

@@ -8,10 +8,11 @@ export default function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [joinSlug, setJoinSlug] = useState<string | null>(null);
 
   useEffect(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
     const params = new URLSearchParams(window.location.search);
     const join = params.get('join');
     const urlMode = params.get('mode');
@@ -27,6 +28,19 @@ export default function LoginForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
+    if (mode === 'forgot') {
+      const { error: authError } = await supabaseBrowser.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      setLoading(false);
+      if (authError) {
+        setError(authError.message);
+      } else {
+        setError('Check your email for a password reset link.');
+      }
+      return;
+    }
 
     const { error: authError } = mode === 'login'
       ? await supabaseBrowser.auth.signInWithPassword({ email, password })
@@ -58,17 +72,19 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0a', color: 'var(--text-primary)' }}>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-500 tracking-widest">CARDIO</h1>
-          <p className="text-gray-500 text-sm mt-1">Medical Board Study Platform</p>
+          <h1 className="text-3xl font-bold tracking-widest" style={{ color: 'var(--accent)' }}>CARDIO</h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-dim)' }}>Medical-study question SRS</p>
         </div>
 
-        <form onSubmit={submit} className="bg-gray-900 border border-gray-700 rounded-xl p-6 space-y-4">
-          <h2 className="text-white font-semibold">{mode === 'login' ? 'Sign In' : 'Create Account'}</h2>
+        <form onSubmit={submit} className="rounded-xl p-6 space-y-4" style={{ background: 'var(--bg-raised)', border: '1px solid var(--border)' }}>
+          <h2 className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
+          </h2>
 
-          {joinSlug && (
+          {joinSlug && mode !== 'forgot' && (
             <p className="text-xs px-3 py-2 rounded bg-teal-900 text-teal-300">
               You&apos;ll be added to the shared question bank after signing in.
             </p>
@@ -86,42 +102,94 @@ export default function LoginForm() {
             value={email}
             onChange={e => setEmail(e.target.value)}
             required
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600"
+            className="w-full rounded px-3 py-2 text-sm"
+            style={{ background: 'var(--bg-sunken)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
           />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600"
-          />
+
+          {mode !== 'forgot' && (
+            <div className="space-y-1">
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                className="w-full rounded px-3 py-2 text-sm"
+                style={{ background: 'var(--bg-sunken)', border: '1px solid var(--border)', color: 'var(--text-primary)' }}
+              />
+              {mode === 'login' && (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('forgot'); setError(''); }}
+                    className="text-xs hover:underline"
+                    style={{ color: 'var(--text-dim)' }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white py-2 rounded text-sm font-medium"
+            className="w-full disabled:opacity-50 py-2 rounded text-sm font-medium"
+            style={{ background: 'var(--accent)', color: 'var(--accent-ink)' }}
           >
-            {loading ? '…' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            {loading ? '…' : mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
           </button>
 
-          <button
-            type="button"
-            onClick={signInWithGoogle}
-            className="w-full border border-gray-700 hover:border-gray-500 text-gray-300 py-2 rounded text-sm"
-          >
-            Continue with Google
-          </button>
-
-          <p className="text-center text-xs text-gray-600">
-            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
+          {mode !== 'forgot' && (
             <button
               type="button"
-              onClick={() => setMode(mode === 'login' ? 'signup' : 'login')}
-              className="text-red-400 hover:underline"
+              onClick={signInWithGoogle}
+              className="w-full py-2 rounded text-sm"
+              style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
             >
-              {mode === 'login' ? 'Sign up' : 'Sign in'}
+              Continue with Google
             </button>
+          )}
+
+          <p className="text-center text-xs" style={{ color: 'var(--text-dim)' }}>
+            {mode === 'forgot' ? (
+              <>
+                Remember it?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(''); }}
+                  className="hover:underline"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Back to sign in
+                </button>
+              </>
+            ) : mode === 'login' ? (
+              <>
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('signup'); setError(''); }}
+                  className="hover:underline"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Sign up
+                </button>
+              </>
+            ) : (
+              <>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(''); }}
+                  className="hover:underline"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  Sign in
+                </button>
+              </>
+            )}
           </p>
         </form>
       </div>

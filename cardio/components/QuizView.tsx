@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { AttemptFlagReason, Question } from '@/types';
+import type { CSSProperties } from 'react';
+import type { AttemptFlagReason, FactCheckResult, Question } from '@/types';
 import { Icon, Kbd } from './ui';
+import { isBinding, loadKeybindings } from '@/lib/keybindings';
+import { simplifyExplanation } from '@/lib/explanations';
 
 interface Props {
   pdfId:  string;
@@ -22,10 +25,7 @@ interface HighlightRange {
 interface ValidationResult {
   loading: boolean;
   error: string | null;
-  isValid: boolean | null;
-  issues: string[];
-  suggestedFix: string;
-  confidence: 'high' | 'medium' | 'low' | null;
+  result: FactCheckResult | null;
 }
 
 const QUALITY: Record<number, { label: string; color: string; dimColor: string }> = {
@@ -129,6 +129,8 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const [showEvidence, setShowEvidence] = useState(false);
   const [streak,     setStreak]     = useState(0);
   const [elapsed,    setElapsed]    = useState(0);
+  const [keybindings, setKeybindings] = useState(loadKeybindings);
+  const [resumeAvailable, setResumeAvailable] = useState(false);
   const startRef = useRef<number>(Date.now());
   const stemRef = useRef<HTMLParagraphElement>(null);
 
@@ -144,11 +146,30 @@ export default function QuizView({ pdfId, onDone }: Props) {
       .then(d => {
         const qs: Question[] = d.questions ?? [];
         setQuestions(qs);
+        const saved = loadQuizProgress(pdfId);
+        if (saved && saved.answers.length === qs.length) {
+          setResumeAvailable(true);
+        }
         setAnswers(qs.map(() => ({ selected: null, revealed: false })));
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [pdfId]);
+
+  useEffect(() => {
+    function refresh() { setKeybindings(loadKeybindings()); }
+    window.addEventListener('storage', refresh);
+    window.addEventListener('cardio:keybindings-changed', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('cardio:keybindings-changed', refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!questions.length || idx >= questions.length) return;
+    saveQuizProgress(pdfId, { idx, answers, rated });
+  }, [answers, idx, pdfId, questions.length, rated]);
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000);
@@ -176,7 +197,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
       if (e.key === 'Escape') { if (focusMode) setFocusMode(false); else onDone(); return; }
       if (e.key === 'f' || e.key === 'F') { setFocusMode(m => !m); return; }
-      if (e.key === ' ' && revealed) { e.preventDefault(); setShowEvidence(s => !s); return; }
+      if (isBinding(e, keybindings, 'quiz.flip') && revealed) { e.preventDefault(); setShowEvidence(s => !s); return; }
 
       const n = parseInt(e.key);
       if (!revealed && n >= 1 && n <= current.options.length) {
@@ -185,10 +206,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
         void submitQuality(n);
       } else if (revealed && rated[idx] && (n >= 1 && n <= 4)) {
         if (idx < questions.length) goForward();
-      } else if (e.key === 'ArrowRight' || (revealed && e.key === 'Enter')) {
+      } else if (isBinding(e, keybindings, 'quiz.next') || (revealed && e.key === 'Enter')) {
         if (revealed && !rated[idx]) return;
         if (idx < questions.length) goForward();
-      } else if (e.key === 'ArrowLeft') {
+      } else if (isBinding(e, keybindings, 'quiz.previous')) {
         goBack();
       }
     }
@@ -227,6 +248,8 @@ export default function QuizView({ pdfId, onDone }: Props) {
   }
 
   function restart() {
+    clearQuizProgress(pdfId);
+    setResumeAvailable(false);
     setIdx(0);
     setAnswers(questions.map(() => ({ selected: null, revealed: false })));
     setRated({});
@@ -242,6 +265,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   }
 
   function reviewMissed() {
+    clearQuizProgress(pdfId);
     const wrongQs = questions.filter((_, i) => {
       const a = answers[i];
       const q = questions[i];
@@ -384,28 +408,13 @@ export default function QuizView({ pdfId, onDone }: Props) {
       next.set(idx, {
         loading: true,
         error: null,
-        isValid: null,
-        issues: [],
-        suggestedFix: '',
-        confidence: null,
+        result: null,
       });
       return next;
     });
 
     try {
-      const res = await fetch('/api/questions/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pdfId,
-          questionId: current.id,
-          stem: current.stem,
-          options: current.options,
-          answer: current.answer,
-          explanation: current.explanation,
-          sourceQuote: current.source_quote,
-        }),
-      });
+      const res = await fetch(`/api/questions/${current.id}/factcheck`);
 
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? 'Validation failed.');
@@ -415,12 +424,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
         next.set(idx, {
           loading: false,
           error: null,
-          isValid: Boolean(data?.isValid),
-          issues: Array.isArray(data?.issues) ? data.issues.map((x: unknown) => String(x)) : [],
-          suggestedFix: String(data?.suggestedFix ?? ''),
-          confidence: (data?.confidence === 'high' || data?.confidence === 'medium' || data?.confidence === 'low')
-            ? data.confidence
-            : null,
+          result: {
+            medicallyAccurate: Boolean(data?.medicallyAccurate),
+            sourcedFromText: Boolean(data?.sourcedFromText),
+          },
         });
         return next;
       });
@@ -430,10 +437,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
         next.set(idx, {
           loading: false,
           error: err instanceof Error ? err.message : 'Validation failed.',
-          isValid: null,
-          issues: [],
-          suggestedFix: '',
-          confidence: null,
+          result: null,
         });
         return next;
       });
@@ -448,6 +452,45 @@ export default function QuizView({ pdfId, onDone }: Props) {
           💡
         </div>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Loading questions…</p>
+      </div>
+    );
+  }
+
+  if (resumeAvailable) {
+    return (
+      <div style={{ maxWidth: 460, margin: '72px auto', textAlign: 'center', padding: 24 }}>
+        <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 10 }}>
+          Resume where you left off?
+        </h2>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.6, marginBottom: 22 }}>
+          Cardio saved your current question and answered questions for this bank.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+          <button
+            onClick={() => {
+              const saved = loadQuizProgress(pdfId);
+              if (saved) {
+                setIdx(saved.idx);
+                setAnswers(saved.answers);
+                setRated(saved.rated);
+              }
+              setResumeAvailable(false);
+            }}
+            style={resumeButtonStyle('primary')}
+          >
+            Resume
+          </button>
+          <button
+            onClick={() => {
+              clearQuizProgress(pdfId);
+              setResumeAvailable(false);
+              restart();
+            }}
+            style={resumeButtonStyle('secondary')}
+          >
+            Restart
+          </button>
+        </div>
       </div>
     );
   }
@@ -472,6 +515,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   /* ── Session complete ── */
   if (idx >= questions.length) {
+    clearQuizProgress(pdfId);
     const pct      = total > 0 ? Math.round((correct / total) * 100) : 0;
     const wrongCount = answers.filter((a, i) => a != null && a.revealed && a.selected !== questions[i]?.answer).length;
     return (
@@ -558,6 +602,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const acc = total > 0 ? Math.round((correct / total) * 100) : null;
   const mm = String(Math.floor(elapsed / 60)).padStart(2, '0');
   const ss = String(elapsed % 60).padStart(2, '0');
+  const displayExplanation = simplifyExplanation(current.explanation, current.options[current.answer] ?? '');
 
   return (
     <div style={{
@@ -720,7 +765,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
                 borderRadius: 'var(--radius-md)',
                 border: `1px solid ${validation.error
                   ? 'rgba(220,38,38,0.35)'
-                  : validation.isValid
+                  : validation.result?.medicallyAccurate && validation.result?.sourcedFromText
                     ? 'rgba(22,163,74,0.32)'
                     : 'rgba(245,158,11,0.35)'}`,
                 background: 'var(--bg-sunken)',
@@ -729,27 +774,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
                   <p style={{ margin: 0, fontSize: '0.76rem', color: 'var(--red)' }}>{validation.error}</p>
                 ) : (
                   <>
-                    <p style={{
-                      margin: '0 0 6px',
-                      fontSize: '0.73rem',
-                      fontWeight: 700,
-                      color: validation.isValid ? 'var(--green)' : 'var(--amber)',
-                    }}>
-                      {validation.isValid ? '✓ Factually verified against source' : '⚠ Factual issues found'}
-                      {validation.confidence ? <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}> · {validation.confidence} confidence</span> : ''}
-                    </p>
-                    {validation.issues.length > 0 && (
-                      <ul style={{ margin: '0 0 6px', paddingLeft: '18px', fontSize: '0.74rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>
-                        {validation.issues.map((issue, i) => (
-                          <li key={i}>{issue}</li>
-                        ))}
-                      </ul>
-                    )}
-                    {validation.suggestedFix && (
-                      <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-dim)', fontStyle: 'italic' }}>
-                        {validation.suggestedFix}
-                      </p>
-                    )}
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <SimpleCheckBadge label="Medically accurate" ok={Boolean(validation.result?.medicallyAccurate)} />
+                      <SimpleCheckBadge label="Sourced from text" ok={Boolean(validation.result?.sourcedFromText)} />
+                    </div>
                   </>
                 )}
               </div>
@@ -925,10 +953,10 @@ export default function QuizView({ pdfId, onDone }: Props) {
             transition: 'opacity 0.2s ease',
           }}>
             <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--text-primary)', margin: '0 0 16px' }}>
-              {formatExplanation(current.explanation)}
+              {formatExplanation(displayExplanation)}
             </p>
 
-            {current.source_quote && current.source_quote !== 'UNGROUNDED' && (
+            {showEvidence && current.source_quote && current.source_quote !== 'UNGROUNDED' && (
               <div style={{
                 padding: '14px 18px',
                 background: 'var(--bg-raised)',
@@ -1101,4 +1129,68 @@ function QualityBtn({
       {label}
     </button>
   );
+}
+
+function SimpleCheckBadge({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 6,
+      fontSize: 12,
+      fontWeight: 700,
+      color: ok ? 'var(--green)' : 'var(--red)',
+      background: ok ? 'var(--green-dim)' : 'var(--red-dim)',
+      borderRadius: 999,
+      padding: '4px 10px',
+    }}>
+      {label} {ok ? '✓' : '✗'}
+    </span>
+  );
+}
+
+type SavedQuizProgress = {
+  idx: number;
+  answers: AnswerState[];
+  rated: Record<number, boolean>;
+};
+
+function quizProgressKey(pdfId: string) {
+  return `cardio:quiz-progress:${pdfId}`;
+}
+
+function loadQuizProgress(pdfId: string): SavedQuizProgress | null {
+  try {
+    const raw = localStorage.getItem(quizProgressKey(pdfId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedQuizProgress;
+    if (!Array.isArray(parsed.answers) || typeof parsed.idx !== 'number') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveQuizProgress(pdfId: string, progress: SavedQuizProgress) {
+  try {
+    localStorage.setItem(quizProgressKey(pdfId), JSON.stringify(progress));
+  } catch { /* ignore storage quota */ }
+}
+
+function clearQuizProgress(pdfId: string) {
+  try {
+    localStorage.removeItem(quizProgressKey(pdfId));
+  } catch { /* ignore */ }
+}
+
+function resumeButtonStyle(kind: 'primary' | 'secondary'): CSSProperties {
+  return {
+    padding: '10px 20px',
+    borderRadius: 'var(--r2)',
+    border: kind === 'primary' ? 'none' : '1px solid var(--border)',
+    background: kind === 'primary' ? 'var(--accent)' : 'var(--bg-raised)',
+    color: kind === 'primary' ? 'var(--accent-ink)' : 'var(--text-secondary)',
+    cursor: 'pointer',
+    fontWeight: 700,
+  };
 }

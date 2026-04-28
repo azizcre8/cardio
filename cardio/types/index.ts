@@ -220,6 +220,58 @@ export interface Question {
   quality_history?: number[];
 }
 
+export interface WaitlistSubmission {
+  id: string;
+  user_id: string;
+  email: string;
+  use_case: string;
+  created_at: string;
+}
+
+export interface FlaggedQuestionRow {
+  question_id: string;
+  pdf_id: string;
+  stem: string;
+  answer_text: string;
+  level: QuestionLevel;
+  pdf_name: string;
+  flag_reason: string | null;
+  source: 'question_flag' | 'srs_quality';
+}
+
+export interface AllQuestionRow {
+  id: string;
+  pdf_id: string;
+  stem: string;
+  options: string[];
+  answer: number;
+  answer_text: string;
+  explanation: string;
+  level: QuestionLevel;
+  flagged: boolean;
+  flag_reason: string | null;
+  pdf_name: string;
+}
+
+export interface FactCheckResult {
+  medicallyAccurate: boolean;
+  sourcedFromText: boolean;
+}
+
+export type KeybindingAction =
+  | 'quiz.previous'
+  | 'quiz.next'
+  | 'quiz.flip'
+  | 'study.quality1'
+  | 'study.quality2'
+  | 'study.quality3'
+  | 'study.quality4'
+  | 'library.newDeck'
+  | 'library.renameDeck'
+  | 'library.deleteDeck';
+
+export type KeybindingMap = Record<KeybindingAction, string>;
+
 // ─── SRS State (user × question) ─────────────────────────────────────────────
 
 export interface SRSState {
