@@ -257,7 +257,7 @@ export function parseClaudeJson(text: string): RawClaudeQuestion[] {
     prosePrefix.startsWith('sorry') ||
     prosePrefix.startsWith('as an ai')
   ) {
-    throw new Error('Claude returned prose instead of JSON: ' + text.slice(0, 120));
+    throw new Error('Claude returned prose instead of JSON: ' + text);
   }
 
   const stripped = stripMarkdownFence(text);
@@ -380,10 +380,10 @@ function buildL1L2Instructions(targetCount: number): string {
   const fewShotL1 = formatFewShot(randomExample('L1'));
   const fewShotL2 = formatFewShot(randomExample('L2'));
 
-  return `You are a medical education expert creating board-style MCQs from the medical text above.
+  return `You are a medical education expert creating board-style MCQs from the provided medical text.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
-Identify every major section or topic in the text above. Divide ${targetCount} questions proportionally across those sections so no single section receives more than 30% of the total questions.
+Identify every major section or topic in the provided medical text. Divide ${targetCount} questions proportionally across those sections so no single section receives more than 30% of the total questions.
 
 STEP 2 — GENERATE only 1st-order and 2nd-order questions:
 1. Distribute questions across the ENTIRE document per your coverage map
@@ -424,13 +424,13 @@ IMPORTANT: You MUST respond with a valid JSON array only. If you cannot generate
 function buildL3Instructions(targetCount: number): string {
   const fewShotL3 = formatFewShot(randomExample('L3'));
 
-  return `You are a medical education expert creating board-style clinical vignette MCQs from the medical text above.
+  return `You are a medical education expert creating board-style clinical vignette MCQs from the provided medical text.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
-Identify every major clinical concept, mechanism, or syndrome in the text above. Divide ${targetCount} questions across those concepts so each is represented.
+Identify every major clinical concept, mechanism, or syndrome in the provided medical text. Divide ${targetCount} questions across those concepts so each is represented.
 
 STEP 2 — GENERATE only 3rd-order clinical vignette questions:
-1. EVERY question MUST open with a patient scenario: "A [age]-year-old [sex] presents with..." then ask about mechanism, diagnosis, or physiological consequence
+1. When the text contains or implies clinical content, open questions with a patient scenario ('A [age]-year-old [sex] presents with...'). When the text is purely basic science, write 3rd-order questions that require multi-step reasoning or synthesis across concepts instead.
 2. Cover different clinical scenarios — vary patient age, sex, and presenting complaint across questions
 3. LOW DISCRIMINABILITY — answer choices must be intentionally similar (related mechanisms, related diagnoses). This is the most important requirement.
 4. EQUAL OPTION LENGTH — all answer choices must be approximately the same length. The correct answer must NEVER be the longest option.
@@ -569,6 +569,9 @@ async function callClaude(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY environment variable is not set');
   const client = new Anthropic({ apiKey });
+  const normalizedInstructions = instructions
+    .replace(/the medical text above/g, 'the provided medical text')
+    .replace(/the text above/g, 'the provided medical text');
   const stream = client.messages.stream({
     model: model ?? env.GENERATION_MODEL,
     max_tokens: 14000,
@@ -577,7 +580,7 @@ async function callClaude(
       content: [
         // The PDF segment is the large stable block — mark it for caching.
         { type: 'text', text: `--- MEDICAL TEXT ---\n${context}`, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: instructions },
+        { type: 'text', text: normalizedInstructions },
       ],
     }],
   });
