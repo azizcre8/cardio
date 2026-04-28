@@ -249,6 +249,17 @@ function prepareClaudeJsonForRepair(text: string): string {
 }
 
 export function parseClaudeJson(text: string): RawClaudeQuestion[] {
+  const trimmed = text.trim();
+  const prosePrefix = trimmed.slice(0, 20).toLowerCase();
+  if (
+    prosePrefix.startsWith('i ') ||
+    prosePrefix.startsWith("i'") ||
+    prosePrefix.startsWith('sorry') ||
+    prosePrefix.startsWith('as an ai')
+  ) {
+    throw new Error('Claude returned prose instead of JSON: ' + text.slice(0, 120));
+  }
+
   const stripped = stripMarkdownFence(text);
 
   let firstError: unknown;
@@ -404,7 +415,9 @@ Return ONLY a JSON array (no markdown, no wrapper):
   "answer": 0,
   "source_quote": "exact verbatim quote from the text body",
   "explanation": "why correct + why closest distractor fails"
-}]`;
+}]
+
+IMPORTANT: You MUST respond with a valid JSON array only. If you cannot generate any questions, respond with an empty array: []. Never explain, apologise, or return prose — return JSON exclusively.`;
 }
 
 // Returns the instruction-only portion of the L3 prompt (no PDF text).
@@ -443,7 +456,9 @@ Return ONLY a JSON array (no markdown, no wrapper):
   "answer": 0,
   "source_quote": "exact verbatim quote from the text body",
   "explanation": "why correct + why closest distractor fails"
-}]`;
+}]
+
+IMPORTANT: You MUST respond with a valid JSON array only. If you cannot generate any questions, respond with an empty array: []. Never explain, apologise, or return prose — return JSON exclusively.`;
 }
 
 function splitTextIntoSegments(pdfText: string): string[] {
