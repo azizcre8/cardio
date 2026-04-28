@@ -558,6 +558,30 @@ function getClaudeCostRates(model: string): { inputCostPerM: number; outputCostP
   return { inputCostPerM: 3, outputCostPerM: 15 };
 }
 
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof Anthropic.AuthenticationError) return false;
+  if (error instanceof Anthropic.PermissionDeniedError) return false;
+  if (error instanceof Anthropic.InvalidRequestError) return false;
+  if (error instanceof Anthropic.APIStatusError && error.status < 500) return false;
+  if (error instanceof Anthropic.APIConnectionError) return true;
+  if (error instanceof Anthropic.APIConnectionTimeoutError) return true;
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    msg.includes('network error') ||
+    msg.includes('fetch failed') ||
+    msg.includes('econnreset') ||
+    msg.includes('etimedout') ||
+    msg.includes('econnrefused') ||
+    msg.includes('socket hang up') ||
+    msg.includes('und_err_socket') ||
+    msg.includes('connection error')
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // context   — the PDF segment text, sent as a cached content block (same across all batches
 //             for a given segment, so batches 2-N pay only 10% of normal input cost).
 // instructions — the task-specific prompt (question count, few-shot examples); not cached.
@@ -572,19 +596,40 @@ async function callClaude(
   const normalizedInstructions = instructions
     .replace(/the medical text above/g, 'the provided medical text')
     .replace(/the text above/g, 'the provided medical text');
-  const stream = client.messages.stream({
-    model: model ?? env.GENERATION_MODEL,
-    max_tokens: 14000,
-    messages: [{
-      role: 'user',
-      content: [
-        // The PDF segment is the large stable block — mark it for caching.
-        { type: 'text', text: `--- MEDICAL TEXT ---\n${context}`, cache_control: { type: 'ephemeral' } },
-        { type: 'text', text: normalizedInstructions },
-      ],
-    }],
-  });
-  const response = await stream.finalMessage();
+  const MAX_RETRIES = 3;
+  let response: Anthropic.Message | null = null;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
+    try {
+      const stream = client.messages.stream({
+        model: model ?? env.GENERATION_MODEL,
+        max_tokens: 14000,
+        messages: [{
+          role: 'user',
+          content: [
+            // The PDF segment is the large stable block — mark it for caching.
+            { type: 'text', text: `--- MEDICAL TEXT ---\n${context}`, cache_control: { type: 'ephemeral' } },
+            { type: 'text', text: normalizedInstructions },
+          ],
+        }],
+      });
+      response = await stream.finalMessage();
+      break;
+    } catch (error) {
+      if (attempt >= MAX_RETRIES || !isRetryableError(error)) {
+        throw error;
+      }
+
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const waitMs = attempt * 1000;
+      console.warn(`callClaude: retrying Anthropic stream after attempt ${attempt} failed: ${errorMessage}`);
+      await sleep(waitMs);
+    }
+  }
+
+  if (!response) {
+    throw new Error('Claude returned no response');
+  }
 
   const textBlock = response.content.find(b => b.type === 'text');
   if (!textBlock || !('text' in textBlock) || !textBlock.text.trim()) {
