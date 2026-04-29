@@ -4,7 +4,9 @@
 
 import { NextRequest } from 'next/server';
 import { requireUser } from '@/lib/auth';
-import { jsonError, jsonOk } from '@/lib/api';
+import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
+import { getAccessiblePdfForUser } from '@/lib/shared-banks';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(
   _req: NextRequest,
@@ -13,10 +15,14 @@ export async function GET(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const { data, error } = await auth.supabase
+  const access = await getAccessiblePdfForUser(params.id, auth.userId);
+  if (!access) return jsonNotFound('PDF not found');
+
+  const { data, error } = await supabaseAdmin
     .from('concepts')
     .select('*')
     .eq('pdf_id', params.id)
+    .eq('user_id', access.pdf.user_id)
     .order('importance', { ascending: false })
     .order('name', { ascending: true });
 

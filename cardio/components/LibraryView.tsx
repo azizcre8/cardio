@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useMemo, useEffect } from 'react';
-import type { PDF, Deck, Density, SharedBank, FlaggedQuestionRow } from '@/types';
+import type { PDF, Deck, Density, JoinedSharedBankNotice, SharedBank, FlaggedQuestionRow } from '@/types';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 import { Eyebrow, Icon, Btn } from './ui';
 
@@ -12,11 +12,14 @@ interface Props {
   onOpenConceptMap:      (pdfId: string) => void;
   onPdfsChange:          (pdfs: PDF[]) => void;
   onDecksChange:         (decks: Deck[]) => void;
+  joinedBankNotice?:     JoinedSharedBankNotice | null;
+  onDismissJoinedBank?:  () => void;
 }
 
 export default function LibraryView({
   pdfs, decks, examDate,
   onOpenConceptMap, onPdfsChange, onDecksChange,
+  joinedBankNotice, onDismissJoinedBank,
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
   const [joinSlug,       setJoinSlug]       = useState('');
@@ -54,6 +57,11 @@ export default function LibraryView({
     }
     return base;
   }, [pdfs, selectedDeckId, nodeMap, search]);
+
+  const joinedBankPdfs = useMemo(() => {
+    if (!joinedBankNotice) return [];
+    return pdfs.filter(pdf => pdf.shared_bank_slug === joinedBankNotice.slug);
+  }, [joinedBankNotice, pdfs]);
 
   function getPdfDisplayName(pdf: PDF) {
     return pdf.shared_bank_title ?? pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
@@ -293,7 +301,16 @@ export default function LibraryView({
 
       {/* ── Center panel ── */}
       <div style={{ overflow: 'auto' }}>
-        {pdfs.length === 0 ? (
+        {joinedBankNotice ? (
+          <JoinedBankPanel
+            notice={joinedBankNotice}
+            pdfs={joinedBankPdfs}
+            decks={decks}
+            getPdfDisplayName={getPdfDisplayName}
+            onStudy={onOpenConceptMap}
+            onBack={onDismissJoinedBank ?? (() => undefined)}
+          />
+        ) : pdfs.length === 0 ? (
           <EmptyState />
         ) : selectedDeck ? (
           <SubjectPanel
@@ -341,6 +358,110 @@ export default function LibraryView({
         )}
       </div>
 
+    </div>
+  );
+}
+
+function cleanBankTitle(title: string) {
+  return title.replace(/\bPreassinged\b/g, 'Preassigned');
+}
+
+function JoinedBankPanel({
+  notice, pdfs, decks, getPdfDisplayName, onStudy, onBack,
+}: {
+  notice: JoinedSharedBankNotice;
+  pdfs: PDF[];
+  decks: Deck[];
+  getPdfDisplayName: (pdf: PDF) => string;
+  onStudy: (id: string) => void;
+  onBack: () => void;
+}) {
+  const title = cleanBankTitle(notice.title);
+  const firstPdfId = notice.firstPdfId ?? pdfs.find(pdf => !!pdf.processed_at)?.id ?? null;
+  const sourceCount = pdfs.length || notice.sourceCount;
+  const questionCount = pdfs.length
+    ? pdfs.reduce((sum, pdf) => sum + (pdf.question_count ?? 0), 0)
+    : notice.questionCount;
+
+  return (
+    <div style={{ padding: '32px 44px 60px', maxWidth: 900 }}>
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 12px',
+        borderRadius: 'var(--r2)',
+        background: 'var(--accent-dim)',
+        color: 'var(--accent)',
+        border: '1px solid rgba(13,154,170,0.18)',
+        fontSize: 12,
+        fontWeight: 700,
+        marginBottom: 18,
+      }}>
+        <Icon name="check" size={14} />
+        Added {title}
+      </div>
+
+      <Eyebrow>Shared Question Bank</Eyebrow>
+      <h1 style={{
+        fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 400,
+        letterSpacing: '-0.025em', lineHeight: 1.1, margin: '4px 0 0',
+        color: 'var(--text-primary)',
+      }}>
+        {title}
+      </h1>
+
+      <div style={{ display: 'flex', gap: 18, marginTop: 12, fontSize: 13, color: 'var(--text-secondary)' }}>
+        <span>{sourceCount} sources</span>
+        <span>·</span>
+        <span>{questionCount.toLocaleString()} questions</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+        <Btn
+          kind="primary"
+          disabled={!firstPdfId}
+          onClick={() => { if (firstPdfId) onStudy(firstPdfId); }}
+        >
+          Start studying
+        </Btn>
+        <Btn kind="secondary" onClick={onBack}>Back to library</Btn>
+      </div>
+
+      <div style={{ marginTop: 30, borderTop: '1px solid var(--border)' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '12px 0 10px', borderBottom: '1px solid var(--border)',
+        }}>
+          <Eyebrow>Sources</Eyebrow>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
+            {pdfs.length}
+          </span>
+        </div>
+
+        {pdfs.length === 0 ? (
+          <p style={{ textAlign: 'center', padding: '32px 0', fontSize: 13, color: 'var(--text-dim)', fontStyle: 'italic', fontFamily: 'var(--font-serif)' }}>
+            Syncing shared sources…
+          </p>
+        ) : (
+          pdfs.map((pdf, i) => (
+            <SourceRow
+              key={pdf.id}
+              idx={i}
+              pdf={pdf}
+              displayName={getPdfDisplayName(pdf)}
+              examDeadline={null}
+              decks={decks}
+              onStudy={onStudy}
+              onDelete={() => undefined}
+              onRename={() => undefined}
+              onMove={() => undefined}
+              onShare={() => undefined}
+              onRevoke={() => undefined}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }

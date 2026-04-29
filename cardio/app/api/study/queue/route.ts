@@ -9,6 +9,8 @@ import { buildQueue, computeAllMastery } from '@/lib/srs';
 import type { Concept, Question, QueueResponse, SRSState } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { jsonBadRequest, jsonError, jsonOk } from '@/lib/api';
+import { getAccessiblePdfForUser } from '@/lib/shared-banks';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,18 +44,17 @@ export async function GET(req: NextRequest) {
   if (!pdfId) return jsonBadRequest('pdfId required');
 
   const userId = auth.userId;
+  const access = await getAccessiblePdfForUser(pdfId, userId);
+  if (!access) return jsonBadRequest('PDF not found');
 
-  const [pdfRes, questionRes, conceptRes, profileRes, srsRes, deckDeadline] = await Promise.all([
-    auth.supabase.from('pdfs').select('id').eq('id', pdfId).eq('user_id', userId).maybeSingle(),
-    auth.supabase.from('questions').select('*').eq('pdf_id', pdfId).eq('user_id', userId).eq('flagged', false),
-    auth.supabase.from('concepts').select('*').eq('pdf_id', pdfId).eq('user_id', userId),
+  const [questionRes, conceptRes, profileRes, srsRes, deckDeadline] = await Promise.all([
+    supabaseAdmin.from('questions').select('*').eq('pdf_id', pdfId).eq('user_id', access.pdf.user_id).eq('flagged', false),
+    supabaseAdmin.from('concepts').select('*').eq('pdf_id', pdfId).eq('user_id', access.pdf.user_id),
     auth.supabase.from('users').select('exam_date').eq('id', userId).single(),
-    auth.supabase.from('srs_state').select('*').eq('pdf_id', pdfId).eq('user_id', userId),
+    supabaseAdmin.from('srs_state').select('*').eq('pdf_id', pdfId).eq('user_id', userId),
     getExamDeadlineForPdf(pdfId),
   ]);
 
-  if (pdfRes.error) return jsonError(pdfRes.error.message);
-  if (!pdfRes.data) return jsonBadRequest('PDF not found');
   if (questionRes.error) return jsonError(questionRes.error.message);
   if (conceptRes.error) return jsonError(conceptRes.error.message);
   if (profileRes.error) return jsonError(profileRes.error.message);

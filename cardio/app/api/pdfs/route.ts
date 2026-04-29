@@ -6,6 +6,7 @@
 import { requireUser } from '@/lib/auth';
 import { jsonOk } from '@/lib/api';
 import { supabaseAdmin } from '@/lib/supabase';
+import { getSharedBankSources } from '@/lib/shared-banks';
 import type { PDF, SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
@@ -85,17 +86,17 @@ export async function GET() {
     return jsonOk(ownedPdfsMapped);
   }
 
-  const [{ data: joinedPdfRows }, { data: joinedDeckPdfRows }] = await Promise.all([
+  const [{ data: joinedPdfRows }, joinedDeckSourceRows] = await Promise.all([
     joinedPdfIds.length > 0
       ? supabaseAdmin.from('pdfs').select('*').in('id', joinedPdfIds)
       : Promise.resolve({ data: [] }),
-    joinedDeckIds.length > 0
-      ? supabaseAdmin.from('pdfs').select('*').in('deck_id', joinedDeckIds).order('position', { ascending: true }).order('name', { ascending: true })
-      : Promise.resolve({ data: [] }),
+    Promise.all(joinedDeckBanks.map(async bank => {
+      const bankWithSources = await getSharedBankSources(supabaseAdmin, bank);
+      return bankWithSources.source_pdfs.map(pdf => ({ pdf, bank }));
+    })),
   ]);
 
   const bankBySourcePdfId = new Map(joinedPdfBanks.map(b => [b.source_pdf_id, b]));
-  const bankBySourceDeckId = new Map(joinedDeckBanks.map(b => [b.source_deck_id, b]));
 
   const joinedPdfsMapped = ((joinedPdfRows ?? []) as PDF[]).map(pdf => {
     const bank = bankBySourcePdfId.get(pdf.id);
@@ -110,10 +111,15 @@ export async function GET() {
     } satisfies PDF;
   });
 
-  const joinedDeckPdfsMapped = ((joinedDeckPdfRows ?? []) as PDF[])
-    .filter(pdf => !ownedPdfIds.has(pdf.id))
-    .map(pdf => {
-      const bank = pdf.deck_id ? bankBySourceDeckId.get(pdf.deck_id) : undefined;
+  const seenSharedPdfIds = new Set(joinedPdfsMapped.map(pdf => pdf.id));
+  const joinedDeckPdfsMapped = joinedDeckSourceRows
+    .flat()
+    .filter(({ pdf }) => {
+      if (ownedPdfIds.has(pdf.id) || seenSharedPdfIds.has(pdf.id)) return false;
+      seenSharedPdfIds.add(pdf.id);
+      return true;
+    })
+    .map(({ pdf, bank }) => {
       return {
         ...pdf,
         access_scope: 'shared' as const,

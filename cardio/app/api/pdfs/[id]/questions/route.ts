@@ -5,6 +5,8 @@
 import { NextRequest } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
+import { getAccessiblePdfForUser } from '@/lib/shared-banks';
+import { supabaseAdmin } from '@/lib/supabase';
 
 export async function GET(
   req: NextRequest,
@@ -13,18 +15,10 @@ export async function GET(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const { supabase } = auth;
+  const access = await getAccessiblePdfForUser(params.id, auth.userId);
+  if (!access) return jsonNotFound('PDF not found');
 
-  const { data: pdf, error: pdfError } = await supabase
-    .from('pdfs')
-    .select('id')
-    .eq('id', params.id)
-    .eq('user_id', auth.userId)
-    .maybeSingle();
-  if (pdfError) return jsonError(pdfError.message);
-  if (!pdf) return jsonNotFound('PDF not found');
-
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('questions')
     .select(`
       id,
@@ -46,7 +40,7 @@ export async function GET(
       concepts(name)
     `)
     .eq('pdf_id', params.id)
-    .eq('user_id', auth.userId)
+    .eq('user_id', access.pdf.user_id)
     .eq('flagged', false);
 
   if (error) return jsonError(error.message);

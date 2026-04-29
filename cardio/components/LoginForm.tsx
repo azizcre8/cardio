@@ -21,7 +21,15 @@ export default function LoginForm() {
   }, []);
 
   async function joinAfterAuth(slug: string) {
-    await fetch(`/api/shared-banks/${encodeURIComponent(slug)}/join`, { method: 'POST' });
+    const res = await fetch(`/api/shared-banks/${encodeURIComponent(slug)}/join`, { method: 'POST' });
+    const data = await res.json().catch(() => null) as { error?: string } | null;
+    if (!res.ok) {
+      throw new Error(data?.error ?? 'Failed to join shared question bank.');
+    }
+  }
+
+  function joinedRedirect(slug: string) {
+    return `/app?join=${encodeURIComponent(slug)}&joined=1`;
   }
 
   async function submit(e: React.FormEvent) {
@@ -42,25 +50,40 @@ export default function LoginForm() {
       return;
     }
 
-    const { error: authError } = mode === 'login'
+    const { data: authData, error: authError } = mode === 'login'
       ? await supabaseBrowser.auth.signInWithPassword({ email, password })
       : await supabaseBrowser.auth.signUp({ email, password });
 
-    setLoading(false);
-
     if (authError) {
+      setLoading(false);
       setError(authError.message);
       return;
     }
 
     if (mode === 'signup') {
       if (joinSlug) localStorage.setItem('pendingJoin', joinSlug);
+      if (authData.session) {
+        try {
+          if (joinSlug) await joinAfterAuth(joinSlug);
+          window.location.href = joinSlug ? joinedRedirect(joinSlug) : '/app';
+        } catch (err) {
+          setLoading(false);
+          setError(err instanceof Error ? err.message : 'Failed to join shared question bank.');
+        }
+        return;
+      }
+      setLoading(false);
       setError('Check your email for a confirmation link.');
       return;
     }
 
-    if (joinSlug) await joinAfterAuth(joinSlug);
-    window.location.href = '/app';
+    try {
+      if (joinSlug) await joinAfterAuth(joinSlug);
+      window.location.href = joinSlug ? joinedRedirect(joinSlug) : '/app';
+    } catch (err) {
+      setLoading(false);
+      setError(err instanceof Error ? err.message : 'Failed to join shared question bank.');
+    }
   }
 
   async function signInWithGoogle() {

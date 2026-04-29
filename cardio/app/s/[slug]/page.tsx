@@ -1,11 +1,15 @@
 import { notFound } from 'next/navigation';
+import { unstable_noStore as noStore } from 'next/cache';
 import { supabaseAdmin, supabaseServerComponent } from '@/lib/supabase';
+import { getSharedBankSources } from '@/lib/shared-banks';
 import JoinSection from './JoinSection';
-import type { PDF, SharedBank } from '@/types';
+import type { SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SharedBankLandingPage({ params }: { params: { slug: string } }) {
+  noStore();
+
   const { data: bankRow } = await supabaseAdmin
     .from('shared_banks')
     .select('*')
@@ -15,33 +19,14 @@ export default async function SharedBankLandingPage({ params }: { params: { slug
 
   if (!bankRow) notFound();
   const bank = bankRow as SharedBank;
-  const isDeckBank = !!bank.source_deck_id;
 
-  const [{ data: pdfRow }, { data: deckPdfRows }, { count: memberCount }] = await Promise.all([
-    !isDeckBank && bank.source_pdf_id
-      ? supabaseAdmin
-        .from('pdfs')
-        .select('name, display_name, question_count, page_count')
-        .eq('id', bank.source_pdf_id)
-        .maybeSingle()
-      : Promise.resolve({ data: null }),
-    isDeckBank
-      ? supabaseAdmin
-        .from('pdfs')
-        .select('name, display_name, question_count, page_count')
-        .eq('deck_id', bank.source_deck_id)
-        .order('position', { ascending: true })
-        .order('name', { ascending: true })
-      : supabaseAdmin
-        .from('pdfs')
-        .select('name, display_name, question_count, page_count')
-        .limit(0),
+  const [bankWithSources, { count: memberCount }] = await Promise.all([
+    getSharedBankSources(supabaseAdmin, bank),
     supabaseAdmin.from('shared_bank_members').select('*', { count: 'exact', head: true }).eq('shared_bank_id', bank.id),
   ]);
 
-  const sourcePdfs = (isDeckBank
-    ? deckPdfRows ?? []
-    : pdfRow ? [pdfRow] : []) as Pick<PDF, 'name' | 'display_name' | 'question_count' | 'page_count'>[];
+  const sourcePdfs = bankWithSources.source_pdfs;
+  const isDeckBank = !!bank.source_deck_id;
 
   const supabase = supabaseServerComponent();
   const { data: { user } } = await supabase.auth.getUser();

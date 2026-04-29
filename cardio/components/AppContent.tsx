@@ -11,7 +11,7 @@ import QuizView from '@/components/QuizView';
 import SettingsView from '@/components/SettingsView';
 import StatsView from '@/components/StatsView';
 import StudyView from '@/components/StudyView';
-import type { Deck, Density, PDF } from '@/types';
+import type { Deck, Density, JoinedSharedBankNotice, PDF } from '@/types';
 import type { AppView } from '@/app/app/page';
 
 interface Props {
@@ -37,6 +37,8 @@ interface Props {
   onPdfsChange: (pdfs: PDF[]) => void;
   onDecksChange: (decks: Deck[]) => void;
   onExamDateChange: (date: string | null) => void;
+  joinedBankNotice: JoinedSharedBankNotice | null;
+  onDismissJoinedBank: () => void;
 }
 
 export default function AppContent({
@@ -62,6 +64,8 @@ export default function AppContent({
   onPdfsChange,
   onDecksChange,
   onExamDateChange,
+  joinedBankNotice,
+  onDismissJoinedBank,
 }: Props) {
   const conceptMapPdf = pdfs.find(p => p.id === conceptMapPdfId) ?? null;
 
@@ -83,6 +87,8 @@ export default function AppContent({
           onOpenConceptMap={onOpenConceptMap}
           onPdfsChange={onPdfsChange}
           onDecksChange={onDecksChange}
+          joinedBankNotice={joinedBankNotice}
+          onDismissJoinedBank={onDismissJoinedBank}
         />
       )}
 

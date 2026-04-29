@@ -5,6 +5,7 @@ import AppContent from '@/components/AppContent';
 import AppNav from '@/components/AppNav';
 import CommandPalette from '@/components/CommandPalette';
 import { useProcessingJob, useThemePreference, useUserLibraryData } from './use-app-state';
+import type { JoinedSharedBankNotice, PDF } from '@/types';
 
 export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'question-stats' | 'allquestions' | 'settings';
 
@@ -16,6 +17,7 @@ export default function AppPage() {
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
   const [studyPdfId, setStudyPdfId] = useState<string | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
+  const [joinedBankNotice, setJoinedBankNotice] = useState<JoinedSharedBankNotice | null>(null);
   const handledSharedSlug = useRef<string | null>(null);
   const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId, userEmail, userPlan } = useUserLibraryData();
   const { darkMode, toggleDark } = useThemePreference();
@@ -121,16 +123,28 @@ export default function AppPage() {
       if (!res.ok) return;
 
       const data = await res.json().catch(() => null) as {
-        bank?: { source_pdf_id?: string | null };
+        bank?: {
+          slug?: string | null;
+          title?: string | null;
+          source_pdf_id?: string | null;
+          source_pdfs?: PDF[];
+        };
       } | null;
 
       await refreshPdfs();
 
-      const sharedPdfId = data?.bank?.source_pdf_id ?? null;
-      if (sharedPdfId) {
-        setConceptMapPdfId(sharedPdfId);
-        setAppView('conceptmap');
-      }
+      const sourcePdfs = data?.bank?.source_pdfs ?? [];
+      const firstPdfId = sourcePdfs.find(pdf => !!pdf.processed_at)?.id
+        ?? data?.bank?.source_pdf_id
+        ?? null;
+      setJoinedBankNotice({
+        slug: data?.bank?.slug ?? sharedSlug,
+        title: data?.bank?.title ?? 'Shared question bank',
+        sourceCount: sourcePdfs.length,
+        questionCount: sourcePdfs.reduce((sum, pdf) => sum + (pdf.question_count ?? 0), 0),
+        firstPdfId,
+      });
+      setAppView('library');
     })();
   }, [refreshPdfs, setAppView, sharedSlug, userId]);
 
@@ -176,6 +190,8 @@ export default function AppPage() {
         onPdfsChange={setPdfs}
         onDecksChange={setDecks}
         onExamDateChange={setExamDate}
+        joinedBankNotice={joinedBankNotice}
+        onDismissJoinedBank={() => setJoinedBankNotice(null)}
       />
     </div>
   );

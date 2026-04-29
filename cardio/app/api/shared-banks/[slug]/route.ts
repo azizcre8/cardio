@@ -1,6 +1,8 @@
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
-import type { Deck, PDF, SharedBank } from '@/types';
+import { getSharedBankSources } from '@/lib/shared-banks';
+import { supabaseAdmin } from '@/lib/supabase';
+import type { SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,16 +24,8 @@ export async function GET(
 
   const bank = bankRow as SharedBank;
 
-  const [{ data: sourcePdf }, { data: sourceDeck }, { data: sourcePdfs }, { data: membership }] = await Promise.all([
-    bank.source_pdf_id
-      ? auth.supabase.from('pdfs').select('*').eq('id', bank.source_pdf_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    bank.source_deck_id
-      ? auth.supabase.from('decks').select('*').eq('id', bank.source_deck_id).maybeSingle()
-      : Promise.resolve({ data: null }),
-    bank.source_deck_id
-      ? auth.supabase.from('pdfs').select('*').eq('deck_id', bank.source_deck_id).order('position', { ascending: true }).order('name', { ascending: true })
-      : Promise.resolve({ data: [] }),
+  const [bankWithSources, { data: membership }] = await Promise.all([
+    getSharedBankSources(supabaseAdmin, bank),
     auth.supabase
       .from('shared_bank_members')
       .select('role, joined_at')
@@ -42,10 +36,7 @@ export async function GET(
 
   return jsonOk({
     bank: {
-      ...bank,
-      source_pdf: (sourcePdf as PDF | null) ?? null,
-      source_deck: (sourceDeck as Deck | null) ?? null,
-      source_pdfs: (sourcePdfs ?? []) as PDF[],
+      ...bankWithSources,
       membership_role: (membership?.role as SharedBank['membership_role']) ?? null,
       membership_joined_at: membership?.joined_at ?? null,
     },

@@ -119,6 +119,14 @@ export interface SharedBankMember {
   joined_at: string;
 }
 
+export interface JoinedSharedBankNotice {
+  slug: string;
+  title: string;
+  sourceCount: number;
+  questionCount: number;
+  firstPdfId: string | null;
+}
+
 export type PDFJobStatus = 'processing' | 'completed' | 'failed';
 
 export interface PDFJob {

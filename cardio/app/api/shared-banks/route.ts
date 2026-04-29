@@ -1,8 +1,14 @@
 import { NextRequest } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { jsonBadRequest, jsonError, jsonOk, parseJsonBody } from '@/lib/api';
-import { createUniqueSharedBankSlug } from '@/lib/shared-banks';
-import { supabaseServer } from '@/lib/supabase';
+import {
+  attachSharedBankSources,
+  createUniqueSharedBankSlug,
+  getDeckAndDescendantIds,
+  getSharedBankSources,
+  type SharedBankWithSources,
+} from '@/lib/shared-banks';
+import { supabaseAdmin } from '@/lib/supabase';
 import type { Deck, PDF, SharedBank, SharedBankVisibility } from '@/types';
 
 type PublishSharedBankBody = {
@@ -12,60 +18,6 @@ type PublishSharedBankBody = {
   description?: string | null;
   visibility?: SharedBankVisibility;
 };
-
-type SharedBankWithPdf = SharedBank & {
-  source_pdf: PDF | null;
-  source_deck: Deck | null;
-  source_pdfs: PDF[];
-};
-
-async function attachSourcePdfs(
-  supabase: ReturnType<typeof supabaseServer>,
-  banks: SharedBank[],
-): Promise<SharedBankWithPdf[]> {
-  const pdfIds = Array.from(new Set(banks.map(bank => bank.source_pdf_id).filter((id): id is string => !!id)));
-  const deckIds = Array.from(new Set(banks.map(bank => bank.source_deck_id).filter((id): id is string => !!id)));
-
-  const [{ data: pdfRows, error: pdfError }, { data: deckRows, error: deckError }, { data: deckPdfRows, error: deckPdfError }] = await Promise.all([
-    pdfIds.length > 0
-      ? supabase.from('pdfs').select('*').in('id', pdfIds)
-      : Promise.resolve({ data: [], error: null }),
-    deckIds.length > 0
-      ? supabase.from('decks').select('*').in('id', deckIds)
-      : Promise.resolve({ data: [], error: null }),
-    deckIds.length > 0
-      ? supabase.from('pdfs').select('*').in('deck_id', deckIds).order('position', { ascending: true }).order('name', { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (pdfError) throw new Error(`attachSourcePdfs: ${pdfError.message}`);
-  if (deckError) throw new Error(`attachSourcePdfs: ${deckError.message}`);
-  if (deckPdfError) throw new Error(`attachSourcePdfs: ${deckPdfError.message}`);
-
-  const pdfById = new Map(((pdfRows ?? []) as PDF[]).map(pdf => [pdf.id, pdf]));
-  const deckById = new Map(((deckRows ?? []) as Deck[]).map(deck => [deck.id, deck]));
-  const pdfsByDeckId = new Map<string, PDF[]>();
-  for (const pdf of (deckPdfRows ?? []) as PDF[]) {
-    if (!pdf.deck_id) continue;
-    const existing = pdfsByDeckId.get(pdf.deck_id) ?? [];
-    existing.push(pdf);
-    pdfsByDeckId.set(pdf.deck_id, existing);
-  }
-
-  return banks.map(bank => {
-    const sourcePdfs = bank.source_deck_id
-      ? pdfsByDeckId.get(bank.source_deck_id) ?? []
-      : bank.source_pdf_id
-        ? [pdfById.get(bank.source_pdf_id)].filter((pdf): pdf is PDF => !!pdf)
-        : [];
-    return {
-      ...bank,
-      source_pdf: bank.source_pdf_id ? pdfById.get(bank.source_pdf_id) ?? null : null,
-      source_deck: bank.source_deck_id ? deckById.get(bank.source_deck_id) ?? null : null,
-      source_pdfs: sourcePdfs,
-    };
-  });
-}
 
 export const dynamic = 'force-dynamic';
 
@@ -103,8 +55,8 @@ export async function GET() {
     .filter((bank): bank is SharedBank => bank !== null);
 
   return jsonOk({
-    owned: await attachSourcePdfs(auth.supabase, owned),
-    joined: await attachSourcePdfs(auth.supabase, joined),
+    owned: await attachSharedBankSources(supabaseAdmin, owned),
+    joined: await attachSharedBankSources(supabaseAdmin, joined),
   });
 }
 
@@ -135,17 +87,23 @@ export async function POST(req: NextRequest) {
 
     if (deckError || !deckRow) return jsonBadRequest('Deck not found');
 
-    const { data: deckPdfRows, error: deckPdfsError } = await auth.supabase
-      .from('pdfs')
-      .select('*')
-      .eq('deck_id', deckId)
-      .eq('user_id', auth.userId)
-      .order('position', { ascending: true })
-      .order('name', { ascending: true });
+    const deckIds = await getDeckAndDescendantIds(supabaseAdmin, auth.userId, deckId);
+    const { data: deckPdfRows, error: deckPdfsError } = deckIds.length > 0
+      ? await supabaseAdmin
+        .from('pdfs')
+        .select('*')
+        .in('deck_id', deckIds)
+        .eq('user_id', auth.userId)
+      : { data: [], error: null };
 
     if (deckPdfsError) return jsonError(deckPdfsError.message);
 
-    const sourcePdfs = (deckPdfRows ?? []) as PDF[];
+    const deckRank = new Map(deckIds.map((id, idx) => [id, idx]));
+    const sourcePdfs = ((deckPdfRows ?? []) as PDF[]).sort((a, b) => {
+      const deckDelta = (deckRank.get(a.deck_id ?? '') ?? Number.MAX_SAFE_INTEGER)
+        - (deckRank.get(b.deck_id ?? '') ?? Number.MAX_SAFE_INTEGER);
+      return deckDelta || (a.position ?? 0) - (b.position ?? 0) || a.name.localeCompare(b.name);
+    });
     if (!sourcePdfs.some(pdf => !!pdf.processed_at)) {
       return jsonBadRequest('Folder must contain at least one processed PDF before it can be published');
     }
@@ -211,7 +169,7 @@ export async function POST(req: NextRequest) {
         source_pdf: null,
         source_deck: deckRow as Deck,
         source_pdfs: sourcePdfs,
-      } satisfies SharedBankWithPdf,
+      } satisfies SharedBankWithSources,
       shareUrl: `${origin}/s/${bank.slug}`,
     });
   }
@@ -282,12 +240,7 @@ export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin;
 
   return jsonOk({
-    bank: {
-      ...bank,
-      source_pdf: pdfRow as PDF,
-      source_deck: null,
-      source_pdfs: [pdfRow as PDF],
-    } satisfies SharedBankWithPdf,
+    bank: await getSharedBankSources(supabaseAdmin, bank),
     shareUrl: `${origin}/s/${bank.slug}`,
   });
 }

@@ -10,6 +10,8 @@ import { insertQuestionAttempt } from '@/lib/storage';
 import type { AttemptFlagReason, AttemptRequestBody, AttemptSource } from '@/types';
 import { requireUser } from '@/lib/auth';
 import { jsonBadRequest, jsonNotFound, jsonOk, parseJsonBody } from '@/lib/api';
+import { getAccessiblePdfForUser } from '@/lib/shared-banks';
+import { supabaseAdmin } from '@/lib/supabase';
 
 const VALID_FLAG_REASONS = new Set(['wrong_answer_key', 'confusing_wording', 'out_of_scope', 'other']);
 const VALID_SOURCES = new Set(['quiz', 'study']);
@@ -40,12 +42,15 @@ export async function POST(req: NextRequest) {
     return jsonBadRequest('Invalid source');
   }
 
-  const { data: question, error: questionError } = await auth.supabase
+  const access = await getAccessiblePdfForUser(pdfId, auth.userId);
+  if (!access) return jsonNotFound('PDF not found');
+
+  const { data: question, error: questionError } = await supabaseAdmin
     .from('questions')
     .select('id')
     .eq('id', questionId)
     .eq('pdf_id', pdfId)
-    .eq('user_id', auth.userId)
+    .eq('user_id', access.pdf.user_id)
     .maybeSingle();
   if (questionError) throw new Error(`questions/attempt lookup failed: ${questionError.message}`);
   if (!question) return jsonNotFound('Question not found');
