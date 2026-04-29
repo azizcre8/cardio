@@ -8,7 +8,8 @@ import { isBinding, loadKeybindings } from '@/lib/keybindings';
 import { simplifyExplanation } from '@/lib/explanations';
 
 interface Props {
-  pdfId:  string;
+  pdfId?: string;
+  sharedBankSlug?: string;
   onDone: () => void;
 }
 
@@ -114,7 +115,7 @@ function HighlightedText({ text, ranges }: { text: string; ranges: HighlightRang
   );
 }
 
-export default function QuizView({ pdfId, onDone }: Props) {
+export default function QuizView({ pdfId, sharedBankSlug, onDone }: Props) {
   const [questions,  setQuestions]  = useState<Question[]>([]);
   const [idx,        setIdx]        = useState(0);
   const [answers,    setAnswers]    = useState<AnswerState[]>([]);
@@ -139,14 +140,19 @@ export default function QuizView({ pdfId, onDone }: Props) {
   const [flagByIdx,     setFlagByIdx]     = useState<Map<number, AttemptFlagReason>>(new Map());
   const [helpfulByIdx,  setHelpfulByIdx]  = useState<Map<number, boolean>>(new Map());
   const [flagDropOpen,  setFlagDropOpen]  = useState(false);
+  const sourceKey = sharedBankSlug ? `shared-bank:${sharedBankSlug}` : (pdfId ?? '');
 
   useEffect(() => {
-    fetch(`/api/pdfs/${pdfId}/questions`)
+    const questionUrl = sharedBankSlug
+      ? `/api/shared-banks/${encodeURIComponent(sharedBankSlug)}/questions`
+      : `/api/pdfs/${pdfId ?? ''}/questions`;
+
+    fetch(questionUrl)
       .then(r => r.json())
       .then(d => {
         const qs: Question[] = d.questions ?? [];
         setQuestions(qs);
-        const saved = loadQuizProgress(pdfId);
+        const saved = loadQuizProgress(sourceKey);
         if (saved && saved.answers.length === qs.length) {
           setResumeAvailable(true);
         }
@@ -154,7 +160,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [pdfId]);
+  }, [pdfId, sharedBankSlug, sourceKey]);
 
   useEffect(() => {
     function refresh() { setKeybindings(loadKeybindings()); }
@@ -168,8 +174,8 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   useEffect(() => {
     if (!questions.length || idx >= questions.length) return;
-    saveQuizProgress(pdfId, { idx, answers, rated });
-  }, [answers, idx, pdfId, questions.length, rated]);
+    saveQuizProgress(sourceKey, { idx, answers, rated });
+  }, [answers, idx, questions.length, rated, sourceKey]);
 
   useEffect(() => {
     const t = setInterval(() => setElapsed(Math.floor((Date.now() - startRef.current) / 1000)), 1000);
@@ -224,6 +230,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   }, [idx]);
 
   const current = questions[idx];
+  const currentPdfId = current?.pdf_id ?? pdfId ?? '';
 
   function selectOption(optIdx: number) {
     if (revealed) return;
@@ -248,7 +255,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   }
 
   function restart() {
-    clearQuizProgress(pdfId);
+    clearQuizProgress(sourceKey);
     setResumeAvailable(false);
     setIdx(0);
     setAnswers(questions.map(() => ({ selected: null, revealed: false })));
@@ -265,7 +272,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
   }
 
   function reviewMissed() {
-    clearQuizProgress(pdfId);
+    clearQuizProgress(sourceKey);
     const wrongQs = questions.filter((_, i) => {
       const a = answers[i];
       const q = questions[i];
@@ -297,7 +304,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
       const timeSpentMs = Date.now() - questionStartTime;
       fireAttempt({
         questionId: current.id,
-        pdfId,
+        pdfId: currentPdfId,
         selectedOption: selected ?? -1,
         isCorrect: selected === current.answer,
         timeSpentMs,
@@ -311,7 +318,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
         body: JSON.stringify({
           questionId: current.id,
           quality,
-          pdfId,
+          pdfId: currentPdfId,
           proxiedFromId: null,
         }),
       });
@@ -468,7 +475,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button
             onClick={() => {
-              const saved = loadQuizProgress(pdfId);
+              const saved = loadQuizProgress(sourceKey);
               if (saved) {
                 setIdx(saved.idx);
                 setAnswers(saved.answers);
@@ -482,7 +489,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
           </button>
           <button
             onClick={() => {
-              clearQuizProgress(pdfId);
+              clearQuizProgress(sourceKey);
               setResumeAvailable(false);
               restart();
             }}
@@ -515,7 +522,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
 
   /* ── Session complete ── */
   if (idx >= questions.length) {
-    clearQuizProgress(pdfId);
+    clearQuizProgress(sourceKey);
     const pct      = total > 0 ? Math.round((correct / total) * 100) : 0;
     const wrongCount = answers.filter((a, i) => a != null && a.revealed && a.selected !== questions[i]?.answer).length;
     return (
@@ -695,6 +702,11 @@ export default function QuizView({ pdfId, onDone }: Props) {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
                 {current.concept_name ? current.concept_name.toUpperCase() : ''}
               </span>
+              {sharedBankSlug && current.source_name && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
+                  {current.source_name.toUpperCase()}
+                </span>
+              )}
             </div>
 
             {/* Stem — select text to highlight */}
@@ -1022,7 +1034,7 @@ export default function QuizView({ pdfId, onDone }: Props) {
                 if (current) {
                   fireAttempt({
                     questionId: current.id,
-                    pdfId,
+                    pdfId: currentPdfId,
                     selectedOption: -1,
                     isCorrect: false,
                     timeSpentMs: Date.now() - questionStartTime,

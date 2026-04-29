@@ -15,6 +15,7 @@ export default function AppPage() {
   const [view, setView] = useState<AppView>('library');
   const [conceptMapPdfId, setConceptMapPdfId] = useState<string | null>(null);
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
+  const [quizSharedBankSlug, setQuizSharedBankSlug] = useState<string | null>(null);
   const [studyPdfId, setStudyPdfId] = useState<string | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const [joinedBankNotice, setJoinedBankNotice] = useState<JoinedSharedBankNotice | null>(null);
@@ -46,6 +47,9 @@ export default function AppPage() {
       setConceptMapPdfId(pdfId);
       if (urlView === 'quiz') setQuizPdfId(pdfId);
       if (urlView === 'study') setStudyPdfId(pdfId);
+    } else if (urlView === 'quiz') {
+      const sharedQuizSlug = params.get('sharedQuiz');
+      if (sharedQuizSlug) setQuizSharedBankSlug(sharedQuizSlug);
     }
   }, []);
 
@@ -61,12 +65,21 @@ export default function AppPage() {
       : null;
     if (pdfId) params.set('pdfId', pdfId);
     else params.delete('pdfId');
+    if (view === 'quiz' && quizSharedBankSlug) params.set('sharedQuiz', quizSharedBankSlug);
+    else params.delete('sharedQuiz');
     window.history.replaceState(null, '', `/app?${params.toString()}`);
-  }, [conceptMapPdfId, quizPdfId, studyPdfId, view]);
+  }, [conceptMapPdfId, quizPdfId, quizSharedBankSlug, studyPdfId, view]);
 
   /* ── Navigation helpers ── */
   const startQuiz = useCallback((pdfId: string) => {
     setQuizPdfId(pdfId);
+    setQuizSharedBankSlug(null);
+    setAppView('quiz');
+  }, [setAppView]);
+
+  const startMixedQuiz = useCallback((slug: string) => {
+    setQuizPdfId(null);
+    setQuizSharedBankSlug(slug);
     setAppView('quiz');
   }, [setAppView]);
 
@@ -94,8 +107,13 @@ export default function AppPage() {
     setPaletteOpen(false);
   }, [setAppView, startQuiz]);
   function quizDone() {
-    if (quizPdfId) setConceptMapPdfId(quizPdfId);
-    setAppView('conceptmap');
+    if (quizPdfId) {
+      setConceptMapPdfId(quizPdfId);
+      setAppView('conceptmap');
+      return;
+    }
+    setQuizSharedBankSlug(null);
+    setAppView('library');
   }
   function studyDone() {
     if (studyPdfId) setConceptMapPdfId(studyPdfId);
@@ -104,9 +122,8 @@ export default function AppPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const slug = params.get('shared') ?? params.get('join') ?? localStorage.getItem('pendingJoin');
+    const slug = params.get('shared') ?? params.get('join');
     if (slug) {
-      localStorage.removeItem('pendingJoin');
       setSharedSlug(slug);
     }
   }, []);
@@ -179,11 +196,13 @@ export default function AppPage() {
         isJobRunning={isJobRunning}
         conceptMapPdfId={conceptMapPdfId}
         quizPdfId={quizPdfId}
+        quizSharedBankSlug={quizSharedBankSlug}
         studyPdfId={studyPdfId}
         onSetView={setAppView}
         onStartProcessing={startProcessing}
         onOpenConceptMap={openConceptMap}
         onStartQuiz={startQuiz}
+        onStartMixedQuiz={startMixedQuiz}
         onQuizDone={quizDone}
         onStartStudy={startStudy}
         onStudyDone={studyDone}

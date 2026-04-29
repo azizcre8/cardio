@@ -59,6 +59,7 @@ export async function GET() {
       shared_bank_title: bank?.title ?? null,
       shared_bank_slug: bank?.slug ?? null,
       shared_bank_visibility: bank?.visibility ?? null,
+      shared_bank_source_type: bank ? 'pdf' : null,
     } satisfies PDF;
   });
 
@@ -108,6 +109,7 @@ export async function GET() {
       shared_bank_title: bank?.title ?? null,
       shared_bank_slug: bank?.slug ?? null,
       shared_bank_visibility: bank?.visibility ?? null,
+      shared_bank_source_type: bank ? 'pdf' : null,
     } satisfies PDF;
   });
 
@@ -125,9 +127,10 @@ export async function GET() {
         access_scope: 'shared' as const,
         deck_id: null,
         shared_bank_id: bank?.id ?? null,
-        shared_bank_title: null,
+        shared_bank_title: bank?.title ?? null,
         shared_bank_slug: bank?.slug ?? null,
         shared_bank_visibility: bank?.visibility ?? null,
+        shared_bank_source_type: bank ? 'deck' : null,
       } satisfies PDF;
     });
 

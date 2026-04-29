@@ -85,6 +85,7 @@ export interface PDF {
   shared_bank_title?: string | null;
   shared_bank_slug?: string | null;
   shared_bank_visibility?: SharedBankVisibility | null;
+  shared_bank_source_type?: 'pdf' | 'deck' | null;
   // Pipeline state stored between prepare and generate calls (migration 008)
   concept_specs?: unknown[] | null;
   confusion_map?: Record<string, unknown> | null;
@@ -193,6 +194,7 @@ export interface Question {
   option_explanations: string[] | null; // per-distractor explanations, generated lazily
   source_quote: string;
   concept_name?: string;
+  source_name?: string;
   evidence_start: number | null;
   evidence_end: number | null;
   chunk_id: string | null;

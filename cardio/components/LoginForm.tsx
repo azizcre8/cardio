@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
+import { buildAuthCallbackUrl, buildJoinedAppPath } from '@/lib/join-intent';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -29,7 +30,14 @@ export default function LoginForm() {
   }
 
   function joinedRedirect(slug: string) {
-    return `/app?join=${encodeURIComponent(slug)}&joined=1`;
+    return buildJoinedAppPath(slug);
+  }
+
+  function authCallbackRedirect(slug: string | null) {
+    return buildAuthCallbackUrl(
+      window.location.origin,
+      slug ? joinedRedirect(slug) : '/app',
+    );
   }
 
   async function submit(e: React.FormEvent) {
@@ -52,7 +60,14 @@ export default function LoginForm() {
 
     const { data: authData, error: authError } = mode === 'login'
       ? await supabaseBrowser.auth.signInWithPassword({ email, password })
-      : await supabaseBrowser.auth.signUp({ email, password });
+      : await supabaseBrowser.auth.signUp({
+        email,
+        password,
+        options: joinSlug ? {
+          emailRedirectTo: authCallbackRedirect(joinSlug),
+          data: { join_slug: joinSlug },
+        } : undefined,
+      });
 
     if (authError) {
       setLoading(false);
@@ -61,7 +76,6 @@ export default function LoginForm() {
     }
 
     if (mode === 'signup') {
-      if (joinSlug) localStorage.setItem('pendingJoin', joinSlug);
       if (authData.session) {
         try {
           if (joinSlug) await joinAfterAuth(joinSlug);
@@ -73,7 +87,9 @@ export default function LoginForm() {
         return;
       }
       setLoading(false);
-      setError('Check your email for a confirmation link.');
+      setError(joinSlug
+        ? 'Check your email for a confirmation link. It will finish adding the shared question bank.'
+        : 'Check your email for a confirmation link.');
       return;
     }
 
@@ -87,10 +103,9 @@ export default function LoginForm() {
   }
 
   async function signInWithGoogle() {
-    if (joinSlug) localStorage.setItem('pendingJoin', joinSlug);
     await supabaseBrowser.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: authCallbackRedirect(joinSlug) },
     });
   }
 

@@ -14,12 +14,13 @@ interface Props {
   onDecksChange:         (decks: Deck[]) => void;
   joinedBankNotice?:     JoinedSharedBankNotice | null;
   onDismissJoinedBank?:  () => void;
+  onStartMixedQuiz:      (slug: string) => void;
 }
 
 export default function LibraryView({
   pdfs, decks, examDate,
   onOpenConceptMap, onPdfsChange, onDecksChange,
-  joinedBankNotice, onDismissJoinedBank,
+  joinedBankNotice, onDismissJoinedBank, onStartMixedQuiz,
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
   const [joinSlug,       setJoinSlug]       = useState('');
@@ -64,7 +65,10 @@ export default function LibraryView({
   }, [joinedBankNotice, pdfs]);
 
   function getPdfDisplayName(pdf: PDF) {
-    return pdf.shared_bank_title ?? pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
+    if (pdf.shared_bank_source_type !== 'deck' && pdf.shared_bank_title) {
+      return pdf.shared_bank_title;
+    }
+    return pdf.display_name ?? pdf.name.replace(/\.pdf$/i, '');
   }
 
   async function refreshPdfsFromServer() {
@@ -88,10 +92,17 @@ export default function LibraryView({
     const trimmed = input.trim();
     if (!trimmed) return '';
     try {
-      const url = new URL(trimmed);
-      return url.searchParams.get('shared') ?? trimmed;
+      const url = new URL(trimmed, window.location.origin);
+      const querySlug = url.searchParams.get('shared') ?? url.searchParams.get('join');
+      if (querySlug) return querySlug;
+      const pathSlug = url.pathname.match(/^\/s\/([^/]+)/)?.[1];
+      return pathSlug ? decodeURIComponent(pathSlug) : trimmed;
     } catch {
-      return trimmed.replace(/^\/+/, '').replace(/^app\?shared=/, '').trim();
+      return trimmed
+        .replace(/^\/+s\//, '')
+        .replace(/^\/+/, '')
+        .replace(/^app\?(shared|join)=/, '')
+        .trim();
     }
   }
 
@@ -103,15 +114,19 @@ export default function LibraryView({
     try {
       const res = await fetch(`/api/shared-banks/${encodeURIComponent(slug)}/join`, { method: 'POST' });
       const data = await res.json().catch(() => null) as {
-        bank?: { source_pdf_id?: string | null; title?: string | null };
+        bank?: {
+          slug?: string | null;
+          source_pdf_id?: string | null;
+          source_pdfs?: PDF[];
+          title?: string | null;
+        };
         error?: string;
       } | null;
       if (!res.ok) throw new Error(data?.error ?? 'Failed to join shared bank.');
       await refreshPdfsFromServer();
-      const sourcePdfId = data?.bank?.source_pdf_id;
       setJoinStatus(`Joined ${data?.bank?.title ?? slug}.`);
       setJoinSlug('');
-      if (sourcePdfId) onOpenConceptMap(sourcePdfId);
+      setShowJoinPanel(false);
     } catch (error) {
       setJoinStatus(error instanceof Error ? error.message : 'Failed to join shared bank.');
     }
@@ -308,6 +323,7 @@ export default function LibraryView({
             decks={decks}
             getPdfDisplayName={getPdfDisplayName}
             onStudy={onOpenConceptMap}
+            onStartMixedQuiz={onStartMixedQuiz}
             onBack={onDismissJoinedBank ?? (() => undefined)}
           />
         ) : pdfs.length === 0 ? (
@@ -354,6 +370,7 @@ export default function LibraryView({
             onShowJoinPanel={() => setShowJoinPanel(s => !s)}
             onJoinSlugChange={setJoinSlug}
             onJoinBank={() => { void joinSharedBank(); }}
+            onStartMixedQuiz={onStartMixedQuiz}
           />
         )}
       </div>
@@ -367,13 +384,14 @@ function cleanBankTitle(title: string) {
 }
 
 function JoinedBankPanel({
-  notice, pdfs, decks, getPdfDisplayName, onStudy, onBack,
+  notice, pdfs, decks, getPdfDisplayName, onStudy, onStartMixedQuiz, onBack,
 }: {
   notice: JoinedSharedBankNotice;
   pdfs: PDF[];
   decks: Deck[];
   getPdfDisplayName: (pdf: PDF) => string;
   onStudy: (id: string) => void;
+  onStartMixedQuiz: (slug: string) => void;
   onBack: () => void;
 }) {
   const title = cleanBankTitle(notice.title);
@@ -420,11 +438,14 @@ function JoinedBankPanel({
       <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
         <Btn
           kind="primary"
-          disabled={!firstPdfId}
-          onClick={() => { if (firstPdfId) onStudy(firstPdfId); }}
+          disabled={questionCount <= 0}
+          onClick={() => onStartMixedQuiz(notice.slug)}
         >
-          Start studying
+          {sourceCount > 1 ? 'Start mixed quiz' : 'Start quiz'}
         </Btn>
+        {firstPdfId && (
+          <Btn kind="secondary" onClick={() => onStudy(firstPdfId)}>Open first source</Btn>
+        )}
         <Btn kind="secondary" onClick={onBack}>Back to library</Btn>
       </div>
 
@@ -472,7 +493,7 @@ function TodayPanel({
   pdfs, filtered, decks, search, onSearchChange, density, onDensityChange,
   onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
   getPdfDisplayName, nodeMap, daysLeft, joinStatus, joinSlug,
-  showJoinPanel, onShowJoinPanel, onJoinSlugChange, onJoinBank,
+  showJoinPanel, onShowJoinPanel, onJoinSlugChange, onJoinBank, onStartMixedQuiz,
 }: {
   pdfs: PDF[]; filtered: PDF[]; decks: Deck[]; search: string;
   onSearchChange: (v: string) => void;
@@ -492,10 +513,29 @@ function TodayPanel({
   onShowJoinPanel: () => void;
   onJoinSlugChange: (v: string) => void;
   onJoinBank: () => void;
+  onStartMixedQuiz: (slug: string) => void;
 }) {
   const ready = pdfs.filter(p => p.processed_at);
   const totalQ = ready.reduce((s, p) => s + (p.question_count ?? 0), 0);
   const [tab, setTab] = useState<'sources' | 'flagged'>('sources');
+  const sharedDeckGroups = useMemo(() => {
+    const groups = new Map<string, { slug: string; title: string; sourceCount: number; questionCount: number }>();
+
+    for (const pdf of pdfs) {
+      if (pdf.access_scope !== 'shared' || pdf.shared_bank_source_type !== 'deck' || !pdf.shared_bank_slug) continue;
+      const current = groups.get(pdf.shared_bank_slug) ?? {
+        slug: pdf.shared_bank_slug,
+        title: pdf.shared_bank_title ?? 'Shared question bank',
+        sourceCount: 0,
+        questionCount: 0,
+      };
+      current.sourceCount += 1;
+      current.questionCount += pdf.question_count ?? 0;
+      groups.set(pdf.shared_bank_slug, current);
+    }
+
+    return Array.from(groups.values()).sort((a, b) => a.title.localeCompare(b.title));
+  }, [pdfs]);
 
   return (
     <div style={{ padding: '32px 40px 60px', maxWidth: 900 }}>
@@ -620,6 +660,66 @@ function TodayPanel({
           fontSize: 12, color: 'var(--text-secondary)',
         }}>
           {joinStatus}
+        </div>
+      )}
+
+      {sharedDeckGroups.length > 0 && (
+        <div style={{ marginTop: 28, borderTop: '1px solid var(--border)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 0 10px', borderBottom: '1px solid var(--border)',
+          }}>
+            <Eyebrow>Shared decks</Eyebrow>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto', fontFamily: 'var(--font-mono)' }}>
+              {sharedDeckGroups.length}
+            </span>
+          </div>
+          {sharedDeckGroups.map(group => (
+            <div
+              key={group.slug}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr auto',
+                gap: 20,
+                alignItems: 'center',
+                padding: '16px 0',
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              <div>
+                <div style={{
+                  fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 400,
+                  letterSpacing: '-0.01em', color: 'var(--text-primary)', lineHeight: 1.3,
+                }}>
+                  {cleanBankTitle(group.title)}
+                </div>
+                <div style={{
+                  display: 'flex', gap: 10, marginTop: 4,
+                  fontSize: 11, fontFamily: 'var(--font-mono)',
+                  color: 'var(--text-dim)', letterSpacing: '0.02em', flexWrap: 'wrap',
+                }}>
+                  <span>{group.sourceCount} SOURCES</span>
+                  <span>·</span>
+                  <span>{group.questionCount.toLocaleString()} Q</span>
+                </div>
+              </div>
+              <button
+                onClick={() => onStartMixedQuiz(group.slug)}
+                disabled={group.questionCount <= 0}
+                style={{
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.04em',
+                  padding: '7px 12px', color: 'var(--accent)',
+                  background: 'var(--accent-dim)', border: 'none',
+                  borderRadius: 4, cursor: group.questionCount > 0 ? 'pointer' : 'default',
+                  opacity: group.questionCount > 0 ? 1 : 0.5,
+                  fontFamily: 'var(--font-mono)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                START MIXED QUIZ
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
