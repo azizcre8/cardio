@@ -16,6 +16,7 @@ export default function AppPage() {
   const [conceptMapPdfId, setConceptMapPdfId] = useState<string | null>(null);
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
   const [quizSharedBankSlug, setQuizSharedBankSlug] = useState<string | null>(null);
+  const [quizDeckId, setQuizDeckId] = useState<string | null>(null);
   const [studyPdfId, setStudyPdfId] = useState<string | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const [joinedBankNotice, setJoinedBankNotice] = useState<JoinedSharedBankNotice | null>(null);
@@ -49,7 +50,9 @@ export default function AppPage() {
       if (urlView === 'study') setStudyPdfId(pdfId);
     } else if (urlView === 'quiz') {
       const sharedQuizSlug = params.get('sharedQuiz');
+      const deckId = params.get('deckId');
       if (sharedQuizSlug) setQuizSharedBankSlug(sharedQuizSlug);
+      else if (deckId) setQuizDeckId(deckId);
     }
   }, []);
 
@@ -67,19 +70,30 @@ export default function AppPage() {
     else params.delete('pdfId');
     if (view === 'quiz' && quizSharedBankSlug) params.set('sharedQuiz', quizSharedBankSlug);
     else params.delete('sharedQuiz');
+    if (view === 'quiz' && quizDeckId) params.set('deckId', quizDeckId);
+    else params.delete('deckId');
     window.history.replaceState(null, '', `/app?${params.toString()}`);
-  }, [conceptMapPdfId, quizPdfId, quizSharedBankSlug, studyPdfId, view]);
+  }, [conceptMapPdfId, quizDeckId, quizPdfId, quizSharedBankSlug, studyPdfId, view]);
 
   /* ── Navigation helpers ── */
   const startQuiz = useCallback((pdfId: string) => {
     setQuizPdfId(pdfId);
     setQuizSharedBankSlug(null);
+    setQuizDeckId(null);
     setAppView('quiz');
   }, [setAppView]);
 
   const startMixedQuiz = useCallback((slug: string) => {
     setQuizPdfId(null);
     setQuizSharedBankSlug(slug);
+    setQuizDeckId(null);
+    setAppView('quiz');
+  }, [setAppView]);
+
+  const startDeckQuiz = useCallback((deckId: string) => {
+    setQuizPdfId(null);
+    setQuizSharedBankSlug(null);
+    setQuizDeckId(deckId);
     setAppView('quiz');
   }, [setAppView]);
 
@@ -113,6 +127,7 @@ export default function AppPage() {
       return;
     }
     setQuizSharedBankSlug(null);
+    setQuizDeckId(null);
     setAppView('library');
   }
   function studyDone() {
@@ -197,12 +212,14 @@ export default function AppPage() {
         conceptMapPdfId={conceptMapPdfId}
         quizPdfId={quizPdfId}
         quizSharedBankSlug={quizSharedBankSlug}
+        quizDeckId={quizDeckId}
         studyPdfId={studyPdfId}
         onSetView={setAppView}
         onStartProcessing={startProcessing}
         onOpenConceptMap={openConceptMap}
         onStartQuiz={startQuiz}
         onStartMixedQuiz={startMixedQuiz}
+        onStartDeckQuiz={startDeckQuiz}
         onQuizDone={quizDone}
         onStartStudy={startStudy}
         onStudyDone={studyDone}

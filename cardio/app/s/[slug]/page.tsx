@@ -145,7 +145,7 @@ export default async function SharedBankLandingPage({ params }: { params: { slug
           </div>
         )}
 
-        <JoinSection slug={params.slug} />
+        <JoinSection slug={params.slug} isDeckBank={isDeckBank} questionCount={questionCount} />
       </div>
 
       {/* Owner panel */}

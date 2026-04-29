@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildAuthCallbackUrl,
   buildJoinedAppPath,
+  buildSharedBankQuizPath,
   getJoinSlugFromAuthNext,
   normalizeJoinSlug,
   sanitizeAuthNextPath,
@@ -10,6 +11,7 @@ import {
 describe('join intent helpers', () => {
   it('builds an app redirect that carries the join slug through email confirmation', () => {
     expect(buildJoinedAppPath('preassigned-cardio')).toBe('/app?join=preassigned-cardio&joined=1');
+    expect(buildSharedBankQuizPath('preassigned-cardio')).toBe('/app?view=quiz&sharedQuiz=preassigned-cardio');
     expect(
       buildAuthCallbackUrl('https://cardio.example/', '/app?join=preassigned-cardio&joined=1'),
     ).toBe('https://cardio.example/auth/callback?next=%2Fapp%3Fjoin%3Dpreassigned-cardio%26joined%3D1');
@@ -18,6 +20,7 @@ describe('join intent helpers', () => {
   it('extracts a safe join slug from an app redirect', () => {
     expect(getJoinSlugFromAuthNext('/app?join=preassigned-cardio&joined=1')).toBe('preassigned-cardio');
     expect(getJoinSlugFromAuthNext('/app?shared=preassigned-cardio')).toBe('preassigned-cardio');
+    expect(getJoinSlugFromAuthNext('/app?view=quiz&sharedQuiz=preassigned-cardio')).toBe('preassigned-cardio');
   });
 
   it('rejects unsafe redirect and slug inputs', () => {

@@ -15,12 +15,13 @@ interface Props {
   joinedBankNotice?:     JoinedSharedBankNotice | null;
   onDismissJoinedBank?:  () => void;
   onStartMixedQuiz:      (slug: string) => void;
+  onStartDeckQuiz:       (deckId: string) => void;
 }
 
 export default function LibraryView({
   pdfs, decks, examDate,
   onOpenConceptMap, onPdfsChange, onDecksChange,
-  joinedBankNotice, onDismissJoinedBank, onStartMixedQuiz,
+  joinedBankNotice, onDismissJoinedBank, onStartMixedQuiz, onStartDeckQuiz,
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
   const [joinSlug,       setJoinSlug]       = useState('');
@@ -343,6 +344,7 @@ export default function LibraryView({
             onRevoke={revokePdf}
             onShareDeck={handleShareDeck}
             onRevokeDeck={revokeDeck}
+            onStartDeckQuiz={onStartDeckQuiz}
             sharedBank={selectedDeckBank}
             shareStatus={folderShareStatus}
           />
@@ -862,7 +864,7 @@ function FlaggedQuestionsTab() {
 function SubjectPanel({
   deck, pdfs, decks, getPdfDisplayName, nodeMap,
   onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
-  onShareDeck, onRevokeDeck, sharedBank, shareStatus,
+  onShareDeck, onRevokeDeck, onStartDeckQuiz, sharedBank, shareStatus,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
@@ -877,6 +879,7 @@ function SubjectPanel({
   onRevoke: (slug: string) => Promise<void>;
   onShareDeck: (deckId: string) => Promise<void>;
   onRevokeDeck: (slug: string) => Promise<void>;
+  onStartDeckQuiz: (deckId: string) => void;
   sharedBank: SharedBank | null;
   shareStatus: string | null;
 }) {
@@ -920,6 +923,14 @@ function SubjectPanel({
       </div>
 
       <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+        <Btn
+          kind="primary"
+          icon="play"
+          disabled={totalQ <= 0}
+          onClick={() => onStartDeckQuiz(deck.id)}
+        >
+          Start mixed quiz
+        </Btn>
         {sharedBank ? (
           <>
             <Btn kind="secondary" icon="eye" onClick={() => { void onShareDeck(deck.id); }}>

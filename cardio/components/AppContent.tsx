@@ -27,12 +27,14 @@ interface Props {
   conceptMapPdfId: string | null;
   quizPdfId: string | null;
   quizSharedBankSlug: string | null;
+  quizDeckId: string | null;
   studyPdfId: string | null;
   onSetView: (view: AppView) => void;
   onStartProcessing: (file: File, density: Density, maxQuestions: number) => void;
   onOpenConceptMap: (pdfId: string) => void;
   onStartQuiz: (pdfId: string) => void;
   onStartMixedQuiz: (slug: string) => void;
+  onStartDeckQuiz: (deckId: string) => void;
   onQuizDone: () => void;
   onStartStudy: (pdfId: string) => void;
   onStudyDone: () => void;
@@ -56,12 +58,14 @@ export default function AppContent({
   conceptMapPdfId,
   quizPdfId,
   quizSharedBankSlug,
+  quizDeckId,
   studyPdfId,
   onSetView,
   onStartProcessing,
   onOpenConceptMap,
   onStartQuiz,
   onStartMixedQuiz,
+  onStartDeckQuiz,
   onQuizDone,
   onStartStudy,
   onStudyDone,
@@ -94,6 +98,7 @@ export default function AppContent({
           joinedBankNotice={joinedBankNotice}
           onDismissJoinedBank={onDismissJoinedBank}
           onStartMixedQuiz={onStartMixedQuiz}
+          onStartDeckQuiz={onStartDeckQuiz}
         />
       )}
 
@@ -142,8 +147,13 @@ export default function AppContent({
         />
       )}
 
-      {view === 'quiz' && (quizPdfId || quizSharedBankSlug) && (
-        <QuizView pdfId={quizPdfId ?? undefined} sharedBankSlug={quizSharedBankSlug ?? undefined} onDone={onQuizDone} />
+      {view === 'quiz' && (quizPdfId || quizSharedBankSlug || quizDeckId) && (
+        <QuizView
+          pdfId={quizPdfId ?? undefined}
+          sharedBankSlug={quizSharedBankSlug ?? undefined}
+          deckId={quizDeckId ?? undefined}
+          onDone={onQuizDone}
+        />
       )}
 
       {view === 'study' && studyPdfId && (

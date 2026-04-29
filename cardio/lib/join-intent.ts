@@ -14,6 +14,14 @@ export function buildJoinedAppPath(slug: string) {
   return `/app?${params.toString()}`;
 }
 
+export function buildSharedBankQuizPath(slug: string) {
+  const normalized = normalizeJoinSlug(slug);
+  const params = new URLSearchParams();
+  params.set('view', 'quiz');
+  if (normalized) params.set('sharedQuiz', normalized);
+  return `/app?${params.toString()}`;
+}
+
 export function sanitizeAuthNextPath(value: string | null | undefined) {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return '/app';
 
@@ -29,7 +37,11 @@ export function sanitizeAuthNextPath(value: string | null | undefined) {
 export function getJoinSlugFromAuthNext(value: string | null | undefined) {
   const nextPath = sanitizeAuthNextPath(value);
   const url = new URL(nextPath, LOCAL_ORIGIN);
-  return normalizeJoinSlug(url.searchParams.get('join') ?? url.searchParams.get('shared'));
+  return normalizeJoinSlug(
+    url.searchParams.get('join')
+    ?? url.searchParams.get('shared')
+    ?? url.searchParams.get('sharedQuiz'),
+  );
 }
 
 export function buildAuthCallbackUrl(origin: string, nextPath: string) {

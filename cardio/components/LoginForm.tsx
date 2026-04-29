@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { buildAuthCallbackUrl, buildJoinedAppPath } from '@/lib/join-intent';
+import { buildAuthCallbackUrl, buildJoinedAppPath, buildSharedBankQuizPath } from '@/lib/join-intent';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -11,6 +11,7 @@ export default function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [joinSlug, setJoinSlug] = useState<string | null>(null);
+  const [startMixedQuiz, setStartMixedQuiz] = useState(false);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -18,6 +19,7 @@ export default function LoginForm() {
     const join = params.get('join');
     const urlMode = params.get('mode');
     if (join) setJoinSlug(join);
+    setStartMixedQuiz(params.get('start') === 'mixed');
     if (urlMode === 'signup') setMode('signup');
   }, []);
 
@@ -30,7 +32,7 @@ export default function LoginForm() {
   }
 
   function joinedRedirect(slug: string) {
-    return buildJoinedAppPath(slug);
+    return startMixedQuiz ? buildSharedBankQuizPath(slug) : buildJoinedAppPath(slug);
   }
 
   function authCallbackRedirect(slug: string | null) {

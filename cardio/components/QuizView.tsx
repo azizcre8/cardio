@@ -10,6 +10,7 @@ import { simplifyExplanation } from '@/lib/explanations';
 interface Props {
   pdfId?: string;
   sharedBankSlug?: string;
+  deckId?: string;
   onDone: () => void;
 }
 
@@ -115,7 +116,7 @@ function HighlightedText({ text, ranges }: { text: string; ranges: HighlightRang
   );
 }
 
-export default function QuizView({ pdfId, sharedBankSlug, onDone }: Props) {
+export default function QuizView({ pdfId, sharedBankSlug, deckId, onDone }: Props) {
   const [questions,  setQuestions]  = useState<Question[]>([]);
   const [idx,        setIdx]        = useState(0);
   const [answers,    setAnswers]    = useState<AnswerState[]>([]);
@@ -140,11 +141,17 @@ export default function QuizView({ pdfId, sharedBankSlug, onDone }: Props) {
   const [flagByIdx,     setFlagByIdx]     = useState<Map<number, AttemptFlagReason>>(new Map());
   const [helpfulByIdx,  setHelpfulByIdx]  = useState<Map<number, boolean>>(new Map());
   const [flagDropOpen,  setFlagDropOpen]  = useState(false);
-  const sourceKey = sharedBankSlug ? `shared-bank:${sharedBankSlug}` : (pdfId ?? '');
+  const sourceKey = sharedBankSlug
+    ? `shared-bank:${sharedBankSlug}`
+    : deckId
+    ? `deck:${deckId}`
+    : (pdfId ?? '');
 
   useEffect(() => {
     const questionUrl = sharedBankSlug
       ? `/api/shared-banks/${encodeURIComponent(sharedBankSlug)}/questions`
+      : deckId
+      ? `/api/decks/${encodeURIComponent(deckId)}/questions`
       : `/api/pdfs/${pdfId ?? ''}/questions`;
 
     fetch(questionUrl)
@@ -160,7 +167,7 @@ export default function QuizView({ pdfId, sharedBankSlug, onDone }: Props) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [pdfId, sharedBankSlug, sourceKey]);
+  }, [deckId, pdfId, sharedBankSlug, sourceKey]);
 
   useEffect(() => {
     function refresh() { setKeybindings(loadKeybindings()); }
@@ -231,6 +238,7 @@ export default function QuizView({ pdfId, sharedBankSlug, onDone }: Props) {
 
   const current = questions[idx];
   const currentPdfId = current?.pdf_id ?? pdfId ?? '';
+  const isMixedQuiz = Boolean(sharedBankSlug || deckId);
 
   function selectOption(optIdx: number) {
     if (revealed) return;
@@ -702,7 +710,7 @@ export default function QuizView({ pdfId, sharedBankSlug, onDone }: Props) {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
                 {current.concept_name ? current.concept_name.toUpperCase() : ''}
               </span>
-              {sharedBankSlug && current.source_name && (
+              {isMixedQuiz && current.source_name && (
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-dim)', letterSpacing: '0.04em' }}>
                   {current.source_name.toUpperCase()}
                 </span>
