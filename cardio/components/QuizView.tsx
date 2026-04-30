@@ -128,7 +128,7 @@ export default function QuizView({ pdfId, sharedBankSlug, deckId, onDone }: Prop
   const [strikeouts, setStrikeouts] = useState<Map<number, Set<number>>>(new Map());
   const [validationByIdx, setValidationByIdx] = useState<Map<number, ValidationResult>>(new Map());
   const [focusMode,  setFocusMode]  = useState(false);
-  const [showEvidence, setShowEvidence] = useState(false);
+  const [showEvidence, setShowEvidence] = useState(true);
   const [streak,     setStreak]     = useState(0);
   const [elapsed,    setElapsed]    = useState(0);
   const [keybindings, setKeybindings] = useState(loadKeybindings);
@@ -210,8 +210,6 @@ export default function QuizView({ pdfId, sharedBankSlug, deckId, onDone }: Prop
 
       if (e.key === 'Escape') { if (focusMode) setFocusMode(false); else onDone(); return; }
       if (e.key === 'f' || e.key === 'F') { setFocusMode(m => !m); return; }
-      if (isBinding(e, keybindings, 'quiz.flip') && revealed) { e.preventDefault(); setShowEvidence(s => !s); return; }
-
       const n = parseInt(e.key);
       if (!revealed && n >= 1 && n <= current.options.length) {
         selectOption(n - 1);
@@ -243,7 +241,6 @@ export default function QuizView({ pdfId, sharedBankSlug, deckId, onDone }: Prop
   function selectOption(optIdx: number) {
     if (revealed) return;
     setQualityError(null);
-    setShowEvidence(false);
     const q = questions[idx];
     if (q) {
       if (optIdx === q.answer) { setStreak(s => s + 1); }
@@ -976,13 +973,16 @@ export default function QuizView({ pdfId, sharedBankSlug, deckId, onDone }: Prop
               {formatExplanation(displayExplanation)}
             </p>
 
-            {showEvidence && current.source_quote && current.source_quote !== 'UNGROUNDED' && (
+            {current.source_quote && current.source_quote !== 'UNGROUNDED' && (
               <div style={{
                 padding: '14px 18px',
                 background: 'var(--bg-raised)',
                 borderLeft: '3px solid var(--accent)',
                 borderRadius: '0 6px 6px 0',
               }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.12em', marginBottom: 8, textTransform: 'uppercase' }}>
+                  Source
+                </div>
                 <p style={{
                   fontFamily: 'var(--font-serif)', fontStyle: 'italic',
                   fontSize: 13, lineHeight: 1.6, color: 'var(--text-secondary)', margin: 0,
