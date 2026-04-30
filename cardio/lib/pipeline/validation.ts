@@ -55,10 +55,14 @@ export function verifyEvidenceSpan(
     };
   }
 
-  // 3. Fuzzy match (sliding window)
+  // 3. Fuzzy match (word-bigram overlap)
+  // Uses word-level bigram coverage rather than character-level subsequence matching.
+  // Character-level matching produces false positives for medical text because
+  // hallucinated quotes about the same topic share vocabulary (and therefore ~82%+
+  // of their characters) with real passages even when the phrase was never in the PDF.
   if (ENABLE_FUZZY_EVIDENCE_MATCH && sourceQuote.length >= 20) {
     const result = fuzzyMatchQuote(normQuote, normChunk);
-    if (result.ratio >= 0.82)
+    if (result.ratio >= 0.60)
       return { ok: true, evidenceMatchType: 'fuzzy', evidenceMatchedText: result.matchedText, evidenceConfidence: result.ratio };
   }
 
@@ -102,17 +106,63 @@ export function hasEvidenceAnchorSupport(anchorText: string, evidenceText: strin
   return overlap >= 2 || overlap / anchorTokens.size >= 0.5;
 }
 
+// Tokenizes a normalized string into whole words (word-boundary aware, no subword matches).
+function toWordTokens(text: string): string[] {
+  return (text.match(/\b[a-z0-9'-]+\b/g) ?? []).filter(Boolean);
+}
+
+// Returns the set of content tokens (stopwords removed) for ratio weighting.
+function contentTokens(tokens: string[]): string[] {
+  return tokens.filter(t => t.length >= 3 && !EVIDENCE_STOPWORDS.has(t));
+}
+
+// Measures coverage of the quote's bigrams using a sliding window over the
+// chunk's token array. Bigrams must appear contiguously in the source (not just
+// anywhere in the chunk). Only content tokens count toward the ratio, so
+// stopword-heavy generic phrases cannot inflate the score.
+// Returns the best-matching source window as matchedText (not the quote).
 function fuzzyMatchQuote(normQuote: string, normChunk: string): { ratio: number; matchedText: string } {
-  const qLen = normQuote.length;
-  if (qLen < 20 || normChunk.length < qLen) return { ratio: 0, matchedText: '' };
-  const step = Math.max(1, Math.floor(qLen * 0.15));
-  let best = 0, bestText = '';
-  for (let i = 0; i <= normChunk.length - qLen; i += step) {
-    const window = normChunk.slice(i, i + qLen + Math.floor(qLen * 0.1));
-    const r = charOverlapRatio(normQuote, window);
-    if (r > best) { best = r; bestText = window; }
+  const quoteTokens = toWordTokens(normQuote);
+  const chunkTokens = toWordTokens(normChunk);
+
+  if (quoteTokens.length < 4 || chunkTokens.length < quoteTokens.length) {
+    return { ratio: 0, matchedText: '' };
   }
-  return { ratio: best, matchedText: bestText };
+
+  // Build content bigrams from the quote (stopword-filtered).
+  const contentQuoteTokens = contentTokens(quoteTokens);
+  if (contentQuoteTokens.length < 2) return { ratio: 0, matchedText: '' };
+
+  const quoteBigrams: Set<string> = new Set();
+  for (let i = 0; i < contentQuoteTokens.length - 1; i += 1) {
+    quoteBigrams.add(`${contentQuoteTokens[i]} ${contentQuoteTokens[i + 1]}`);
+  }
+
+  // Slide a window of quoteTokens.length over chunkTokens and score each position
+  // by how many of the quote's content bigrams appear contiguously in that window.
+  const winLen = quoteTokens.length;
+  const step = Math.max(1, Math.floor(winLen * 0.25));
+  let bestRatio = 0;
+  let bestWindow = '';
+
+  for (let start = 0; start <= chunkTokens.length - winLen; start += step) {
+    const windowTokens = chunkTokens.slice(start, start + winLen);
+    const contentWin = contentTokens(windowTokens);
+
+    // Build bigrams within this window.
+    let matches = 0;
+    for (let i = 0; i < contentWin.length - 1; i += 1) {
+      if (quoteBigrams.has(`${contentWin[i]} ${contentWin[i + 1]}`)) matches += 1;
+    }
+
+    const ratio = quoteBigrams.size > 0 ? matches / quoteBigrams.size : 0;
+    if (ratio > bestRatio) {
+      bestRatio = ratio;
+      bestWindow = windowTokens.join(' ');
+    }
+  }
+
+  return { ratio: bestRatio, matchedText: bestRatio >= 0.60 ? bestWindow : '' };
 }
 
 function matchQuoteClauses(sourceQuote: string, normChunk: string): { ok: boolean; matchedText: string; confidence: number } {
@@ -141,14 +191,3 @@ function matchQuoteClauses(sourceQuote: string, normChunk: string): { ok: boolea
   return { ok: false, matchedText: '', confidence: 0 };
 }
 
-function charOverlapRatio(a: string, b: string): number {
-  const shorter = a.length <= b.length ? a : b;
-  const longer  = a.length <= b.length ? b : a;
-  let matches = 0;
-  let pos = 0;
-  for (const ch of shorter) {
-    const idx = longer.indexOf(ch, pos);
-    if (idx !== -1) { matches++; pos = idx + 1; }
-  }
-  return matches / shorter.length;
-}

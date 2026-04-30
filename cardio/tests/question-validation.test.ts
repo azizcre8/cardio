@@ -290,12 +290,13 @@ describe('question validation', () => {
     expect(audit?.status).toBe('PASS');
   });
 
-  it('accepts 20-29 character fuzzy evidence matches', () => {
+  it('accepts near-verbatim quotes with a minor word insertion via fuzzy match', () => {
+    // Quote matches source except 'primarily' is inserted — realistic extraction diff.
     const result = verifyEvidenceSpan(
-      'Reduced venous return occurs',
+      'cardiac output depends on heart rate and stroke volume',
       0,
       0,
-      'Reduced venous returns occur during acute hypovolemia.',
+      'Cardiac output primarily depends on heart rate and stroke volume during exercise.',
     );
 
     expect(result.ok).toBe(true);

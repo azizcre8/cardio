@@ -43,7 +43,6 @@ export default function StudyView({ pdfId, onDone }: Props) {
   const [loading,  setLoading]  = useState(true);
   const [correct,  setCorrect]  = useState(0);
   const [total,    setTotal]    = useState(0);
-  const [showQuote, setShowQuote] = useState(false);
   const [keybindings, setKeybindings] = useState(loadKeybindings);
   const abortRef = useRef<AbortController | null>(null);
   const replayCountsRef = useRef<Record<string, number>>({});
@@ -401,41 +400,23 @@ export default function StudyView({ pdfId, onDone }: Props) {
               {displayExplanation}
             </p>
 
-            {/* Source quote (collapsed by default) */}
+            {/* Source quote */}
             {current.source_quote && current.source_quote !== 'UNGROUNDED' && (
-              <div style={{ marginTop: '12px' }}>
-                <button
-                  onClick={() => setShowQuote(q => !q)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                    fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.06em',
-                    color: 'var(--accent)', background: 'none', border: 'none',
-                    cursor: 'pointer', padding: '0',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  <span>{showQuote ? '▾' : '▸'}</span>
-                  📑 Source evidence
-                </button>
-                {showQuote && (
-                  <div style={{
-                    marginTop: '8px',
-                    padding: '10px 14px',
-                    background: 'var(--bg-sunken)',
-                    borderLeft: '3px solid var(--accent)',
-                    borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
-                    animation: 'fade-up 0.2s ease',
-                  }}>
-                    <p style={{
-                      fontFamily: "'Source Serif 4', Georgia, serif",
-                      fontSize: '0.8rem', fontStyle: 'italic',
-                      color: 'var(--text-secondary)', lineHeight: 1.65,
-                      margin: 0,
-                    }}>
-                      &ldquo;{current.source_quote}&rdquo;
-                    </p>
-                  </div>
-                )}
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 14px',
+                background: 'var(--bg-sunken)',
+                borderLeft: '3px solid var(--accent)',
+                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
+              }}>
+                <p style={{
+                  fontFamily: "'Source Serif 4', Georgia, serif",
+                  fontSize: '0.8rem', fontStyle: 'italic',
+                  color: 'var(--text-secondary)', lineHeight: 1.65,
+                  margin: 0,
+                }}>
+                  &ldquo;{current.source_quote}&rdquo;
+                </p>
               </div>
             )}
           </div>
