@@ -22,6 +22,8 @@ export default function ConceptMapView({ pdf, onStudyNow, onReviewDue, onBack }:
   const [selected,  setSelected]  = useState<string | null>(null);
   const [hovAction, setHovAction] = useState('');
   const [dueCount,  setDueCount]  = useState<number | null>(null);
+  const [accuracy,  setAccuracy]  = useState<number | null>(null);
+  const [attempted, setAttempted] = useState<number>(0);
 
   useEffect(() => {
     fetch(`/api/pdfs/${pdf.id}/concepts`)
@@ -41,6 +43,19 @@ export default function ConceptMapView({ pdf, onStudyNow, onReviewDue, onBack }:
       })
       .catch(() => {});
   }, [pdf.id, onReviewDue]);
+
+  useEffect(() => {
+    fetch(`/api/study/dashboard?scope=pdf&id=${pdf.id}`)
+      .then(r => r.json())
+      .then(d => {
+        const chapter = d.chapters?.[0];
+        if (chapter) {
+          setAccuracy(chapter.accuracy);
+          setAttempted(chapter.attemptedQuestions ?? 0);
+        }
+      })
+      .catch(() => {});
+  }, [pdf.id]);
 
   /* group by category */
   const byCategory = new Map<string, Concept[]>();
@@ -217,23 +232,107 @@ export default function ConceptMapView({ pdf, onStudyNow, onReviewDue, onBack }:
         </div>
       ))}
 
-      {/* ── Empty state ── */}
+      {/* ── Empty state — rich CTA ── */}
       {!loading && concepts.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🗺️</div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', marginBottom: '20px' }}>
-            No concept map for this bank. You can still study all questions directly.
-          </p>
-          <button
-            onClick={onStudyNow}
-            style={{
-              padding: '10px 28px', borderRadius: 'var(--radius-md)',
-              background: 'var(--accent)', color: 'white',
-              fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: 'pointer',
-            }}
-          >
-            Study Now →
-          </button>
+        <div style={{ animation: 'fade-up 0.3s ease both' }}>
+          {/* Stats row */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px',
+            marginBottom: '16px',
+          }}>
+            {[
+              {
+                n: (pdf.question_count ?? 0).toLocaleString(),
+                label: 'Questions',
+                color: 'var(--text-secondary)',
+              },
+              {
+                n: attempted > 0 && accuracy !== null ? `${Math.round(accuracy * 100)}%` : '—',
+                label: 'Accuracy',
+                color: accuracy === null ? 'var(--text-dim)'
+                  : accuracy >= 0.75 ? 'var(--accent)'
+                  : accuracy >= 0.5  ? 'var(--amber)'
+                  : 'var(--red, #e53e3e)',
+              },
+              {
+                n: dueCount !== null ? dueCount.toLocaleString() : '—',
+                label: 'Due for review',
+                color: dueCount && dueCount > 0 ? 'var(--amber)' : 'var(--text-dim)',
+              },
+            ].map(({ n, label, color }) => (
+              <div
+                key={label}
+                style={{
+                  background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-lg)', padding: '18px 20px',
+                }}
+              >
+                <div style={{
+                  fontFamily: "'Source Serif 4', Georgia, serif",
+                  fontSize: '2.2rem', fontWeight: 300, color,
+                  letterSpacing: '-0.05em', lineHeight: 1, marginBottom: '6px',
+                }}>
+                  {n}
+                </div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          <div style={{
+            background: 'var(--bg-raised)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', padding: '20px 24px',
+            display: 'flex', flexDirection: 'column', gap: '10px',
+          }}>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', margin: '0 0 4px' }}>
+              No concept map generated for this source yet.
+            </p>
+            {onReviewDue && dueCount !== null && dueCount > 0 && (
+              <button
+                onClick={onReviewDue}
+                style={{
+                  width: '100%', padding: '12px 20px',
+                  borderRadius: 'var(--radius-md)',
+                  background: hovAction === 'review' ? '#0A8898' : 'var(--accent)',
+                  color: 'white', fontSize: '0.875rem', fontWeight: 600,
+                  border: 'none', cursor: 'pointer', transition: 'background 0.15s',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={() => setHovAction('review')}
+                onMouseLeave={() => setHovAction('')}
+              >
+                🔁 Review Due &nbsp;<span style={{ opacity: 0.8, fontSize: '0.8rem' }}>({dueCount} cards)</span>
+              </button>
+            )}
+            <button
+              onClick={onStudyNow}
+              style={{
+                width: '100%', padding: '12px 20px',
+                borderRadius: 'var(--radius-md)',
+                background: hovAction === 'study'
+                  ? ((!onReviewDue || !dueCount) ? '#0A8898' : 'var(--accent-dim)')
+                  : ((!onReviewDue || !dueCount) ? 'var(--accent)' : 'var(--bg-sunken)'),
+                color: (!onReviewDue || !dueCount) ? 'white'
+                  : (hovAction === 'study' ? 'var(--accent)' : 'var(--text-secondary)'),
+                fontSize: '0.875rem', fontWeight: 600,
+                border: (!onReviewDue || !dueCount) ? 'none' : '1px solid var(--border)',
+                cursor: 'pointer', transition: 'all 0.15s',
+                textAlign: 'left',
+              }}
+              onMouseEnter={() => setHovAction('study')}
+              onMouseLeave={() => setHovAction('')}
+            >
+              {attempted === 0 ? '▶ Take Quiz' : '▶ Practice All'}
+              {pdf.question_count && (
+                <span style={{ opacity: 0.8, fontSize: '0.8rem' }}>
+                  &nbsp;({pdf.question_count} questions)
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>
