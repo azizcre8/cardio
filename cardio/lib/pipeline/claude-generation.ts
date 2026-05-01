@@ -1,11 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { jsonrepair } from 'jsonrepair';
-import referenceBank from '@/data/reference-bank.json';
 import { env } from '@/lib/env';
 import type { Question } from '@/types';
 import { detectExplanationAnswerMismatch } from './answer-key-check';
 import { verifyEvidenceSpan } from './validation';
 import { dedupQuestions } from './dedup';
+import { validateSourceQuoteShape } from './question-validation';
 
 type RawClaudeQuestion = {
   level?: unknown;
@@ -18,15 +18,12 @@ type RawClaudeQuestion = {
   explanation?: unknown;
 };
 
-type ReferenceExample = {
-  stem?: string;
-  options?: Array<{ letter?: string; text?: string }>;
-  correctLetter?: string;
-  explanation?: string;
-  level?: string;
-};
-
 const TOKENS_PER_SEGMENT = 140_000;
+const DISCARD_FLAG_REASONS = new Set([
+  'QUOTE_NOT_FOUND',
+  'SOURCE_QUOTE_INVALID',
+  'SOURCE_STEM_COPY',
+]);
 
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
@@ -153,6 +150,52 @@ function buildNormalizedEvidenceIndex(text: string): { text: string; originalInd
 
   const trimmedNormalized = normalized.trimEnd();
   return { text: trimmedNormalized, originalIndices: originalIndices.slice(0, trimmedNormalized.length) };
+}
+
+function normalizeForSourceCopyDetection(text: string): string {
+  return text
+    // PDF extraction often splits line-wrapped words as "oblitera - tive".
+    .replace(/([A-Za-z]{2,})\s*-\s+([a-z]{2,})/g, '$1$2')
+    .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036]/g, '"')
+    .replace(/[\u2013\u2014\u2015]/g, '-')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function looksLikeQuestionStem(text: string): boolean {
+  return /\?/.test(text)
+    || /\bwhich of the following\b/i.test(text)
+    || /\bwhat is (?:the )?most likely\b/i.test(text)
+    || /\bmost likely to be (?:recorded|observed|seen|found|present)\b/i.test(text)
+    || /\b[a-z]-year-old\s+(?:man|woman|male|female|boy|girl)\b/i.test(text);
+}
+
+export function isStemCopiedFromSourceText(stem: string, sourceText: string): boolean {
+  if (!stem.trim() || !sourceText.trim() || !looksLikeQuestionStem(stem)) return false;
+
+  const normalizedStem = normalizeForSourceCopyDetection(stem);
+  if (normalizedStem.length < 80) return false;
+
+  const normalizedSource = normalizeForSourceCopyDetection(sourceText);
+  if (normalizedSource.includes(normalizedStem)) return true;
+
+  const stemTokens = normalizedStem.split(' ').filter(Boolean);
+  const runLength = Math.min(28, Math.max(18, Math.floor(stemTokens.length * 0.45)));
+  if (stemTokens.length < runLength) return false;
+
+  for (let start = 0; start <= stemTokens.length - runLength; start += 1) {
+    const run = stemTokens.slice(start, start + runLength).join(' ');
+    if (normalizedSource.includes(run)) return true;
+  }
+
+  return false;
+}
+
+function shouldDiscardGeneratedQuestion(question: Question): boolean {
+  return question.flag_reason !== null && DISCARD_FLAG_REASONS.has(question.flag_reason);
 }
 
 function stripMarkdownFence(text: string): string {
@@ -305,32 +348,7 @@ export function parseClaudeJson(text: string): RawClaudeQuestion[] {
   }
 }
 
-function randomExample(level: 'L1' | 'L2' | 'L3'): ReferenceExample {
-  const examples = (referenceBank as ReferenceExample[]).filter(example => example.level === level);
-  if (!examples.length) return {};
-  return examples[Math.floor(Math.random() * examples.length)] ?? examples[0] ?? {};
-}
-
-function formatFewShot(example: ReferenceExample): string {
-  const correctLetter = example.correctLetter ?? '';
-  const optionLines = (example.options ?? []).map(option => {
-    const letter = option.letter ?? '';
-    const marker = letter === correctLetter ? ' ★ (correct)' : '';
-    return `${letter}) ${option.text ?? ''}${marker}`;
-  });
-
-  return [
-    `Stem: ${example.stem ?? ''}`,
-    ...optionLines,
-    `Explanation: ${example.explanation ?? ''}`,
-  ].join('\n');
-}
-
 function buildPrompt(pdfText: string, targetCount: number): string {
-  const fewShotL1 = formatFewShot(randomExample('L1'));
-  const fewShotL2 = formatFewShot(randomExample('L2'));
-  const fewShotL3 = formatFewShot(randomExample('L3'));
-
   return `You are a medical education expert creating board-style MCQs.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
@@ -346,19 +364,8 @@ STEP 2 — GENERATE the questions:
 7. 1st-order questions: 5 options (A–E). 2nd/3rd-order: 4 or 5 options
 8. No 'All of the above' / 'None of the above' / negatively worded stems (do not use "which is NOT..." or "which does NOT...")
 9. RANDOMISE CORRECT ANSWER POSITION — distribute the correct answer index roughly evenly across positions 0–4. Aim for each position to be correct ~20% of the time.
-
---- EXAMPLES OF THE EXACT QUALITY REQUIRED ---
-
-1st-order example:
-${fewShotL1}
-
-2nd-order example:
-${fewShotL2}
-
-3rd-order example:
-${fewShotL3}
-
---- END EXAMPLES ---
+10. If the source text contains existing practice questions, answer keys, or option lists, do NOT copy those stems/options and do NOT use them as source_quote. Use only explanatory prose from the medical text as evidence.
+11. Do NOT generate a question whose stem appears verbatim in the provided medical text.
 
 Return ONLY a JSON array (no markdown, no wrapper):
 [{
@@ -378,9 +385,6 @@ ${pdfText}`;
 // Returns the instruction-only portion of the L1/L2 prompt (no PDF text).
 // The PDF text is passed as a separate cached context block in callClaude.
 function buildL1L2Instructions(targetCount: number): string {
-  const fewShotL1 = formatFewShot(randomExample('L1'));
-  const fewShotL2 = formatFewShot(randomExample('L2'));
-
   return `You are a medical education expert creating board-style MCQs from the provided medical text.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
@@ -396,16 +400,8 @@ STEP 2 — GENERATE only 1st-order and 2nd-order questions:
 7. 1st-order questions: 5 options (A–E). 2nd-order: 4 or 5 options
 8. No 'All of the above' / 'None of the above' / negatively worded stems (do not use "which is NOT..." or "which does NOT...")
 9. RANDOMISE CORRECT ANSWER POSITION — distribute the correct answer index roughly evenly across positions 0–4.
-
---- EXAMPLES ---
-
-1st-order example:
-${fewShotL1}
-
-2nd-order example:
-${fewShotL2}
-
---- END EXAMPLES ---
+10. If the provided text contains existing practice questions, answer keys, or option lists, do NOT copy those stems/options and do NOT use them as source_quote. Generate new questions from the explanatory prose only.
+11. Do NOT generate a question whose stem appears verbatim in the provided medical text.
 
 Return ONLY a JSON array (no markdown, no wrapper):
 [{
@@ -423,8 +419,6 @@ IMPORTANT: You MUST respond with a valid JSON array only. If you cannot generate
 
 // Returns the instruction-only portion of the L3 prompt (no PDF text).
 function buildL3Instructions(targetCount: number): string {
-  const fewShotL3 = formatFewShot(randomExample('L3'));
-
   return `You are a medical education expert creating board-style clinical vignette MCQs from the provided medical text.
 
 STEP 1 — COVERAGE MAP (do this silently before generating):
@@ -440,13 +434,8 @@ STEP 2 — GENERATE only 3rd-order clinical vignette questions:
 7. 4 or 5 options per question
 8. No 'All of the above' / 'None of the above' / negatively worded stems
 9. RANDOMISE CORRECT ANSWER POSITION across positions 0–3 or 0–4.
-
---- EXAMPLE ---
-
-3rd-order example:
-${fewShotL3}
-
---- END EXAMPLE ---
+10. If the provided text contains existing practice questions, answer keys, or option lists, do NOT copy those stems/options and do NOT use them as source_quote. Generate new questions from the explanatory prose only.
+11. Do NOT generate a question whose stem appears verbatim in the provided medical text.
 
 Return ONLY a JSON array (no markdown, no wrapper):
 [{
@@ -716,8 +705,17 @@ function parseQuestionLevel(value: unknown): Question['level'] {
   return 1;
 }
 
-function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, userId: string): Question {
-  const options = Array.isArray(raw.options)
+function shuffleOptions(options: string[], answerIndex: number): { options: string[]; answer: number } {
+  const tagged = options.map((opt, i) => ({ opt, correct: i === answerIndex }));
+  for (let i = tagged.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [tagged[i], tagged[j]] = [tagged[j], tagged[i]];
+  }
+  return { options: tagged.map(t => t.opt), answer: tagged.findIndex(t => t.correct) };
+}
+
+export function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, userId: string): Question {
+  const rawOptions = Array.isArray(raw.options)
     ? raw.options
       .map(option => {
         if (typeof option === 'string') return option.trim();
@@ -727,12 +725,14 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
       .filter(option => option.length > 0)
     : [];
   const rawAnswer = parseAnswerIndex(raw.answer);
-  const answer = rawAnswer >= 0 && rawAnswer < options.length ? rawAnswer : 0;
+  const validatedAnswer = rawAnswer >= 0 && rawAnswer < rawOptions.length ? rawAnswer : 0;
+  const { options, answer } = shuffleOptions(rawOptions, validatedAnswer);
   const sourceQuote = typeof raw.source_quote === 'string'
     ? raw.source_quote
     : typeof raw.sourceQuote === 'string'
       ? raw.sourceQuote
       : '';
+  const stem = typeof raw.stem === 'string' ? raw.stem : '';
   let offsets = findEvidenceOffsets(sourceQuote, pdfText);
   const evidenceResult = verifyEvidenceSpan(sourceQuote, offsets.start ?? 0, offsets.end ?? 0, pdfText);
   if (
@@ -748,23 +748,31 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
   let optionSetFlags: string[] | null = null;
 
   const explanation = typeof raw.explanation === 'string' ? raw.explanation : '';
-  const mismatch = detectExplanationAnswerMismatch(options, answer, explanation);
-  if (mismatch) {
-    flagged = true;
-    flagReason = 'ANSWER_KEY_MISMATCH';
-  }
-
-  if (rawAnswer !== answer || !options.length) {
-    flagged = true;
-    flagReason = flagReason ?? 'INVALID_ANSWER';
-  }
-
   const isCalculation = options.length >= 4 && options.every(opt =>
     /^[+\-]?\d+(\.\d+)?(\s*(mm\s*Hg|ml\/min|L\/day|%|mg\/dL|mEq\/L|mmol\/L))?$/.test(opt.trim())
   );
-  if (evidenceResult.evidenceMatchType === 'none' && !isCalculation) {
+  const sourceQuoteShapeIssue = sourceQuote ? validateSourceQuoteShape(sourceQuote) : null;
+  const sourceFlagReason = isStemCopiedFromSourceText(stem, pdfText)
+    ? 'SOURCE_STEM_COPY'
+    : sourceQuoteShapeIssue
+      ? 'SOURCE_QUOTE_INVALID'
+      : evidenceResult.evidenceMatchType === 'none' && !isCalculation
+        ? 'QUOTE_NOT_FOUND'
+        : null;
+  if (sourceFlagReason) {
     flagged = true;
-    flagReason = flagReason ?? 'QUOTE_NOT_FOUND';
+    flagReason = sourceFlagReason;
+  }
+
+  const mismatch = detectExplanationAnswerMismatch(options, answer, explanation);
+  if (mismatch) {
+    flagged = true;
+    flagReason = flagReason ?? 'ANSWER_KEY_MISMATCH';
+  }
+
+  if (rawAnswer !== validatedAnswer || !options.length) {
+    flagged = true;
+    flagReason = flagReason ?? 'INVALID_ANSWER';
   }
 
   const correctOption = options[answer] ?? '';
@@ -782,7 +790,7 @@ function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: string, user
     concept_id: null,
     concept_name: typeof raw.topic === 'string' && raw.topic.trim() ? raw.topic.trim() : undefined,
     level: parseQuestionLevel(raw.level),
-    stem: typeof raw.stem === 'string' ? raw.stem : '',
+    stem,
     options,
     answer,
     source_quote: sourceQuote,
@@ -904,7 +912,11 @@ export async function generateQuestionsWithClaude(
     if (valid.length < mapped.length) {
       console.warn(`[generation] Filtered ${mapped.length - valid.length} malformed questions (empty stem or <2 options)`);
     }
-    questions.push(...valid);
+    const sourced = valid.filter(q => !shouldDiscardGeneratedQuestion(q));
+    if (sourced.length < valid.length) {
+      console.warn(`[generation] Discarded ${valid.length - sourced.length} questions copied from source MCQs or lacking valid body-text evidence`);
+    }
+    questions.push(...sourced);
   }
 
   const dedupResult = await dedupQuestions(questions, {});

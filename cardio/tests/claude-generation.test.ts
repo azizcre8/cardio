@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseClaudeJson } from '@/lib/pipeline/claude-generation';
+import { isStemCopiedFromSourceText, parseClaudeJson, toQuestion } from '@/lib/pipeline/claude-generation';
 
 describe('parseClaudeJson', () => {
   it('parses a valid JSON array', () => {
@@ -61,5 +61,61 @@ describe('parseClaudeJson', () => {
 
   it('throws the first parse error for invalid input', () => {
     expect(() => parseClaudeJson('not JSON at all')).toThrow(SyntaxError);
+  });
+});
+
+describe('Claude generation source guards', () => {
+  const copiedStem = 'Autopsy shows that the thoracic aorta has a dilated root and arch, giving the intimal surface a "tree-bark" appearance. Microscopic examination of the aorta shows an obliterative endarteritis of the vasa vasorum. Which of the following laboratory findings is most likely to be recorded?';
+  const sourceText = [
+    '27 A 77-year-old man has had progressive dementia and gait ataxia for the past 9 years.',
+    'Autopsy shows that the thoracic aorta has a dilated root and arch, giving the intimal surface a "tree-bark" appear - ance.',
+    'Microscopic examination of the aorta shows an oblitera - tive endarteritis of the vasa vasorum.',
+    'Which of the following laboratory findings is most likely to be recorded in this patient medical history?',
+    'A Antibodies against Treponema pallidum B Double-stranded DNA titer positive at 1:512',
+    'Syphilitic aortitis is a complication of tertiary syphilis with characteristic involvement of the thoracic aorta.',
+  ].join(' ');
+
+  it('detects generated stems copied from embedded source MCQs despite PDF hyphenation artifacts', () => {
+    expect(isStemCopiedFromSourceText(copiedStem, sourceText)).toBe(true);
+  });
+
+  it('flags copied source MCQ stems even when the evidence quote itself is valid', () => {
+    const question = toQuestion(
+      {
+        level: 2,
+        topic: 'Syphilitic aortitis',
+        stem: copiedStem,
+        options: ['Treponemal antibodies', 'High dsDNA titer', 'Marked ketonuria', 'Positive P-ANCA'],
+        answer: 0,
+        source_quote: 'Syphilitic aortitis is a complication of tertiary syphilis with characteristic involvement of the thoracic aorta.',
+        explanation: 'Treponemal antibodies are correct because syphilitic aortitis reflects tertiary syphilis. High dsDNA titer points to lupus rather than syphilitic aortitis.',
+      },
+      sourceText,
+      'pdf-1',
+      'user-1',
+    );
+
+    expect(question.flagged).toBe(true);
+    expect(question.flag_reason).toBe('SOURCE_STEM_COPY');
+  });
+
+  it('flags source quotes that are embedded MCQ option lists rather than explanatory prose', () => {
+    const question = toQuestion(
+      {
+        level: 2,
+        topic: 'Syphilitic aortitis',
+        stem: 'Which serologic pattern supports tertiary syphilitic aortitis?',
+        options: ['Treponemal antibodies', 'High dsDNA titer', 'Marked ketonuria', 'Positive P-ANCA'],
+        answer: 0,
+        source_quote: 'Which of the following laboratory findings is most likely to be recorded in this patient medical history? A Antibodies against Treponema pallidum B Double-stranded DNA titer positive at 1:512',
+        explanation: 'Treponemal antibodies are correct because they support tertiary syphilis. High dsDNA titer supports lupus instead.',
+      },
+      sourceText,
+      'pdf-1',
+      'user-1',
+    );
+
+    expect(question.flagged).toBe(true);
+    expect(question.flag_reason).toBe('SOURCE_QUOTE_INVALID');
   });
 });
