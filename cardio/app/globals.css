@@ -188,6 +188,97 @@ html[data-theme="dark"] ::-webkit-scrollbar-thumb { background: rgba(255,255,255
   .animate-float   { animation: float 3s ease-in-out infinite; }
 }
 
+@media (max-width: 760px) {
+  .app-nav {
+    box-sizing: border-box !important;
+    gap: 10px !important;
+    max-width: 100vw !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding: 0 12px !important;
+  }
+
+  .app-nav-brand {
+    margin-right: 0 !important;
+  }
+
+  .app-nav-subtitle,
+  .app-nav-button-question-stats,
+  .app-nav-button-allquestions,
+  .app-nav-button-settings,
+  .app-nav-command,
+  .app-nav-plan {
+    display: none !important;
+  }
+
+  .app-nav-actions {
+    gap: 8px !important;
+    margin-left: auto !important;
+  }
+
+  .library-layout {
+    display: block !important;
+    height: auto !important;
+    min-height: calc(100vh - 56px);
+    overflow: visible !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .library-sidebar-shell {
+    display: none !important;
+  }
+
+  .library-center {
+    overflow: visible !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .library-panel {
+    padding: 24px 18px 48px !important;
+    max-width: none !important;
+    width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .library-panel h1 {
+    font-size: 34px !important;
+  }
+
+  .library-dashboard-head {
+    align-items: stretch !important;
+  }
+
+  .library-dashboard-head > div {
+    flex: 1 1 100% !important;
+  }
+
+  .library-dashboard-head button {
+    width: 100% !important;
+  }
+
+  .library-source-row {
+    grid-template-columns: 28px minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .library-source-actions {
+    grid-column: 2 !important;
+    justify-content: flex-start !important;
+    margin-top: 8px !important;
+  }
+
+  .library-empty-state {
+    min-height: calc(100vh - 56px) !important;
+    padding: 36px 18px !important;
+  }
+
+  .library-empty-copy {
+    max-width: calc(100vw - 36px) !important;
+  }
+}
+
 .marketing-shell {
   min-height: 100vh;
   background:

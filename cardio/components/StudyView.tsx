@@ -1,14 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { StudyQueueItem, QueueResponse } from '@/types';
+import type { StudyQueueItem, QueueResponse, StudyScopeType } from '@/types';
 import { loadKeybindings, isBinding } from '@/lib/keybindings';
 import { simplifyExplanation } from '@/lib/explanations';
 
 interface Props {
-  pdfId:    string;
+  scope?: StudyScopeType;
+  pdfId?: string;
+  deckId?: string;
   examDate: string | null;
-  onDone:   () => void;
+  onDone: () => void;
 }
 
 const QUALITY: Record<number, { label: string; color: string }> = {
@@ -34,7 +36,14 @@ function buildSessionItem(item: StudyQueueItem, replayAttempt = 0): SessionQueue
   };
 }
 
-export default function StudyView({ pdfId, onDone }: Props) {
+function queueUrl(scope: StudyScopeType, pdfId?: string, deckId?: string) {
+  if (scope === 'library') return '/api/study/queue?scope=library';
+  if (scope === 'deck' && deckId) return `/api/study/queue?scope=deck&id=${encodeURIComponent(deckId)}`;
+  if (pdfId) return `/api/study/queue?pdfId=${encodeURIComponent(pdfId)}`;
+  return null;
+}
+
+export default function StudyView({ scope = 'pdf', pdfId, deckId, onDone }: Props) {
   const [queue,    setQueue]    = useState<SessionQueueItem[]>([]);
   const [idx,      setIdx]      = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -48,9 +57,15 @@ export default function StudyView({ pdfId, onDone }: Props) {
   const replayCountsRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
+    const url = queueUrl(scope, pdfId, deckId);
+    if (!url) {
+      setLoading(false);
+      return;
+    }
+
     const ctrl = new AbortController();
     abortRef.current = ctrl;
-    fetch(`/api/study/queue?pdfId=${pdfId}`, { signal: ctrl.signal })
+    fetch(url, { signal: ctrl.signal })
       .then(r => r.json() as Promise<QueueResponse>)
       .then(data => {
         setQueue(data.queue.map(item => buildSessionItem(item)));
@@ -59,14 +74,13 @@ export default function StudyView({ pdfId, onDone }: Props) {
         setIdx(0);
         setSelected(null);
         setRevealed(false);
-        setShowQuote(false);
         setCorrect(0);
         setTotal(0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
     return () => ctrl.abort();
-  }, [pdfId]);
+  }, [deckId, pdfId, scope]);
 
   useEffect(() => {
     function refresh() { setKeybindings(loadKeybindings()); }
@@ -100,7 +114,6 @@ export default function StudyView({ pdfId, onDone }: Props) {
     if (revealed) return;
     setSelected(optIdx);
     setRevealed(true);
-    setShowQuote(false);
     setTotal(t => t + 1);
     if (current && optIdx === current.answer) setCorrect(c => c + 1);
   }
@@ -118,7 +131,7 @@ export default function StudyView({ pdfId, onDone }: Props) {
         body:    JSON.stringify({
           questionId:    current.id,
           quality,
-          pdfId,
+          pdfId:         current.pdf_id,
           proxiedFromId: current._proxiedFromId ?? null,
         }),
       });
@@ -141,7 +154,6 @@ export default function StudyView({ pdfId, onDone }: Props) {
         setIdx(i => i + 1);
         setRevealed(false);
         setSelected(null);
-        setShowQuote(false);
       }, 280);
     } catch {
       setRated(prev => {

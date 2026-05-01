@@ -12,7 +12,7 @@ import SettingsView from '@/components/SettingsView';
 import StatsView from '@/components/StatsView';
 import StudyView from '@/components/StudyView';
 import type { Deck, Density, JoinedSharedBankNotice, PDF } from '@/types';
-import type { AppView } from '@/app/app/page';
+import type { AppView, StudySessionScope } from '@/app/app/page';
 
 interface Props {
   view: AppView;
@@ -28,13 +28,15 @@ interface Props {
   quizPdfId: string | null;
   quizSharedBankSlug: string | null;
   quizDeckId: string | null;
-  studyPdfId: string | null;
+  studyScope: StudySessionScope | null;
   onSetView: (view: AppView) => void;
   onStartProcessing: (file: File, density: Density, maxQuestions: number) => void;
   onOpenConceptMap: (pdfId: string) => void;
   onStartQuiz: (pdfId: string) => void;
   onStartMixedQuiz: (slug: string) => void;
   onStartDeckQuiz: (deckId: string) => void;
+  onStartLibraryStudy: () => void;
+  onStartDeckStudy: (deckId: string) => void;
   onQuizDone: () => void;
   onStartStudy: (pdfId: string) => void;
   onStudyDone: () => void;
@@ -59,13 +61,15 @@ export default function AppContent({
   quizPdfId,
   quizSharedBankSlug,
   quizDeckId,
-  studyPdfId,
+  studyScope,
   onSetView,
   onStartProcessing,
   onOpenConceptMap,
   onStartQuiz,
   onStartMixedQuiz,
   onStartDeckQuiz,
+  onStartLibraryStudy,
+  onStartDeckStudy,
   onQuizDone,
   onStartStudy,
   onStudyDone,
@@ -99,6 +103,8 @@ export default function AppContent({
           onDismissJoinedBank={onDismissJoinedBank}
           onStartMixedQuiz={onStartMixedQuiz}
           onStartDeckQuiz={onStartDeckQuiz}
+          onStartLibraryStudy={onStartLibraryStudy}
+          onStartDeckStudy={onStartDeckStudy}
         />
       )}
 
@@ -156,8 +162,14 @@ export default function AppContent({
         />
       )}
 
-      {view === 'study' && studyPdfId && (
-        <StudyView pdfId={studyPdfId} examDate={examDate} onDone={onStudyDone} />
+      {view === 'study' && studyScope && (
+        <StudyView
+          scope={studyScope.type}
+          pdfId={studyScope.type === 'pdf' ? studyScope.id : undefined}
+          deckId={studyScope.type === 'deck' ? studyScope.id : undefined}
+          examDate={examDate}
+          onDone={onStudyDone}
+        />
       )}
 
       {view === 'stats' && (

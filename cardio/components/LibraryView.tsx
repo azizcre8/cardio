@@ -1,7 +1,17 @@
 'use client';
 
 import { useRef, useState, useMemo, useEffect } from 'react';
-import type { PDF, Deck, Density, JoinedSharedBankNotice, SharedBank, FlaggedQuestionRow } from '@/types';
+import type {
+  PDF,
+  Deck,
+  Density,
+  JoinedSharedBankNotice,
+  SharedBank,
+  FlaggedQuestionRow,
+  LibraryDashboardChapter,
+  LibraryDashboardResponse,
+  StudyScopeType,
+} from '@/types';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 import { Eyebrow, Icon, Btn } from './ui';
 
@@ -16,12 +26,15 @@ interface Props {
   onDismissJoinedBank?:  () => void;
   onStartMixedQuiz:      (slug: string) => void;
   onStartDeckQuiz:       (deckId: string) => void;
+  onStartLibraryStudy:   () => void;
+  onStartDeckStudy:      (deckId: string) => void;
 }
 
 export default function LibraryView({
   pdfs, decks, examDate,
   onOpenConceptMap, onPdfsChange, onDecksChange,
   joinedBankNotice, onDismissJoinedBank, onStartMixedQuiz, onStartDeckQuiz,
+  onStartLibraryStudy, onStartDeckStudy,
 }: Props) {
   const [density,        setDensity]        = useState<Density>('standard');
   const [joinSlug,       setJoinSlug]       = useState('');
@@ -347,7 +360,7 @@ export default function LibraryView({
     : null;
 
   return (
-    <div style={{
+    <div className="library-layout" style={{
       display: 'grid',
       gridTemplateColumns: '260px 1fr',
       height: 'calc(100vh - 56px)',
@@ -367,7 +380,7 @@ export default function LibraryView({
         </div>
       )}
       {/* ── Left sidebar ── */}
-      <div style={{ borderRight: '1px solid var(--border)', overflow: 'auto' }}>
+      <div className="library-sidebar-shell" style={{ borderRight: '1px solid var(--border)', overflow: 'auto' }}>
         <LibrarySidebar
           decks={decks}
           pdfs={pdfs}
@@ -384,7 +397,7 @@ export default function LibraryView({
       </div>
 
       {/* ── Center panel ── */}
-      <div style={{ overflow: 'auto' }}>
+      <div className="library-center" style={{ overflow: 'auto' }}>
         {joinedBankNotice ? (
           <JoinedBankPanel
             notice={joinedBankNotice}
@@ -413,6 +426,7 @@ export default function LibraryView({
             onShareDeck={handleShareDeck}
             onRevokeDeck={revokeDeck}
             onStartDeckQuiz={onStartDeckQuiz}
+            onStartDeckStudy={onStartDeckStudy}
             sharedBank={selectedDeckBank}
             shareStatus={folderShareStatus}
           />
@@ -441,6 +455,7 @@ export default function LibraryView({
             onJoinSlugChange={setJoinSlug}
             onJoinBank={() => { void joinSharedBank(); }}
             onStartMixedQuiz={onStartMixedQuiz}
+            onStartLibraryStudy={onStartLibraryStudy}
           />
         )}
       </div>
@@ -451,6 +466,198 @@ export default function LibraryView({
 
 function cleanBankTitle(title: string) {
   return title.replace(/\bPreassinged\b/g, 'Preassigned');
+}
+
+function dashboardUrl(scope: StudyScopeType, id?: string) {
+  const params = new URLSearchParams({ scope });
+  if (id) params.set('id', id);
+  return `/api/study/dashboard?${params.toString()}`;
+}
+
+function useLibraryDashboard(scope: StudyScopeType, id?: string) {
+  const [data, setData] = useState<LibraryDashboardResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    fetch(dashboardUrl(scope, id))
+      .then(async res => {
+        const payload = await res.json().catch(() => null) as LibraryDashboardResponse | { error?: string } | null;
+        if (!res.ok) throw new Error((payload as { error?: string } | null)?.error ?? 'Failed to load dashboard.');
+        return payload as LibraryDashboardResponse;
+      })
+      .then(payload => {
+        if (!cancelled) setData(payload);
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setData(null);
+          setError(err instanceof Error ? err.message : 'Failed to load dashboard.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, scope]);
+
+  return { data, loading, error };
+}
+
+function pctText(value: number | null) {
+  return value === null ? '—' : `${value}%`;
+}
+
+function accuracyColor(value: number | null) {
+  if (value === null) return 'var(--text-dim)';
+  if (value >= 80) return 'var(--green)';
+  if (value >= 60) return 'var(--amber)';
+  return 'var(--red)';
+}
+
+function studyCta(summary: LibraryDashboardResponse['summary'] | null) {
+  if (!summary) return { label: 'Loading queue', icon: 'clock' as const, disabled: true };
+  if (summary.dueCount > 0) {
+    return { label: `Review ${summary.dueCount.toLocaleString()} due`, icon: 'clock' as const, disabled: false };
+  }
+  if (summary.newCount > 0) {
+    return { label: `Learn ${summary.newCount.toLocaleString()} new`, icon: 'lightning' as const, disabled: false };
+  }
+  return { label: 'All caught up', icon: 'check' as const, disabled: true };
+}
+
+function DashboardPanel({
+  dashboard,
+  loading,
+  error,
+  onStartStudy,
+  compact = false,
+}: {
+  dashboard: LibraryDashboardResponse | null;
+  loading: boolean;
+  error: string | null;
+  onStartStudy: () => void;
+  compact?: boolean;
+}) {
+  const summary = dashboard?.summary ?? null;
+  const cta = studyCta(summary);
+
+  return (
+    <div className="library-dashboard-card" style={{
+      marginTop: compact ? 20 : 22,
+      background: 'var(--border)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--r3)',
+      overflow: 'hidden',
+      boxShadow: 'var(--shadow-1)',
+    }}>
+      <div className="library-dashboard-head" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 14,
+        padding: '14px 16px',
+        background: 'var(--bg-raised)',
+        borderBottom: '1px solid var(--border)',
+        flexWrap: 'wrap',
+      }}>
+        <div>
+          <Eyebrow>Study queue</Eyebrow>
+          <div style={{
+            marginTop: 3,
+            fontFamily: 'var(--font-serif)',
+            fontSize: compact ? 18 : 21,
+            letterSpacing: 0,
+            color: 'var(--text-primary)',
+          }}>
+            {summary && summary.dueCount > 0
+              ? `${summary.dueCount.toLocaleString()} reviews due`
+              : summary && summary.newCount > 0
+              ? `${summary.newCount.toLocaleString()} new questions ready`
+              : loading
+              ? 'Building queue'
+              : 'No cards due'}
+          </div>
+          {error && (
+            <div style={{ marginTop: 4, fontSize: 12, color: 'var(--red)' }}>
+              {error}
+            </div>
+          )}
+        </div>
+
+        <Btn
+          kind="primary"
+          icon={cta.icon}
+          disabled={cta.disabled || loading || !!error}
+          onClick={onStartStudy}
+          style={{ minWidth: 142, justifyContent: 'center' }}
+        >
+          {cta.label}
+        </Btn>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))',
+        gap: 1,
+      }}>
+        <DashboardMetric label="Due reviews" value={loading ? '—' : (summary?.dueCount ?? 0).toLocaleString()} tone="var(--amber)" />
+        <DashboardMetric label="New questions" value={loading ? '—' : (summary?.newCount ?? 0).toLocaleString()} tone="var(--accent)" />
+        <DashboardMetric label="Overall accuracy" value={loading ? '—' : pctText(summary?.accuracy ?? null)} tone={accuracyColor(summary?.accuracy ?? null)} />
+        <DashboardMetric
+          label="Questions done"
+          value={loading ? '—' : (summary?.attemptedQuestions ?? 0).toLocaleString()}
+          hint={summary && summary.totalAttempts > 0 ? `${summary.totalAttempts.toLocaleString()} attempts` : undefined}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DashboardMetric({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: string;
+}) {
+  return (
+    <div style={{ background: 'var(--bg-raised)', padding: '13px 16px', minHeight: 78 }}>
+      <Eyebrow>{label}</Eyebrow>
+      <div style={{
+        fontFamily: 'var(--font-serif)',
+        fontSize: 28,
+        fontWeight: 400,
+        letterSpacing: '-0.03em',
+        marginTop: 4,
+        color: tone ?? 'var(--text-primary)',
+      }}>
+        {value}
+      </div>
+      {hint && (
+        <div style={{
+          marginTop: 2,
+          fontFamily: 'var(--font-mono)',
+          fontSize: 10,
+          color: 'var(--text-dim)',
+          letterSpacing: '0.02em',
+        }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function JoinedBankPanel({
@@ -472,7 +679,7 @@ function JoinedBankPanel({
     : notice.questionCount;
 
   return (
-    <div style={{ padding: '32px 44px 60px', maxWidth: 900 }}>
+    <div className="library-panel" style={{ padding: '32px 44px 60px', maxWidth: 900 }}>
       <div style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -564,6 +771,7 @@ function TodayPanel({
   onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
   getPdfDisplayName, nodeMap, daysLeft, joinStatus, joinSlug,
   showJoinPanel, onShowJoinPanel, onJoinSlugChange, onJoinBank, onStartMixedQuiz,
+  onStartLibraryStudy,
 }: {
   pdfs: PDF[]; filtered: PDF[]; decks: Deck[]; search: string;
   onSearchChange: (v: string) => void;
@@ -584,10 +792,13 @@ function TodayPanel({
   onJoinSlugChange: (v: string) => void;
   onJoinBank: () => void;
   onStartMixedQuiz: (slug: string) => void;
+  onStartLibraryStudy: () => void;
 }) {
-  const ready = pdfs.filter(p => p.processed_at);
-  const totalQ = ready.reduce((s, p) => s + (p.question_count ?? 0), 0);
   const [tab, setTab] = useState<'sources' | 'flagged'>('sources');
+  const dashboard = useLibraryDashboard('library');
+  const chapterMetrics = useMemo(() => new Map(
+    (dashboard.data?.chapters ?? []).map(chapter => [chapter.pdfId, chapter]),
+  ), [dashboard.data]);
   const sharedDeckGroups = useMemo(() => {
     const groups = new Map<string, { slug: string; title: string; sourceCount: number; questionCount: number }>();
 
@@ -608,7 +819,7 @@ function TodayPanel({
   }, [pdfs]);
 
   return (
-    <div style={{ padding: '32px 40px 60px', maxWidth: 900 }}>
+    <div className="library-panel" style={{ padding: '32px 40px 60px', maxWidth: 900 }}>
       <Eyebrow>Library</Eyebrow>
       <h1 style={{
         fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 400,
@@ -618,17 +829,12 @@ function TodayPanel({
         Your study sources
       </h1>
 
-      {/* Stats row */}
-      {ready.length > 0 && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          gap: 1, marginTop: 22, background: 'var(--border)',
-          border: '1px solid var(--border)', borderRadius: 'var(--r3)', overflow: 'hidden',
-        }}>
-          <StatCell label="Active sources" value={String(ready.length)} />
-          <StatCell label="Total questions" value={totalQ.toLocaleString()} />
-        </div>
-      )}
+      <DashboardPanel
+        dashboard={dashboard.data}
+        loading={dashboard.loading}
+        error={dashboard.error}
+        onStartStudy={onStartLibraryStudy}
+      />
 
       {/* Exam countdown */}
       {daysLeft !== null && (
@@ -844,6 +1050,7 @@ function TodayPanel({
               onMove={deckId => void onMovePdf(pdf.id, deckId)}
               onShare={() => void onShare(pdf.id)}
               onRevoke={() => pdf.shared_bank_slug ? void onRevoke(pdf.shared_bank_slug) : undefined}
+              metrics={chapterMetrics.get(pdf.id)}
             />
           ))
         )}
@@ -932,7 +1139,7 @@ function FlaggedQuestionsTab() {
 function SubjectPanel({
   deck, pdfs, decks, getPdfDisplayName, nodeMap,
   onStudy, onDelete, onRename, onMovePdf, onShare, onRevoke,
-  onShareDeck, onRevokeDeck, onStartDeckQuiz, sharedBank, shareStatus,
+  onShareDeck, onRevokeDeck, onStartDeckQuiz, onStartDeckStudy, sharedBank, shareStatus,
 }: {
   deck: import('@/types').DeckNode;
   pdfs: PDF[];
@@ -948,11 +1155,16 @@ function SubjectPanel({
   onShareDeck: (deckId: string) => Promise<void>;
   onRevokeDeck: (slug: string) => Promise<void>;
   onStartDeckQuiz: (deckId: string) => void;
+  onStartDeckStudy: (deckId: string) => void;
   sharedBank: SharedBank | null;
   shareStatus: string | null;
 }) {
   const [filter, setFilter] = useState<'all' | 'processed' | 'shared'>('all');
   const totalQ = pdfs.reduce((s, p) => s + (p.question_count ?? 0), 0);
+  const dashboard = useLibraryDashboard('deck', deck.id);
+  const chapterMetrics = useMemo(() => new Map(
+    (dashboard.data?.chapters ?? []).map(chapter => [chapter.pdfId, chapter]),
+  ), [dashboard.data]);
 
   const shown = pdfs.filter(p =>
     filter === 'all'       ? true
@@ -966,7 +1178,7 @@ function SubjectPanel({
     : null;
 
   return (
-    <div style={{ padding: '32px 44px 60px', maxWidth: 900 }}>
+    <div className="library-panel" style={{ padding: '32px 44px 60px', maxWidth: 900 }}>
       <Eyebrow>Subject</Eyebrow>
       <h1 style={{
         fontFamily: 'var(--font-serif)', fontSize: 40, fontWeight: 400,
@@ -989,6 +1201,14 @@ function SubjectPanel({
           </>
         )}
       </div>
+
+      <DashboardPanel
+        dashboard={dashboard.data}
+        loading={dashboard.loading}
+        error={dashboard.error}
+        onStartStudy={() => onStartDeckStudy(deck.id)}
+        compact
+      />
 
       <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
         <Btn
@@ -1062,6 +1282,7 @@ function SubjectPanel({
             onMove={deckId => void onMovePdf(pdf.id, deckId)}
             onShare={() => void onShare(pdf.id)}
             onRevoke={() => pdf.shared_bank_slug ? void onRevoke(pdf.shared_bank_slug) : undefined}
+            metrics={chapterMetrics.get(pdf.id)}
           />
         ))
       )}
@@ -1073,7 +1294,7 @@ function SubjectPanel({
 
 function SourceRow({
   idx, pdf, displayName, examDeadline, decks,
-  onStudy, onDelete, onRename, onMove, onShare, onRevoke,
+  onStudy, onDelete, onRename, onMove, onShare, onRevoke, metrics,
 }: {
   idx: number;
   pdf: PDF;
@@ -1086,6 +1307,7 @@ function SourceRow({
   onMove: (deckId: string | null) => void;
   onShare: () => void;
   onRevoke: () => void;
+  metrics?: LibraryDashboardChapter;
 }) {
   const [menu, setMenu] = useState<'closed' | 'main' | 'move'>('closed');
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1114,7 +1336,7 @@ function SourceRow({
   };
 
   return (
-    <div style={{
+    <div className="library-source-row" style={{
       display: 'grid',
       gridTemplateColumns: '28px 1fr auto',
       gap: 20, alignItems: 'center',
@@ -1148,9 +1370,10 @@ function SourceRow({
             </span></>
           )}
         </div>
+        {metrics && <SourceMetricStrip metrics={metrics} />}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="library-source-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {pdf.processed_at ? (
           <button
             onClick={() => onStudy(pdf.id)}
@@ -1229,30 +1452,72 @@ function SourceRow({
   );
 }
 
-
-function StatCell({ label, value }: { label: string; value: string }) {
+function SourceMetricStrip({ metrics }: { metrics: LibraryDashboardChapter }) {
   return (
-    <div style={{ background: 'var(--bg-raised)', padding: '14px 18px' }}>
-      <Eyebrow>{label}</Eyebrow>
-      <div style={{
-        fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 400,
-        letterSpacing: '-0.03em', marginTop: 4, color: 'var(--text-primary)',
-      }}>{value}</div>
+    <div style={{
+      display: 'flex',
+      gap: 8,
+      marginTop: 9,
+      flexWrap: 'wrap',
+    }}>
+      <SourceMetric label="Acc" value={pctText(metrics.accuracy)} color={accuracyColor(metrics.accuracy)} />
+      <SourceMetric label="Attempts" value={metrics.totalAttempts.toLocaleString()} />
+      <SourceMetric label="Due" value={metrics.dueCount.toLocaleString()} color={metrics.dueCount > 0 ? 'var(--amber)' : undefined} />
+      <SourceMetric label="New" value={metrics.newCount.toLocaleString()} color={metrics.newCount > 0 ? 'var(--accent)' : undefined} />
     </div>
   );
 }
+
+function SourceMetric({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+}) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5,
+      padding: '3px 7px',
+      borderRadius: 'var(--r1)',
+      background: 'var(--bg-raised)',
+      border: '1px solid var(--border)',
+      fontFamily: 'var(--font-mono)',
+      fontSize: 10,
+      letterSpacing: '0.02em',
+      color: 'var(--text-dim)',
+      whiteSpace: 'nowrap',
+    }}>
+      <span>{label}</span>
+      <strong style={{ color: color ?? 'var(--text-secondary)', fontWeight: 700 }}>{value}</strong>
+    </span>
+  );
+}
+
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 function EmptyState() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '40px 20px' }}>
-      <div style={{ textAlign: 'center', maxWidth: 400 }}>
+    <div className="library-empty-state" style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',
+      padding: '40px 20px',
+      boxSizing: 'border-box',
+      width: '100%',
+    }}>
+      <div className="library-empty-copy" style={{ textAlign: 'center', maxWidth: 400, width: '100%', boxSizing: 'border-box' }}>
         <div style={{ fontSize: '3rem', marginBottom: 16, animation: 'float 3s ease-in-out infinite' }}>📖</div>
         <p style={{ fontFamily: 'var(--font-serif)', fontSize: 24, fontWeight: 400, color: 'var(--text-primary)', marginBottom: 8 }}>
           No sources yet
         </p>
-        <p style={{ fontSize: 14, marginBottom: 24, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        <p style={{ fontSize: 14, marginBottom: 24, color: 'var(--text-secondary)', lineHeight: 1.6, overflowWrap: 'break-word' }}>
           Use the Add page to join the private-generation waitlist or upload with a paid beta seat.
         </p>
       </div>
