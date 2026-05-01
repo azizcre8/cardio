@@ -223,22 +223,9 @@ export default function LibraryView({
 
   async function shareSharedBankLink({
     url,
-    title,
   }: {
     url: string;
-    title: string;
   }) {
-    const shareTitle = `${title} · Cardio`;
-
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title: shareTitle, url });
-        return 'Shared.';
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return null;
-      }
-    }
-
     await navigator.clipboard.writeText(url).catch(() => null);
     return 'Link copied! ' + url;
   }
@@ -251,10 +238,8 @@ export default function LibraryView({
     });
     const data = await res.json().catch(() => null) as { shareUrl?: string; bank?: SharedBank } | null;
     if (!res.ok || !data?.shareUrl) { setShareToast('Failed to generate share link.'); return; }
-    const fallbackPdf = pdfs.find(pdf => pdf.id === pdfId);
     const shareStatus = await shareSharedBankLink({
       url: data.shareUrl,
-      title: data.bank?.title ?? (fallbackPdf ? getPdfDisplayName(fallbackPdf) : 'Shared question bank'),
     });
     if (shareStatus) setShareToast(shareStatus);
     await refreshPdfsFromServer();
@@ -271,7 +256,6 @@ export default function LibraryView({
       const shareUrl = shareUrlForSlug(existingBank.slug);
       const shareStatus = await shareSharedBankLink({
         url: shareUrl,
-        title: existingBank.title,
       });
       if (shareStatus) {
         setFolderShareStatus(shareStatus === 'Shared.' ? 'Shared.' : 'Link copied!');
@@ -298,7 +282,6 @@ export default function LibraryView({
     }
     const shareStatus = await shareSharedBankLink({
       url: data.shareUrl,
-      title: data.bank?.title ?? selectedDeck?.name ?? 'Shared question bank',
     });
     await refreshSharedBanksFromServer();
     if (shareStatus) {
