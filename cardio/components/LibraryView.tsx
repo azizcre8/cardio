@@ -1176,6 +1176,7 @@ function SubjectPanel({
   shareStatus: string | null;
 }) {
   const [filter, setFilter] = useState<'all' | 'processed' | 'shared'>('all');
+  const [expandedSourceFolders, setExpandedSourceFolders] = useState<Set<string>>(new Set());
   const totalQ = pdfs.reduce((s, p) => s + (p.question_count ?? 0), 0);
   const dashboard = useLibraryDashboard('deck', deck.id);
   const chapterMetrics = useMemo(() => new Map(
@@ -1192,6 +1193,16 @@ function SubjectPanel({
   const daysLeft = deck.is_exam_block && deck.due_date
     ? Math.ceil((new Date(deck.due_date).getTime() - Date.now()) / 86_400_000)
     : null;
+
+  const sourceGroups = useMemo(() => groupSubjectSources(shown, deck, nodeMap), [shown, deck, nodeMap]);
+
+  function toggleSourceFolder(folderId: string) {
+    setExpandedSourceFolders(prev => {
+      const next = new Set(prev);
+      if (next.has(folderId)) next.delete(folderId); else next.add(folderId);
+      return next;
+    });
+  }
 
   return (
     <div className="library-panel" style={{ padding: '32px 44px 60px', maxWidth: 900 }}>
@@ -1284,26 +1295,130 @@ function SubjectPanel({
           No sources match this filter.
         </div>
       ) : (
-        shown.map((pdf, i) => (
-          <SourceRow
-            key={pdf.id}
-            idx={i}
-            pdf={pdf}
-            displayName={getPdfDisplayName(pdf)}
-            examDeadline={findExamDeadline(pdf.deck_id, nodeMap)}
-            decks={decks}
-            onStudy={onStudy}
-            onDelete={() => onDelete(pdf.id)}
-            onRename={() => onRename(pdf)}
-            onMove={deckId => void onMovePdf(pdf.id, deckId)}
-            onShare={() => void onShare(pdf.id)}
-            onRevoke={() => pdf.shared_bank_slug ? void onRevoke(pdf.shared_bank_slug) : undefined}
-            metrics={chapterMetrics.get(pdf.id)}
-          />
-        ))
+        sourceGroups.map(group => {
+          const isOpen = expandedSourceFolders.has(group.id);
+          return (
+            <div key={group.id}>
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => toggleSourceFolder(group.id)}
+                style={{
+                  width: '100%',
+                  display: 'grid',
+                  gridTemplateColumns: 'auto 1fr auto',
+                  gap: 12,
+                  alignItems: 'center',
+                  padding: '16px 0',
+                  border: 'none',
+                  borderBottom: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                <span style={{
+                  color: 'var(--text-dim)',
+                  transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.15s ease',
+                }}>
+                  <Icon name="chevron" size={15} />
+                </span>
+                <span style={{
+                  minWidth: 0,
+                  fontFamily: 'var(--font-serif)',
+                  fontSize: 18,
+                  fontWeight: 400,
+                  letterSpacing: '-0.01em',
+                  lineHeight: 1.3,
+                  overflowWrap: 'break-word',
+                }}>
+                  {group.name}
+                </span>
+                <span style={{
+                  justifySelf: 'end',
+                  minWidth: 24,
+                  padding: '3px 8px',
+                  borderRadius: 99,
+                  background: 'var(--bg-raised)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-dim)',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  textAlign: 'center',
+                }}>
+                  {group.items.length}
+                </span>
+              </button>
+              {isOpen && group.items.map(({ pdf, idx }) => (
+                <SourceRow
+                  key={pdf.id}
+                  idx={idx}
+                  pdf={pdf}
+                  displayName={getPdfDisplayName(pdf)}
+                  examDeadline={findExamDeadline(pdf.deck_id, nodeMap)}
+                  decks={decks}
+                  onStudy={onStudy}
+                  onDelete={() => onDelete(pdf.id)}
+                  onRename={() => onRename(pdf)}
+                  onMove={deckId => void onMovePdf(pdf.id, deckId)}
+                  onShare={() => void onShare(pdf.id)}
+                  onRevoke={() => pdf.shared_bank_slug ? void onRevoke(pdf.shared_bank_slug) : undefined}
+                  metrics={chapterMetrics.get(pdf.id)}
+                />
+              ))}
+            </div>
+          );
+        })
       )}
     </div>
   );
+}
+
+type SubjectSourceGroup = {
+  id: string;
+  name: string;
+  sort: number;
+  items: Array<{ pdf: PDF; idx: number }>;
+};
+
+function groupSubjectSources(
+  pdfs: PDF[],
+  deck: import('@/types').DeckNode,
+  nodeMap: Map<string, import('@/types').DeckNode>,
+): SubjectSourceGroup[] {
+  const groups = new Map<string, SubjectSourceGroup>();
+
+  function folderFor(pdf: PDF): { id: string; name: string; sort: number } {
+    if (!pdf.deck_id) return { id: 'unfiled', name: 'Unfiled sources', sort: Number.MAX_SAFE_INTEGER };
+
+    let current = nodeMap.get(pdf.deck_id) ?? null;
+    if (!current) return { id: 'unknown', name: 'Other sources', sort: Number.MAX_SAFE_INTEGER - 1 };
+
+    while (current.parent_id && current.parent_id !== deck.id) {
+      const parent = nodeMap.get(current.parent_id);
+      if (!parent) break;
+      current = parent;
+    }
+
+    if (current.id === deck.id) {
+      return { id: deck.id, name: deck.name, sort: -1 };
+    }
+
+    return { id: current.id, name: current.name, sort: current.position };
+  }
+
+  pdfs.forEach((pdf, idx) => {
+    const folder = folderFor(pdf);
+    const group = groups.get(folder.id) ?? { ...folder, items: [] };
+    group.items.push({ pdf, idx });
+    groups.set(folder.id, group);
+  });
+
+  return Array.from(groups.values()).sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
 }
 
 // ── Source row ────────────────────────────────────────────────────────────────
