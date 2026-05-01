@@ -27,7 +27,8 @@ export function sanitizeAuthNextPath(value: string | null | undefined) {
 
   try {
     const url = new URL(value, LOCAL_ORIGIN);
-    if (url.origin !== LOCAL_ORIGIN || url.pathname !== '/app') return '/app';
+    if (url.origin !== LOCAL_ORIGIN) return '/app';
+    if (url.pathname !== '/app' && !/^\/s\/[a-z0-9][a-z0-9-]{0,95}$/i.test(url.pathname)) return '/app';
     return `${url.pathname}${url.search}${url.hash}`;
   } catch {
     return '/app';

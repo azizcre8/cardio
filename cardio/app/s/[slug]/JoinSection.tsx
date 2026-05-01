@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { buildSharedBankQuizPath } from '@/lib/join-intent';
 
 export default function JoinSection({
   slug,
-  isDeckBank = false,
-  questionCount = 0,
 }: {
   slug: string;
   isDeckBank?: boolean;
@@ -35,7 +32,7 @@ export default function JoinSection({
       }
       setJoined(true);
       setTimeout(() => {
-        window.location.href = isDeckBank ? buildSharedBankQuizPath(slug) : '/app';
+        window.location.href = '/app?view=library';
       }, 800);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to join');
@@ -61,7 +58,7 @@ export default function JoinSection({
         background: 'var(--accent-dim)', color: 'var(--accent)',
         fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-sans)',
       }}>
-        {isDeckBank ? 'Added to your library — starting mixed quiz…' : 'Added to your library — redirecting…'}
+        Added to your library &mdash; opening library…
       </div>
     );
   }
@@ -75,14 +72,9 @@ export default function JoinSection({
           style={{ ...btnBase, background: 'var(--accent)', color: '#fff', opacity: joining ? 0.6 : 1 }}
         >
           {joining
-            ? (isDeckBank ? 'Starting…' : 'Adding…')
-            : (isDeckBank ? 'Start mixed quiz' : 'Add to my library')}
+            ? 'Adding…'
+            : 'Add to my library'}
         </button>
-        {isDeckBank && questionCount > 0 && (
-          <p style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-sans)', margin: 0 }}>
-            Mixed quiz across {questionCount.toLocaleString()} questions.
-          </p>
-        )}
         {error && (
           <p style={{ fontSize: 13, color: 'var(--red, #ef4444)', fontFamily: 'var(--font-sans)' }}>{error}</p>
         )}
@@ -93,13 +85,13 @@ export default function JoinSection({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <a
-        href={`/login?join=${encodeURIComponent(slug)}&mode=signup${isDeckBank ? '&start=mixed' : ''}`}
+        href={`/login?next=${encodeURIComponent('/s/' + slug)}&mode=signup`}
         style={{ ...btnBase, background: 'var(--accent)', color: '#fff', textDecoration: 'none', textAlign: 'center' }}
       >
-        {isDeckBank ? 'Create free account to start mixed quiz' : 'Create free account to study'}
+        Create free account to study
       </a>
       <a
-        href={`/login?join=${encodeURIComponent(slug)}${isDeckBank ? '&start=mixed' : ''}`}
+        href={`/login?next=${encodeURIComponent('/s/' + slug)}`}
         style={{
           ...btnBase, background: 'transparent',
           border: '1px solid var(--border)', color: 'var(--text-secondary)',
@@ -109,9 +101,7 @@ export default function JoinSection({
         Sign in
       </a>
       <p style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-sans)', margin: 0 }}>
-        {isDeckBank && questionCount > 0
-          ? `Studying this ${questionCount.toLocaleString()}-question shared deck is free.`
-          : 'Studying shared banks is free. Generating new banks requires a paid plan.'}
+        Studying shared banks is free.
       </p>
     </div>
   );

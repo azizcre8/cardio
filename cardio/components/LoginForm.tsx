@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { supabaseBrowser } from '@/lib/supabase-browser';
-import { buildAuthCallbackUrl, buildJoinedAppPath, buildSharedBankQuizPath } from '@/lib/join-intent';
+import {
+  buildAuthCallbackUrl,
+  buildJoinedAppPath,
+  buildSharedBankQuizPath,
+  sanitizeAuthNextPath,
+} from '@/lib/join-intent';
 
 export default function LoginForm() {
   const [email, setEmail] = useState('');
@@ -12,6 +17,7 @@ export default function LoginForm() {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [joinSlug, setJoinSlug] = useState<string | null>(null);
   const [startMixedQuiz, setStartMixedQuiz] = useState(false);
+  const [nextPath, setNextPath] = useState('/app');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
@@ -19,6 +25,7 @@ export default function LoginForm() {
     const join = params.get('join');
     const urlMode = params.get('mode');
     if (join) setJoinSlug(join);
+    setNextPath(sanitizeAuthNextPath(params.get('next')));
     setStartMixedQuiz(params.get('start') === 'mixed');
     if (urlMode === 'signup') setMode('signup');
   }, []);
@@ -38,6 +45,7 @@ export default function LoginForm() {
   function authCallbackRedirect(slug: string | null) {
     return buildAuthCallbackUrl(
       window.location.origin,
+      nextPath.startsWith('/s/') ? nextPath :
       slug ? joinedRedirect(slug) : '/app',
     );
   }
@@ -60,15 +68,17 @@ export default function LoginForm() {
       return;
     }
 
+    const signUpOptions = joinSlug || nextPath.startsWith('/s/') ? {
+      emailRedirectTo: authCallbackRedirect(joinSlug),
+      ...(joinSlug ? { data: { join_slug: joinSlug } } : {}),
+    } : undefined;
+
     const { data: authData, error: authError } = mode === 'login'
       ? await supabaseBrowser.auth.signInWithPassword({ email, password })
       : await supabaseBrowser.auth.signUp({
         email,
         password,
-        options: joinSlug ? {
-          emailRedirectTo: authCallbackRedirect(joinSlug),
-          data: { join_slug: joinSlug },
-        } : undefined,
+        options: signUpOptions,
       });
 
     if (authError) {
@@ -79,6 +89,10 @@ export default function LoginForm() {
 
     if (mode === 'signup') {
       if (authData.session) {
+        if (nextPath.startsWith('/s/')) {
+          window.location.href = nextPath;
+          return;
+        }
         try {
           if (joinSlug) await joinAfterAuth(joinSlug);
           window.location.href = joinSlug ? joinedRedirect(joinSlug) : '/app';
@@ -96,6 +110,10 @@ export default function LoginForm() {
     }
 
     try {
+      if (nextPath.startsWith('/s/')) {
+        window.location.href = nextPath;
+        return;
+      }
       if (joinSlug) await joinAfterAuth(joinSlug);
       window.location.href = joinSlug ? joinedRedirect(joinSlug) : '/app';
     } catch (err) {
