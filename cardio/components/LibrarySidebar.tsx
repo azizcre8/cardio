@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { Deck, DeckNode, PDF } from '@/types';
 import { isBinding, loadKeybindings } from '@/lib/keybindings';
+import { Icon } from './ui';
 
 // ─── Tree assembly ────────────────────────────────────────────────────────────
 
@@ -417,7 +418,9 @@ export default function LibrarySidebar({
           {!isRenaming && (
             <span className="row-actions" style={s.rowActions}>
               <ActionBtn title="Add subdeck" onClick={e => { e.stopPropagation(); startCreate(node.id); }}>+</ActionBtn>
-              <ActionBtn title="Share folder" onClick={e => { e.stopPropagation(); void onShareDeck(node.id); }}>↗</ActionBtn>
+              <ActionBtn title="Share folder" onClick={e => { e.stopPropagation(); void onShareDeck(node.id); }}>
+                <Icon name="share" size={14} />
+              </ActionBtn>
               <ActionBtn title="Rename" onClick={e => { e.stopPropagation(); startRename(node); }}>✎</ActionBtn>
               <ActionBtn
                 title="Delete deck"

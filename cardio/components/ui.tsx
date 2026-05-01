@@ -85,7 +85,7 @@ type IconName =
   | 'book' | 'play' | 'lightning' | 'target' | 'layers' | 'clock' | 'flame'
   | 'sparkle' | 'search' | 'chevron' | 'check' | 'x' | 'plus' | 'dots'
   | 'trend_up' | 'trend_down' | 'pause' | 'arrow_r' | 'arrow_l' | 'filter'
-  | 'flag' | 'eye';
+  | 'flag' | 'eye' | 'share';
 
 const ICON_PATHS: Record<IconName, string> = {
   book:       'M4 4h5a3 3 0 0 1 3 3v13M20 4h-5a3 3 0 0 0-3 3v13M4 4v16M20 4v16',
@@ -110,6 +110,7 @@ const ICON_PATHS: Record<IconName, string> = {
   filter:     'M3 5h18l-7 8v6l-4-2v-4z',
   flag:       'M5 3v18M5 4h13l-3 4 3 4H5',
   eye:        'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+  share:      'M12 3v12M7 8l5-5 5 5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7',
 };
 
 export function Icon({ name, size = 16, color = 'currentColor' }: { name: IconName; size?: number; color?: string }) {

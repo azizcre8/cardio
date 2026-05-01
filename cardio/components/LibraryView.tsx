@@ -1001,15 +1001,15 @@ function SubjectPanel({
         </Btn>
         {sharedBank ? (
           <>
-            <Btn kind="secondary" icon="eye" onClick={() => { void onShareDeck(deck.id); }}>
-              Copy link
+            <Btn kind="secondary" icon="share" onClick={() => { void onShareDeck(deck.id); }}>
+              Share
             </Btn>
             <Btn kind="danger" onClick={() => { void onRevokeDeck(sharedBank.slug); }}>
               Revoke
             </Btn>
           </>
         ) : (
-          <Btn kind="secondary" icon="eye" onClick={() => { void onShareDeck(deck.id); }}>
+          <Btn kind="secondary" icon="share" onClick={() => { void onShareDeck(deck.id); }}>
             Share folder
           </Btn>
         )}
