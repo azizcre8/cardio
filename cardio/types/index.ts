@@ -26,6 +26,8 @@ export type CoverageDomain =
 
 export type StudyBucket = 'srs' | 'weak' | 'medium' | 'new';
 
+export type StudyScopeType = 'library' | 'deck' | 'pdf';
+
 export type TextQuality = 'ok' | 'poor' | 'empty';
 
 // ─── Plan Limits ──────────────────────────────────────────────────────────────
@@ -509,6 +511,39 @@ export interface SubmitQualityBody {
 export interface QueueResponse {
   queue: StudyQueueItem[];
   examDate: string | null;
+}
+
+// ─── Library Dashboard ───────────────────────────────────────────────────────
+
+export interface LibraryDashboardSummary {
+  totalQuestions: number;
+  attemptedQuestions: number;
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracy: number | null;
+  dueCount: number;
+  newCount: number;
+  readySourceCount: number;
+  totalSourceCount: number;
+}
+
+export interface LibraryDashboardChapter {
+  pdfId: string;
+  deckId: string | null;
+  title: string;
+  questionCount: number;
+  attemptedQuestions: number;
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracy: number | null;
+  dueCount: number;
+  newCount: number;
+  processed: boolean;
+}
+
+export interface LibraryDashboardResponse {
+  summary: LibraryDashboardSummary;
+  chapters: LibraryDashboardChapter[];
 }
 
 // ─── Feature Flags ────────────────────────────────────────────────────────────

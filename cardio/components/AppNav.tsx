@@ -58,6 +58,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
 
   return (
     <nav
+      className="app-nav"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -72,6 +73,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
       }}
     >
       <div
+        className="app-nav-brand"
         style={{
           cursor: 'pointer',
           display: 'flex',
@@ -85,7 +87,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
         <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--accent)' }}>
           Cardio
         </span>
-        <span style={{ fontSize: '0.58rem', fontWeight: 500, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
+        <span className="app-nav-subtitle" style={{ fontSize: '0.58rem', fontWeight: 500, letterSpacing: '0.13em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
           Clinical SRS
         </span>
       </div>
@@ -131,9 +133,10 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
         Settings
       </NavButton>
 
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div className="app-nav-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
         {onOpenPalette && (
           <button
+            className="app-nav-command"
             onClick={onOpenPalette}
             title="Command palette (⌘K)"
             style={{
@@ -207,7 +210,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
             }}>
               {userEmail?.charAt(0).toUpperCase() || '?'}
             </span>
-            <span style={{ textTransform: 'capitalize' }}>{PLAN_LABELS[userPlan] ?? userPlan}</span>
+            <span className="app-nav-plan" style={{ textTransform: 'capitalize' }}>{PLAN_LABELS[userPlan] ?? userPlan}</span>
           </button>
 
           {accountOpen && (
@@ -285,9 +288,11 @@ function NavButton({
   view: AppView;
 }) {
   const isActive = Array.isArray(target) ? target.includes(view) : view === target;
+  const targetName = Array.isArray(target) ? target[0] : target;
 
   return (
     <button
+      className={`app-nav-button app-nav-button-${targetName}`}
       onClick={onClick}
       style={style}
       onMouseEnter={e => {

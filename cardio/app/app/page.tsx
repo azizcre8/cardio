@@ -9,6 +9,11 @@ import type { JoinedSharedBankNotice, PDF } from '@/types';
 
 export type AppView = 'library' | 'add' | 'processing' | 'conceptmap' | 'bankselect' | 'quiz' | 'study' | 'stats' | 'question-stats' | 'allquestions' | 'settings';
 
+export type StudySessionScope =
+  | { type: 'library' }
+  | { type: 'deck'; id: string }
+  | { type: 'pdf'; id: string };
+
 const APP_VIEWS: AppView[] = ['library', 'add', 'processing', 'conceptmap', 'bankselect', 'quiz', 'study', 'stats', 'question-stats', 'allquestions', 'settings'];
 
 export default function AppPage() {
@@ -17,7 +22,7 @@ export default function AppPage() {
   const [quizPdfId, setQuizPdfId] = useState<string | null>(null);
   const [quizSharedBankSlug, setQuizSharedBankSlug] = useState<string | null>(null);
   const [quizDeckId, setQuizDeckId] = useState<string | null>(null);
-  const [studyPdfId, setStudyPdfId] = useState<string | null>(null);
+  const [studyScope, setStudyScope] = useState<StudySessionScope | null>(null);
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const [joinedBankNotice, setJoinedBankNotice] = useState<JoinedSharedBankNotice | null>(null);
   const handledSharedSlug = useRef<string | null>(null);
@@ -44,13 +49,18 @@ export default function AppPage() {
     const urlView = params.get('view');
     if (urlView && APP_VIEWS.includes(urlView as AppView)) setView(urlView as AppView);
     const pdfId = params.get('pdfId');
+    const deckId = params.get('deckId');
     if (pdfId) {
       setConceptMapPdfId(pdfId);
       if (urlView === 'quiz') setQuizPdfId(pdfId);
-      if (urlView === 'study') setStudyPdfId(pdfId);
-    } else if (urlView === 'quiz') {
+    }
+    if (urlView === 'study') {
+      const scope = params.get('scope');
+      if (scope === 'library') setStudyScope({ type: 'library' });
+      else if (scope === 'deck' && deckId) setStudyScope({ type: 'deck', id: deckId });
+      else if (pdfId) setStudyScope({ type: 'pdf', id: pdfId });
+    } else if (urlView === 'quiz' && !pdfId) {
       const sharedQuizSlug = params.get('sharedQuiz');
-      const deckId = params.get('deckId');
       if (sharedQuizSlug) setQuizSharedBankSlug(sharedQuizSlug);
       else if (deckId) setQuizDeckId(deckId);
     }
@@ -62,7 +72,7 @@ export default function AppPage() {
     const pdfId = view === 'quiz'
       ? quizPdfId
       : view === 'study'
-      ? studyPdfId
+      ? (studyScope?.type === 'pdf' ? studyScope.id : null)
       : view === 'conceptmap'
       ? conceptMapPdfId
       : null;
@@ -70,10 +80,14 @@ export default function AppPage() {
     else params.delete('pdfId');
     if (view === 'quiz' && quizSharedBankSlug) params.set('sharedQuiz', quizSharedBankSlug);
     else params.delete('sharedQuiz');
+    if (view === 'study' && studyScope?.type === 'library') params.set('scope', 'library');
+    else if (view === 'study' && studyScope?.type === 'deck') params.set('scope', 'deck');
+    else params.delete('scope');
     if (view === 'quiz' && quizDeckId) params.set('deckId', quizDeckId);
+    else if (view === 'study' && studyScope?.type === 'deck') params.set('deckId', studyScope.id);
     else params.delete('deckId');
     window.history.replaceState(null, '', `/app?${params.toString()}`);
-  }, [conceptMapPdfId, quizDeckId, quizPdfId, quizSharedBankSlug, studyPdfId, view]);
+  }, [conceptMapPdfId, quizDeckId, quizPdfId, quizSharedBankSlug, studyScope, view]);
 
   /* ── Navigation helpers ── */
   const startQuiz = useCallback((pdfId: string) => {
@@ -98,7 +112,17 @@ export default function AppPage() {
   }, [setAppView]);
 
   const startStudy = useCallback((pdfId: string) => {
-    setStudyPdfId(pdfId);
+    setStudyScope({ type: 'pdf', id: pdfId });
+    setAppView('study');
+  }, [setAppView]);
+
+  const startLibraryStudy = useCallback(() => {
+    setStudyScope({ type: 'library' });
+    setAppView('study');
+  }, [setAppView]);
+
+  const startDeckStudy = useCallback((deckId: string) => {
+    setStudyScope({ type: 'deck', id: deckId });
     setAppView('study');
   }, [setAppView]);
 
@@ -131,8 +155,14 @@ export default function AppPage() {
     setAppView('library');
   }
   function studyDone() {
-    if (studyPdfId) setConceptMapPdfId(studyPdfId);
-    setAppView('conceptmap');
+    if (studyScope?.type === 'pdf') {
+      setConceptMapPdfId(studyScope.id);
+      setStudyScope(null);
+      setAppView('conceptmap');
+      return;
+    }
+    setStudyScope(null);
+    setAppView('library');
   }
 
   useEffect(() => {
@@ -213,13 +243,15 @@ export default function AppPage() {
         quizPdfId={quizPdfId}
         quizSharedBankSlug={quizSharedBankSlug}
         quizDeckId={quizDeckId}
-        studyPdfId={studyPdfId}
+        studyScope={studyScope}
         onSetView={setAppView}
         onStartProcessing={startProcessing}
         onOpenConceptMap={openConceptMap}
         onStartQuiz={startQuiz}
         onStartMixedQuiz={startMixedQuiz}
         onStartDeckQuiz={startDeckQuiz}
+        onStartLibraryStudy={startLibraryStudy}
+        onStartDeckStudy={startDeckStudy}
         onQuizDone={quizDone}
         onStartStudy={startStudy}
         onStudyDone={studyDone}

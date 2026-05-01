@@ -524,10 +524,17 @@ export function repairDraftForValidation(
     repairedCorrectOption,
     conceptName,
   ].filter(Boolean);
-  if (evidenceKeywords.length && evidenceCorpus.trim()) {
+  const currentQuoteForScoring = typeof repaired.sourceQuote === 'string' ? repaired.sourceQuote.trim() : '';
+  // Only keep an already-verbatim quote when it is also relevant to the
+  // deciding clue, answer, or concept. Verbatim-but-generic quotes are still
+  // wrong evidence and should be replaced by a better source sentence.
+  const quoteIsVerbatimAndRelevant = currentQuoteForScoring.length >= 20
+    && evidenceCorpus.includes(currentQuoteForScoring)
+    && scoreEvidenceSentence(currentQuoteForScoring, evidenceKeywords) > 1;
+  if (!quoteIsVerbatimAndRelevant && evidenceKeywords.length && evidenceCorpus.trim()) {
     const betterSourceQuote = pickBetterEvidenceSentence(
       evidenceCorpus,
-      typeof repaired.sourceQuote === 'string' ? repaired.sourceQuote.trim() : '',
+      currentQuoteForScoring,
       evidenceKeywords,
     );
     if (betterSourceQuote) {
@@ -1226,7 +1233,7 @@ async function buildConceptGenerationContexts(
         chunk.start_page && chunk.end_page && chunk.start_page !== chunk.end_page
           ? `pages ${chunk.start_page}–${chunk.end_page}`
           : `page ${chunk.start_page ?? '?'}`;
-      return `> "${chunk.text.slice(0, 350).replace(/"/g, "'")}" [${pageRange}]`;
+      return `> "${chunk.text.slice(0, 700).replace(/"/g, "'")}" [${pageRange}]`;
     }).join('\n');
 
     return {
@@ -1548,7 +1555,7 @@ RULES (all mandatory):
 5. NO TELLS. The correct answer must not stand out by length, specificity, grammar, or parenthetical detail. Never use "all of the above" or "none of the above".
 6. CONCEPT FIDELITY. Echo conceptId exactly as provided. The question must test ${concept.name}, not a neighboring concept.
 7. NEGATION. Avoid NOT/EXCEPT/LEAST stems at L1. At L2/L3, if you use one, every non-keyed option must be unambiguously true.
-8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct, citing the mechanism or clue from the source AND naming the keyed answer text explicitly. Sentence two: why the single closest distractor is wrong for THIS question, naming that distractor explicitly. Do not list all distractors. Do not include the phrase "Key distinction".
+8. EXPLANATION. Two sentences, plain prose, no scaffolding phrases. Sentence one: why the correct answer is correct — it MUST include a short verbatim phrase from the sourceQuote wrapped in single-quotes (e.g. the text states 'total quantity of blood stored'), AND must name the keyed answer text explicitly. Sentence two: why the single closest distractor is wrong for THIS question, naming that distractor explicitly. Do not list all distractors. Do not include the phrase "Key distinction".
 9. METADATA. Populate decisionTarget (diagnosis / mechanism / distinguishing feature / next best step / comparison / definition), decidingClue, whyTempting (one short clause), whyFails (one short clause). decidingClue MUST be a verbatim phrase of 4–12 words copied directly from your sourceQuote — do NOT paraphrase, do NOT invent new wording. The decidingClue must literally appear inside sourceQuote. These are stored as sidecar data — do not paste them into the explanation text.
 
 Return a single JSON object only — no markdown, no prose:
@@ -1637,7 +1644,7 @@ Writing rules that still apply:
 - sourceQuote is ONE complete verbatim sentence from SOURCE PASSAGES, ≥10 words, and directly proves the keyed answer. Do not paraphrase. Do NOT pick a sentence from a chapter outline, table of contents, index, or list of figures.
 - Exactly ${expectedOptionCount} options. Same comparison class. All options within 1–2 words of each other in length, same grammatical shape. No two options end with the same word. No parentheticals on only the correct answer.
 - Stem must NOT use template phrasings such as "The concept defined by X is..." or "The condition characterized by Y is...". Write a real clinical, mechanistic, or applied question.
-- Explanation is two plain sentences: why correct (naming the keyed answer text explicitly), why the closest distractor fails (naming that distractor explicitly). No "Key distinction" phrase, no scaffolding. The keyed answer text must literally appear somewhere in your explanation.
+- Explanation is two plain sentences: sentence one must include a short verbatim phrase from the sourceQuote wrapped in single-quotes (e.g. the text states 'fluid added to the body must be matched') AND name the keyed answer text explicitly; sentence two says why the closest distractor fails, naming it explicitly. No "Key distinction" phrase, no scaffolding.
 - Echo conceptId exactly. Keep decisionTarget, whyTempting, whyFails populated as sidecar metadata — do not paste them into the explanation.
 - decidingClue MUST be a verbatim 4–12 word phrase copied directly from your sourceQuote (no paraphrase, no rewording).
 
