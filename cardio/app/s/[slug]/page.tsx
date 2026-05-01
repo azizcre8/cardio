@@ -1,39 +1,64 @@
 import { notFound } from 'next/navigation';
 import { unstable_noStore as noStore } from 'next/cache';
-import { supabaseAdmin, supabaseServerComponent } from '@/lib/supabase';
-import { getSharedBankSources } from '@/lib/shared-banks';
+import type { Metadata } from 'next';
+import { supabaseServerComponent } from '@/lib/supabase';
+import { getSharedBankPreviewData } from '@/lib/shared-bank-preview';
 import JoinSection from './JoinSection';
-import type { SharedBank } from '@/types';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const preview = await getSharedBankPreviewData(params.slug);
+
+  if (!preview) {
+    return {
+      title: 'Cardio — Shared Question Bank',
+      description: 'Open this shared Cardio question bank to study with your cohort.',
+    };
+  }
+
+  return {
+    title: preview.title,
+    description: preview.description,
+    alternates: {
+      canonical: preview.shareUrl,
+    },
+    openGraph: {
+      title: preview.title,
+      description: preview.description,
+      url: preview.shareUrl,
+      siteName: 'Cardio',
+      type: 'website',
+      images: [
+        {
+          url: preview.imageUrl,
+          width: 1200,
+          height: 630,
+          alt: `${preview.bank.title} shared question bank on Cardio`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: preview.title,
+      description: preview.description,
+      images: [preview.imageUrl],
+    },
+  };
+}
 
 export default async function SharedBankLandingPage({ params }: { params: { slug: string } }) {
   noStore();
 
-  const { data: bankRow } = await supabaseAdmin
-    .from('shared_banks')
-    .select('*')
-    .eq('slug', params.slug)
-    .eq('is_active', true)
-    .maybeSingle();
-
-  if (!bankRow) notFound();
-  const bank = bankRow as SharedBank;
-
-  const [bankWithSources, { count: memberCount }] = await Promise.all([
-    getSharedBankSources(supabaseAdmin, bank),
-    supabaseAdmin.from('shared_bank_members').select('*', { count: 'exact', head: true }).eq('shared_bank_id', bank.id),
-  ]);
-
-  const sourcePdfs = bankWithSources.source_pdfs;
+  const preview = await getSharedBankPreviewData(params.slug);
+  if (!preview) notFound();
+  const { bank, memberCount, pageCount, questionCount } = preview;
+  const sourcePdfs = bank.source_pdfs;
   const isDeckBank = !!bank.source_deck_id;
 
   const supabase = supabaseServerComponent();
   const { data: { user } } = await supabase.auth.getUser();
   const isOwner = user?.id === bank.owner_user_id;
-
-  const questionCount = sourcePdfs.reduce((sum, pdf) => sum + (pdf.question_count ?? 0), 0);
-  const pageCount = sourcePdfs.reduce((sum, pdf) => sum + (pdf.page_count ?? 0), 0);
 
   return (
     <div style={{
