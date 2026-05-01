@@ -1,5 +1,8 @@
 'use client';
 
+'use client';
+
+import { useEffect, useRef } from 'react';
 import AddView from '@/components/AddView';
 import AllQuestionsView from '@/components/AllQuestionsView';
 import BankSelectView from '@/components/BankSelectView';
@@ -80,6 +83,59 @@ export default function AppContent({
   onDismissJoinedBank,
 }: Props) {
   const conceptMapPdf = pdfs.find(p => p.id === conceptMapPdfId) ?? null;
+  const previousPdfIdsRef = useRef<Set<string>>(new Set(pdfs.map(pdf => pdf.id)));
+  const pendingUploadOptionsRef = useRef<{ name?: string; deckId?: string | null } | null>(null);
+
+  function handleStartProcessing(
+    file: File,
+    density: Density,
+    maxQuestions: number,
+    name?: string,
+    deckId?: string | null,
+  ) {
+    pendingUploadOptionsRef.current = {
+      name: name?.trim() || undefined,
+      deckId: deckId ?? null,
+    };
+    onStartProcessing(file, density, maxQuestions);
+  }
+
+  useEffect(() => {
+    const previousIds = previousPdfIdsRef.current;
+    const added = pdfs.filter(pdf => !previousIds.has(pdf.id));
+    previousPdfIdsRef.current = new Set(pdfs.map(pdf => pdf.id));
+
+    const options = pendingUploadOptionsRef.current;
+    if (!options || added.length === 0) return;
+
+    const newPdf = [...added].sort((a, b) => (
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    ))[0];
+    if (!newPdf) return;
+    pendingUploadOptionsRef.current = null;
+
+    const patch: { display_name?: string; deck_id?: string | null } = {};
+    if (options.name) patch.display_name = options.name;
+    if (options.deckId) patch.deck_id = options.deckId;
+    if (Object.keys(patch).length === 0) return;
+
+    void fetch(`/api/pdfs/${newPdf.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).then(res => {
+      if (!res.ok) return;
+      onPdfsChange(pdfs.map(pdf => (
+        pdf.id === newPdf.id
+          ? {
+              ...pdf,
+              display_name: patch.display_name ?? pdf.display_name,
+              deck_id: 'deck_id' in patch ? patch.deck_id ?? null : pdf.deck_id,
+            }
+          : pdf
+      )));
+    });
+  }, [pdfs, onPdfsChange]);
 
   return (
     <main
@@ -111,10 +167,11 @@ export default function AppContent({
       {view === 'add' && (
         <AddView
           pdfs={pdfs}
+          decks={decks}
           userEmail={userEmail}
           userPlan={userPlan}
           isJobRunning={isJobRunning}
-          onStartProcessing={onStartProcessing}
+          onStartProcessing={handleStartProcessing}
           onViewProcessing={() => onSetView('processing')}
           onOpenDeck={onOpenConceptMap}
         />
@@ -127,10 +184,11 @@ export default function AppContent({
       {view === 'processing' && !activeJob && (
         <AddView
           pdfs={pdfs}
+          decks={decks}
           userEmail={userEmail}
           userPlan={userPlan}
           isJobRunning={false}
-          onStartProcessing={onStartProcessing}
+          onStartProcessing={handleStartProcessing}
           onViewProcessing={() => onSetView('processing')}
           onOpenDeck={onOpenConceptMap}
         />
@@ -177,7 +235,7 @@ export default function AppContent({
       )}
 
       {view === 'question-stats' && (
-        <QuestionStatsView pdfs={pdfs} />
+        <QuestionStatsView pdfs={pdfs} userEmail={userEmail} />
       )}
 
       {view === 'allquestions' && (

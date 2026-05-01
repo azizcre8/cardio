@@ -1,17 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { PDF, Density } from '@/types';
+import type { PDF, Density, Deck } from '@/types';
 import { analyzePdfClient, type AnalyzeResult } from '@/lib/analyze-pdf-client';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   pdfs:               PDF[];
+  decks:              Deck[];
   userEmail:          string | null;
   userPlan:           string;
   isJobRunning:       boolean;
-  onStartProcessing:  (file: File, density: Density, maxQuestions: number) => void;
+  onStartProcessing:  (file: File, density: Density, maxQuestions: number, name?: string, deckId?: string | null) => void;
   onViewProcessing:   () => void;
   onOpenDeck:         (pdfId: string) => void;
 }
@@ -42,11 +43,13 @@ function fmtDate(iso: string): string {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-export default function AddView({ pdfs, userEmail, userPlan, isJobRunning, onStartProcessing, onViewProcessing, onOpenDeck }: Props) {
+export default function AddView({ pdfs, decks, userEmail, userPlan, isJobRunning, onStartProcessing, onViewProcessing, onOpenDeck }: Props) {
   const [step,         setStep]         = useState<Step>('drop');
   const [dragOver,     setDragOver]     = useState(false);
   const [search,       setSearch]       = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [customName,   setCustomName]   = useState('');
+  const [targetDeckId, setTargetDeckId] = useState<string | null>(null);
   const [analysis,     setAnalysis]     = useState<AnalyzeResult | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [density,      setDensity]      = useState<Density>('standard');
@@ -68,6 +71,7 @@ export default function AddView({ pdfs, userEmail, userPlan, isJobRunning, onSta
     try {
       const result = await analyzePdfClient(file);
       setAnalysis(result);
+      setCustomName(file.name.replace(/\.pdf$/i, ''));
       setStep('configure');
       // Default max Q to Standard's expected midpoint
       const est = result.estimates['standard'];
@@ -90,11 +94,17 @@ export default function AddView({ pdfs, userEmail, userPlan, isJobRunning, onSta
 
   function handleGenerate() {
     if (!selectedFile) return;
-    onStartProcessing(selectedFile, density, maxQEnabled ? maxQ : 0);
+    onStartProcessing(
+      selectedFile,
+      density,
+      maxQEnabled ? maxQ : 0,
+      customName.trim() || undefined,
+      targetDeckId,
+    );
   }
 
   function reset() {
-    setStep('drop'); setSelectedFile(null); setAnalysis(null); setAnalyzeError(null);
+    setStep('drop'); setSelectedFile(null); setCustomName(''); setTargetDeckId(null); setAnalysis(null); setAnalyzeError(null);
   }
 
   /* ── filtered recent PDFs ── */
@@ -156,11 +166,16 @@ export default function AddView({ pdfs, userEmail, userPlan, isJobRunning, onSta
       {step === 'configure' && selectedFile && analysis && (
         <ConfigureCard
           file={selectedFile}
+          decks={decks}
           analysis={analysis}
+          customName={customName}
+          targetDeckId={targetDeckId}
           density={density}
           maxQEnabled={maxQEnabled}
           maxQ={maxQ}
           onDensityChange={setDensity}
+          onCustomNameChange={setCustomName}
+          onTargetDeckIdChange={setTargetDeckId}
           onMaxQEnabledChange={setMaxQEnabled}
           onMaxQChange={setMaxQ}
           onGenerate={handleGenerate}
@@ -468,16 +483,21 @@ function AnalyzingCard({ name }: { name: string }) {
 // ── Configure Card ─────────────────────────────────────────────────────────────
 
 function ConfigureCard({
-  file, analysis, density, maxQEnabled, maxQ, currentEst,
-  onDensityChange, onMaxQEnabledChange, onMaxQChange, onGenerate, onReset,
+  file, decks, analysis, customName, targetDeckId, density, maxQEnabled, maxQ, currentEst,
+  onDensityChange, onCustomNameChange, onTargetDeckIdChange, onMaxQEnabledChange, onMaxQChange, onGenerate, onReset,
 }: {
   file:              File;
+  decks:             Deck[];
   analysis:          AnalyzeResult;
+  customName:        string;
+  targetDeckId:      string | null;
   density:           Density;
   maxQEnabled:       boolean;
   maxQ:              number;
   currentEst:        { questionsMin: number; questionsMax: number; timeSec: number } | undefined;
   onDensityChange:   (d: Density) => void;
+  onCustomNameChange:(s: string) => void;
+  onTargetDeckIdChange:(id: string | null) => void;
   onMaxQEnabledChange:(v: boolean) => void;
   onMaxQChange:      (n: number) => void;
   onGenerate:        () => void;
@@ -521,6 +541,51 @@ function ConfigureCard({
         >
           ✕ Change
         </button>
+      </div>
+
+      {/* Save options */}
+      <div style={{ display: 'grid', gap: '14px', marginBottom: '22px' }}>
+        <label style={{ display: 'grid', gap: '7px' }}>
+          <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
+            PDF Name
+          </span>
+          <input
+            type="text"
+            value={customName}
+            onChange={e => onCustomNameChange(e.target.value)}
+            style={{
+              width: '100%', height: '36px', padding: '0 10px',
+              borderRadius: 'var(--radius-md)', fontSize: '0.85rem',
+              background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+              color: 'var(--text-primary)', outline: 'none',
+            }}
+            onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+          />
+        </label>
+
+        <label style={{ display: 'grid', gap: '7px' }}>
+          <span style={{ fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-dim)' }}>
+            Save to Folder
+          </span>
+          <select
+            value={targetDeckId ?? ''}
+            onChange={e => onTargetDeckIdChange(e.target.value || null)}
+            style={{
+              width: '100%', height: '36px', padding: '0 10px',
+              borderRadius: 'var(--radius-md)', fontSize: '0.85rem',
+              background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+              color: 'var(--text-primary)', outline: 'none',
+            }}
+            onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+          >
+            <option value="">— No folder —</option>
+            {decks.map(deck => (
+              <option key={deck.id} value={deck.id}>{deck.name}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {/* Mode selector */}

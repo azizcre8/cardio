@@ -106,6 +106,8 @@ interface CreationState {
 interface Props {
   decks: Deck[];
   pdfs: PDF[];
+  collapsed: boolean;
+  onToggleCollapse: () => void;
   selectedDeckId: string | null;
   onSelectDeck: (id: string | null) => void;
   onCreateDeck: (parentId: string | null, name: string, isExamBlock: boolean, dueDate: string | null) => Promise<void>;
@@ -118,7 +120,7 @@ interface Props {
 }
 
 export default function LibrarySidebar({
-  decks, pdfs, selectedDeckId, onSelectDeck,
+  decks, pdfs, collapsed, onToggleCollapse, selectedDeckId, onSelectDeck,
   onCreateDeck, onRenameDeck, onDeleteDeck, onMoveDeck, onMovePdf, onShareDeck, sharedDeckIds,
 }: Props) {
   const [expanded,   setExpanded]   = useState<Set<string>>(new Set());
@@ -265,6 +267,20 @@ export default function LibrarySidebar({
   // ── Render helpers ────────────────────────────────────────────────────────
 
   const s = styles;
+
+  if (collapsed) {
+    return (
+      <aside style={s.collapsedSidebar}>
+        <button
+          title="Expand library"
+          onClick={onToggleCollapse}
+          style={s.collapseBtn}
+        >
+          ›
+        </button>
+      </aside>
+    );
+  }
 
   function renderCreationRow(parentId: string | null, depth: number) {
     if (!creating || creating.parentId !== parentId) return null;
@@ -457,7 +473,16 @@ export default function LibrarySidebar({
       {/* Header */}
       <div style={s.header}>
         <span style={s.headerLabel}>Library</span>
-        <ActionBtn title="New deck" onClick={() => startCreate(null)}>+ New</ActionBtn>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <ActionBtn title="New deck" onClick={() => startCreate(null)}>+ New</ActionBtn>
+          <button
+            title="Collapse library"
+            onClick={onToggleCollapse}
+            style={s.collapseBtn}
+          >
+            ‹
+          </button>
+        </div>
       </div>
 
       {/* All decks row */}
@@ -568,6 +593,7 @@ const styles = {
     width: '224px',
     minWidth: '224px',
     maxWidth: '224px',
+    transition: 'width 0.2s ease',
     display: 'flex',
     flexDirection: 'column' as const,
     borderRight: '1px solid var(--border)',
@@ -576,6 +602,34 @@ const styles = {
     userSelect: 'none' as const,
     position: 'relative' as const,
     outline: 'none',
+  },
+  collapsedSidebar: {
+    width: '36px',
+    minWidth: '36px',
+    maxWidth: '36px',
+    transition: 'width 0.2s ease',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRight: '1px solid var(--border)',
+    background: 'var(--bg)',
+    overflow: 'hidden',
+    userSelect: 'none' as const,
+  },
+  collapseBtn: {
+    width: 24,
+    height: 24,
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    background: 'transparent',
+    color: 'var(--text-dim)',
+    cursor: 'pointer',
+    fontSize: '1rem',
+    lineHeight: 1,
+    padding: 0,
   },
   header: {
     display: 'flex',

@@ -45,6 +45,7 @@ export default function LibraryView({
   const [search,         setSearch]         = useState('');
   const [selectedDeckId, setSelectedDeckId] = useState<string | null>(null);
   const [showJoinPanel,  setShowJoinPanel]  = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const daysLeft = examDate
     ? Math.ceil((new Date(examDate).getTime() - Date.now()) / 86_400_000)
@@ -101,6 +102,20 @@ export default function LibraryView({
   useEffect(() => {
     void refreshSharedBanksFromServer();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      setSidebarCollapsed(localStorage.getItem('cardio_sidebar_collapsed') === 'true');
+    } catch {
+      setSidebarCollapsed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('cardio_sidebar_collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   function parseSharedSlug(input: string) {
     const trimmed = input.trim();
@@ -361,8 +376,7 @@ export default function LibraryView({
 
   return (
     <div className="library-layout" style={{
-      display: 'grid',
-      gridTemplateColumns: '260px 1fr',
+      display: 'flex',
       height: 'calc(100vh - 56px)',
       overflow: 'hidden',
       position: 'relative',
@@ -380,10 +394,12 @@ export default function LibraryView({
         </div>
       )}
       {/* ── Left sidebar ── */}
-      <div className="library-sidebar-shell" style={{ borderRight: '1px solid var(--border)', overflow: 'auto' }}>
+      <div className="library-sidebar-shell" style={{ overflow: 'hidden', flexShrink: 0 }}>
         <LibrarySidebar
           decks={decks}
           pdfs={pdfs}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(v => !v)}
           selectedDeckId={selectedDeckId}
           onSelectDeck={setSelectedDeckId}
           onCreateDeck={handleCreateDeck}
@@ -397,7 +413,7 @@ export default function LibraryView({
       </div>
 
       {/* ── Center panel ── */}
-      <div className="library-center" style={{ overflow: 'auto' }}>
+      <div className="library-center" style={{ overflow: 'auto', flex: 1, minWidth: 0 }}>
         {joinedBankNotice ? (
           <JoinedBankPanel
             notice={joinedBankNotice}

@@ -7,6 +7,7 @@ type SortKey = 'flags' | 'difficulty' | 'discrimination' | 'attempts' | 'time';
 
 interface Props {
   pdfs: PDF[];
+  userEmail: string | null;
 }
 
 function difficultyColor(d: number): string {
@@ -30,7 +31,7 @@ function formatMs(ms: number) {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export default function QuestionStatsView({ pdfs }: Props) {
+export default function QuestionStatsView({ pdfs, userEmail }: Props) {
   const processedPdfs = pdfs.filter(p => p.processed_at != null);
 
   const [selectedPdfId, setSelectedPdfId] = useState<string | null>(
@@ -40,8 +41,10 @@ export default function QuestionStatsView({ pdfs }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
   const [sortBy, setSortBy]   = useState<SortKey>('flags');
+  const [search, setSearch]   = useState('');
 
   useEffect(() => {
+    if (userEmail !== 'sajedsamiraziz@gmail.com') { setRows([]); return; }
     if (!selectedPdfId) { setRows([]); return; }
     setLoading(true);
     setError(null);
@@ -56,7 +59,7 @@ export default function QuestionStatsView({ pdfs }: Props) {
       })
       .catch(() => setError('Failed to load question stats.'))
       .finally(() => setLoading(false));
-  }, [selectedPdfId]);
+  }, [selectedPdfId, userEmail]);
 
   const sorted = [...rows].sort((a, b) => {
     switch (sortBy) {
@@ -68,6 +71,16 @@ export default function QuestionStatsView({ pdfs }: Props) {
       default:               return 0;
     }
   });
+
+  const visible = sorted.filter(r => !search.trim() || r.stem.toLowerCase().includes(search.toLowerCase()));
+
+  if (userEmail !== 'sajedsamiraziz@gmail.com') {
+    return (
+      <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-dim)', fontSize: '0.85rem' }}>
+        Q·Stats is only available to administrators.
+      </div>
+    );
+  }
 
   const SORT_TABS: { key: SortKey; label: string }[] = [
     { key: 'flags',          label: 'Flags' },
@@ -98,22 +111,45 @@ export default function QuestionStatsView({ pdfs }: Props) {
         </div>
 
         {processedPdfs.length > 0 ? (
-          <select
-            value={selectedPdfId ?? ''}
-            onChange={e => setSelectedPdfId(e.target.value || null)}
-            style={{
-              fontSize: '0.8rem', fontFamily: 'var(--font-sans)',
-              padding: '6px 10px', borderRadius: 'var(--r2)',
-              border: '1px solid var(--border)', background: 'var(--bg-raised)',
-              color: 'var(--text-primary)', cursor: 'pointer', maxWidth: 320,
-            }}
-          >
-            {processedPdfs.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.display_name ?? p.name}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ position: 'relative' }}>
+              <svg style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', pointerEvents: 'none' }}
+                width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <circle cx="8.5" cy="8.5" r="5.5" /><line x1="13" y1="13" x2="17.5" y2="17.5" />
+              </svg>
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search questions…"
+                style={{
+                  width: 240, height: 32, paddingLeft: 28, paddingRight: 10,
+                  borderRadius: 'var(--r2)', fontSize: '0.8rem',
+                  background: 'var(--bg-sunken)', border: '1px solid var(--border)',
+                  color: 'var(--text-primary)', outline: 'none',
+                }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+              />
+            </div>
+            <select
+              value={selectedPdfId ?? ''}
+              onChange={e => setSelectedPdfId(e.target.value || null)}
+              style={{
+                height: 32,
+                fontSize: '0.8rem', fontFamily: 'var(--font-sans)',
+                padding: '6px 10px', borderRadius: 'var(--r2)',
+                border: '1px solid var(--border)', background: 'var(--bg-raised)',
+                color: 'var(--text-primary)', cursor: 'pointer', maxWidth: 320,
+              }}
+            >
+              {processedPdfs.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.display_name ?? p.name}
+                </option>
+              ))}
+            </select>
+          </div>
         ) : (
           <span style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>No processed PDFs</span>
         )}
@@ -142,6 +178,12 @@ export default function QuestionStatsView({ pdfs }: Props) {
         ))}
       </div>
 
+      {search.trim() !== '' && (
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: -8, marginBottom: 14 }}>
+          {visible.length} of {sorted.length} questions
+        </div>
+      )}
+
       {/* Body */}
       {!selectedPdfId && (
         <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'center', padding: '60px 0' }}>
@@ -167,7 +209,13 @@ export default function QuestionStatsView({ pdfs }: Props) {
         </p>
       )}
 
-      {!loading && !error && sorted.length > 0 && (
+      {selectedPdfId && !loading && !error && sorted.length > 0 && visible.length === 0 && (
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'center', padding: '60px 0' }}>
+          No questions match "{search}".
+        </p>
+      )}
+
+      {!loading && !error && visible.length > 0 && (
         <div style={{ overflowX: 'auto' }}>
           <table style={{
             width: '100%', borderCollapse: 'collapse',
@@ -192,7 +240,7 @@ export default function QuestionStatsView({ pdfs }: Props) {
               </tr>
             </thead>
             <tbody>
-              {sorted.map((row, i) => {
+              {visible.map((row, i) => {
                 const hasFlags = row.flag_count > 0;
                 return (
                   <tr
@@ -312,7 +360,7 @@ export default function QuestionStatsView({ pdfs }: Props) {
       )}
 
       {/* Legend */}
-      {!loading && !error && sorted.length > 0 && (
+      {!loading && !error && visible.length > 0 && (
         <div style={{
           marginTop: 20, padding: '12px 16px', borderRadius: 'var(--r2)',
           border: '1px solid var(--border)', background: 'var(--bg-raised)',
