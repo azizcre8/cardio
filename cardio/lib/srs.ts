@@ -6,7 +6,7 @@
  * - `buildQueue` accepts pre-computed mastery data + concepts instead of reading
  *   from localStorage, since the server has no localStorage.
  *
- * DO NOT modify the SM-2 formula or the queue-building logic.
+ * DO NOT modify the SM-2 formula.
  */
 
 import type { Question, Concept, MasteryData, StudyQueueItem } from '@/types';
@@ -142,7 +142,9 @@ export function pickSibling(
   return siblings[0];
 }
 
-// ─── buildQueue (verbatim from HTML — data sources parameterised) ─────────────
+// ─── buildQueue (adapted from HTML — data sources parameterised) ──────────────
+
+const MAX_SRS_DUE_ITEMS = 200;
 
 export function buildQueue(
   questions:   Question[],
@@ -166,12 +168,20 @@ export function buildQueue(
   // Exam urgency: shift priorities when exam is close
   const daysLeft = examDate ? Math.ceil((examDate.getTime() - now.getTime()) / 86_400_000) : 60;
   const cramMode = daysLeft <= 3;
-  const srsSlots = Math.floor(limit * (cramMode ? 0.6 : 0.4));
+  let queueLimit = limit;
+  let srsSlots = Math.floor(limit * (cramMode ? 0.6 : 0.4));
+
+  const dueItems = questions
+    .filter(q => (q.times_reviewed ?? 0) > 0 && new Date(q.next_review ?? 0) <= now)
+    .sort((a, b) => new Date(a.next_review ?? 0).getTime() - new Date(b.next_review ?? 0).getTime());
+
+  if (dueItems.length > srsSlots) {
+    srsSlots = Math.min(dueItems.length, MAX_SRS_DUE_ITEMS);
+    queueLimit = Math.max(queueLimit, srsSlots + 20);
+  }
 
   // 1. SRS due items — show a sibling question (different angle, same concept)
-  questions
-    .filter(q => (q.times_reviewed ?? 0) > 0 && new Date(q.next_review ?? 0) <= now)
-    .sort((a, b) => new Date(a.next_review ?? 0).getTime() - new Date(b.next_review ?? 0).getTime())
+  dueItems
     .slice(0, srsSlots)
     .forEach(dueQ => {
       const sibling = pickSibling(dueQ, questions, addedIds);
@@ -228,7 +238,7 @@ export function buildQueue(
   }
 
   // 3. Fill remainder: new questions, high-yield first (skip mastered concepts)
-  if (queue.length < limit) {
+  if (queue.length < queueLimit) {
     const newQs = questions
       .filter(q => (q.times_reviewed ?? 0) === 0 && !addedIds.has(q.id))
       .filter(q => {
@@ -240,12 +250,12 @@ export function buildQueue(
         const cb = concepts.find(c => c.id === b.concept_id);
         return (impRank[cb?.importance ?? 'low'] ?? 1) - (impRank[ca?.importance ?? 'low'] ?? 1);
       });
-    newQs.slice(0, limit - queue.length).forEach(q => add(q, { _bucket: 'new' }));
+    newQs.slice(0, queueLimit - queue.length).forEach(q => add(q, { _bucket: 'new' }));
   }
 
   // Stratified shuffle: randomise within each bucket, preserve bucket priority order
   const buckets: StudyQueueItem['_bucket'][] = ['srs', 'weak', 'medium', 'new'];
   const result: StudyQueueItem[] = [];
   buckets.forEach(b => result.push(...shuffle(queue.filter(q => q._bucket === b))));
-  return result.slice(0, limit);
+  return result.slice(0, queueLimit);
 }

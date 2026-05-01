@@ -26,6 +26,9 @@ export default function AppPage() {
   const [sharedSlug, setSharedSlug] = useState<string | null>(null);
   const [joinedBankNotice, setJoinedBankNotice] = useState<JoinedSharedBankNotice | null>(null);
   const handledSharedSlug = useRef<string | null>(null);
+  const hasHydratedUrl = useRef(false);
+  const skipNextUrlWrite = useRef(false);
+  const isApplyingHistoryNavigation = useRef(false);
   const { pdfs, setPdfs, refreshPdfs, decks, setDecks, examDate, setExamDate, userId, userEmail, userPlan } = useUserLibraryData();
   const { darkMode, toggleDark } = useThemePreference();
   const setAppView = useCallback((next: AppView) => setView(next), []);
@@ -44,14 +47,19 @@ export default function AppPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  useEffect(() => {
+  const applyViewFromUrl = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
     const urlView = params.get('view');
     if (urlView && APP_VIEWS.includes(urlView as AppView)) setView(urlView as AppView);
+    else setView('library');
     const pdfId = params.get('pdfId');
     const deckId = params.get('deckId');
+    setConceptMapPdfId(pdfId);
+    setQuizPdfId(null);
+    setQuizSharedBankSlug(null);
+    setQuizDeckId(null);
+    setStudyScope(null);
     if (pdfId) {
-      setConceptMapPdfId(pdfId);
       if (urlView === 'quiz') setQuizPdfId(pdfId);
     }
     if (urlView === 'study') {
@@ -67,6 +75,22 @@ export default function AppPage() {
   }, []);
 
   useEffect(() => {
+    applyViewFromUrl();
+    hasHydratedUrl.current = true;
+    skipNextUrlWrite.current = true;
+
+    function onPopState() {
+      isApplyingHistoryNavigation.current = true;
+      applyViewFromUrl();
+    }
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [applyViewFromUrl]);
+
+  useEffect(() => {
+    if (!hasHydratedUrl.current) return;
+
     const params = new URLSearchParams(window.location.search);
     params.set('view', view);
     const pdfId = view === 'quiz'
@@ -86,7 +110,21 @@ export default function AppPage() {
     if (view === 'quiz' && quizDeckId) params.set('deckId', quizDeckId);
     else if (view === 'study' && studyScope?.type === 'deck') params.set('deckId', studyScope.id);
     else params.delete('deckId');
-    window.history.replaceState(null, '', `/app?${params.toString()}`);
+
+    const nextUrl = `/app?${params.toString()}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}`;
+    if (currentUrl === nextUrl) {
+      isApplyingHistoryNavigation.current = false;
+      return;
+    }
+
+    if (skipNextUrlWrite.current || isApplyingHistoryNavigation.current) {
+      skipNextUrlWrite.current = false;
+      isApplyingHistoryNavigation.current = false;
+      return;
+    }
+
+    window.history.pushState(null, '', nextUrl);
   }, [conceptMapPdfId, quizDeckId, quizPdfId, quizSharedBankSlug, studyScope, view]);
 
   /* ── Navigation helpers ── */
