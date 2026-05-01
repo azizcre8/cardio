@@ -5,6 +5,17 @@ Converts uploaded PDFs into spaced-repetition question banks.
 
 ---
 
+## JSX — Critical Rule
+
+**Never write literal `"` or `'` inside JSX text content.** Use HTML entities instead:
+- `"` → `&quot;`
+- `'` → `&apos;`
+- `>` → `&gt;`
+
+ESLint (`react/no-unescaped-entities`) treats bare quotes in JSX as **errors** and will break the Vercel build.
+
+---
+
 ## Dev Server — Critical Rule
 
 **Never start a dev server manually from a terminal.**  

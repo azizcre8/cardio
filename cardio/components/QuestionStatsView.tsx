@@ -211,7 +211,7 @@ export default function QuestionStatsView({ pdfs, userEmail }: Props) {
 
       {selectedPdfId && !loading && !error && sorted.length > 0 && visible.length === 0 && (
         <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', textAlign: 'center', padding: '60px 0' }}>
-          No questions match "{search}".
+          No questions match &quot;{search}&quot;.
         </p>
       )}
 
