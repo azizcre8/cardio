@@ -12,6 +12,7 @@ import type {
   LibraryDashboardResponse,
   StudyScopeType,
 } from '@/types';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import LibrarySidebar, { buildDeckTree, descendantIds, findExamDeadline } from './LibrarySidebar';
 import { Eyebrow, Icon, Btn } from './ui';
 
@@ -123,15 +124,15 @@ export default function LibraryView({
     try {
       const url = new URL(trimmed, window.location.origin);
       const querySlug = url.searchParams.get('shared') ?? url.searchParams.get('join');
-      if (querySlug) return querySlug;
+      if (querySlug) return normalizeSharedBankSlug(querySlug) ?? '';
       const pathSlug = url.pathname.match(/^\/s\/([^/]+)/)?.[1];
-      return pathSlug ? decodeURIComponent(pathSlug) : trimmed;
+      return normalizeSharedBankSlug(pathSlug ?? trimmed) ?? '';
     } catch {
-      return trimmed
+      return normalizeSharedBankSlug(trimmed
         .replace(/^\/+s\//, '')
         .replace(/^\/+/, '')
         .replace(/^app\?(shared|join)=/, '')
-        .trim();
+        .trim()) ?? '';
     }
   }
 
@@ -220,42 +221,18 @@ export default function LibraryView({
     onDecksChange(decks.map(d => d.id === id ? { ...d, parent_id: newParentId } : d));
   }
 
-  function getSharedBankQuestionCount(bank?: SharedBank | null) {
-    return bank?.source_pdfs?.reduce((sum, pdf) => sum + (pdf.question_count ?? 0), 0) ?? 0;
-  }
-
-  function getSharedBankSourceCount(bank?: SharedBank | null) {
-    return bank?.source_pdfs?.length ?? 0;
-  }
-
-  function buildShareText(title: string, questionCount: number, sourceCount: number) {
-    const stats = [
-      questionCount > 0 ? `${questionCount.toLocaleString()} question${questionCount === 1 ? '' : 's'}` : null,
-      sourceCount > 0 ? `from ${sourceCount.toLocaleString()} source${sourceCount === 1 ? '' : 's'}` : null,
-    ].filter(Boolean).join(' ');
-
-    return stats
-      ? `${title}: ${stats} on Cardio.`
-      : `${title}: shared question bank on Cardio.`;
-  }
-
   async function shareSharedBankLink({
     url,
     title,
-    questionCount = 0,
-    sourceCount = 0,
   }: {
     url: string;
     title: string;
-    questionCount?: number;
-    sourceCount?: number;
   }) {
     const shareTitle = `${title} · Cardio`;
-    const text = buildShareText(title, questionCount, sourceCount);
 
     if (typeof navigator.share === 'function') {
       try {
-        await navigator.share({ title: shareTitle, text, url });
+        await navigator.share({ title: shareTitle, url });
         return 'Shared.';
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return null;
@@ -278,8 +255,6 @@ export default function LibraryView({
     const shareStatus = await shareSharedBankLink({
       url: data.shareUrl,
       title: data.bank?.title ?? (fallbackPdf ? getPdfDisplayName(fallbackPdf) : 'Shared question bank'),
-      questionCount: getSharedBankQuestionCount(data.bank) || fallbackPdf?.question_count || 0,
-      sourceCount: getSharedBankSourceCount(data.bank) || 1,
     });
     if (shareStatus) setShareToast(shareStatus);
     await refreshPdfsFromServer();
@@ -297,8 +272,6 @@ export default function LibraryView({
       const shareStatus = await shareSharedBankLink({
         url: shareUrl,
         title: existingBank.title,
-        questionCount: getSharedBankQuestionCount(existingBank),
-        sourceCount: getSharedBankSourceCount(existingBank),
       });
       if (shareStatus) {
         setFolderShareStatus(shareStatus === 'Shared.' ? 'Shared.' : 'Link copied!');
@@ -326,10 +299,6 @@ export default function LibraryView({
     const shareStatus = await shareSharedBankLink({
       url: data.shareUrl,
       title: data.bank?.title ?? selectedDeck?.name ?? 'Shared question bank',
-      questionCount: getSharedBankQuestionCount(data.bank) || pdfs
-        .filter(pdf => pdf.deck_id === deckId)
-        .reduce((sum, pdf) => sum + (pdf.question_count ?? 0), 0),
-      sourceCount: getSharedBankSourceCount(data.bank) || pdfs.filter(pdf => pdf.deck_id === deckId).length,
     });
     await refreshSharedBanksFromServer();
     if (shareStatus) {

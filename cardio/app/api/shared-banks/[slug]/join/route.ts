@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import { addSharedBankMember, getSharedBankBySlug } from '@/lib/storage';
 import { supabaseAdmin } from '@/lib/supabase';
 import { getSharedBankSources } from '@/lib/shared-banks';
@@ -14,7 +15,10 @@ export async function POST(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const bank = await getSharedBankBySlug(params.slug);
+  const slug = normalizeSharedBankSlug(params.slug);
+  if (!slug) return jsonNotFound('Shared bank not found');
+
+  const bank = await getSharedBankBySlug(slug);
   if (!bank || !bank.is_active) return jsonNotFound('Shared bank not found');
 
   if (bank.owner_user_id !== auth.userId) {

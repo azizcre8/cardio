@@ -5,6 +5,7 @@ import {
   buildSharedBankQuizPath,
   getJoinSlugFromAuthNext,
   normalizeJoinSlug,
+  normalizeSharedBankSlug,
   sanitizeAuthNextPath,
 } from '@/lib/join-intent';
 
@@ -28,5 +29,12 @@ describe('join intent helpers', () => {
     expect(sanitizeAuthNextPath('//evil.example/app?join=preassigned-cardio')).toBe('/app');
     expect(getJoinSlugFromAuthNext('/app?join=bad/slug')).toBeNull();
     expect(normalizeJoinSlug('bad slug')).toBeNull();
+  });
+
+  it('recovers the canonical slug from malformed shared links', () => {
+    expect(normalizeSharedBankSlug('preassinged-readings Preassigned Readings: 917 questions from 12 sources on Cardio'))
+      .toBe('preassinged-readings');
+    expect(normalizeSharedBankSlug('preassinged-readings%20Preassigned%20Readings%3A%20917%20questions'))
+      .toBe('preassinged-readings');
   });
 });

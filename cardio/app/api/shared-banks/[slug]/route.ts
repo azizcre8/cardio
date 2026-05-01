@@ -1,5 +1,6 @@
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonNotFound, jsonOk } from '@/lib/api';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import { getSharedBankSources } from '@/lib/shared-banks';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { SharedBank } from '@/types';
@@ -13,10 +14,13 @@ export async function GET(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
+  const slug = normalizeSharedBankSlug(params.slug);
+  if (!slug) return jsonNotFound('Shared bank not found');
+
   const { data: bankRow } = await auth.supabase
     .from('shared_banks')
     .select('*')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .eq('is_active', true)
     .single();
 
@@ -50,10 +54,13 @@ export async function DELETE(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
+  const slug = normalizeSharedBankSlug(params.slug);
+  if (!slug) return jsonNotFound('Shared bank not found');
+
   const { data: bankRow, error: bankError } = await auth.supabase
     .from('shared_banks')
     .select('id, owner_user_id')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .single();
 
   if (bankError || !bankRow) return jsonNotFound('Shared bank not found');
@@ -69,5 +76,5 @@ export async function DELETE(
 
   if (updateError) return jsonError(updateError.message);
 
-  return jsonOk({ revoked: true, slug: params.slug });
+  return jsonOk({ revoked: true, slug });
 }

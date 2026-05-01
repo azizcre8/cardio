@@ -5,6 +5,7 @@
 import { NextRequest } from 'next/server';
 import { requireUser } from '@/lib/auth';
 import { jsonError, jsonNotFound, jsonOk, jsonUnauthorized } from '@/lib/api';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import { getSharedBankBySlug } from '@/lib/storage';
 import { getSharedBankSources } from '@/lib/shared-banks';
 import { supabaseAdmin } from '@/lib/supabase';
@@ -33,7 +34,10 @@ export async function GET(
   const auth = await requireUser();
   if (!auth.ok) return auth.response;
 
-  const bank = await getSharedBankBySlug(params.slug);
+  const slug = normalizeSharedBankSlug(params.slug);
+  if (!slug) return jsonNotFound('Shared bank not found');
+
+  const bank = await getSharedBankBySlug(slug);
   if (!bank || !bank.is_active) return jsonNotFound('Shared bank not found');
 
   const canStudy = await canStudySharedBank(bank.id, bank.owner_user_id, auth.userId, bank.visibility);

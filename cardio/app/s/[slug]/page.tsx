@@ -3,12 +3,14 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { Metadata } from 'next';
 import { supabaseServerComponent } from '@/lib/supabase';
 import { getSharedBankPreviewData } from '@/lib/shared-bank-preview';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import JoinSection from './JoinSection';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const preview = await getSharedBankPreviewData(params.slug);
+  const slug = normalizeSharedBankSlug(params.slug) ?? params.slug;
+  const preview = await getSharedBankPreviewData(slug);
 
   if (!preview) {
     return {
@@ -50,7 +52,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function SharedBankLandingPage({ params }: { params: { slug: string } }) {
   noStore();
 
-  const preview = await getSharedBankPreviewData(params.slug);
+  const slug = normalizeSharedBankSlug(params.slug) ?? params.slug;
+
+  const preview = await getSharedBankPreviewData(slug);
   if (!preview) notFound();
   const { bank, memberCount, pageCount, questionCount } = preview;
   const sourcePdfs = bank.source_pdfs;
@@ -170,7 +174,7 @@ export default async function SharedBankLandingPage({ params }: { params: { slug
           </div>
         )}
 
-        <JoinSection slug={params.slug} isDeckBank={isDeckBank} questionCount={questionCount} />
+        <JoinSection slug={slug} isDeckBank={isDeckBank} questionCount={questionCount} />
       </div>
 
       {/* Owner panel */}

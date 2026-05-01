@@ -1,4 +1,5 @@
 import { env } from '@/lib/env';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import { getSharedBankSources, type SharedBankWithSources } from '@/lib/shared-banks';
 import { supabaseAdmin } from '@/lib/supabase';
 import type { SharedBank } from '@/types';
@@ -51,10 +52,13 @@ export function buildSharedBankImageUrl(slug: string) {
 }
 
 export async function getSharedBankPreviewData(slug: string): Promise<SharedBankPreviewData | null> {
+  const normalizedSlug = normalizeSharedBankSlug(slug);
+  if (!normalizedSlug) return null;
+
   const { data: bankRow, error: bankError } = await supabaseAdmin
     .from('shared_banks')
     .select('*')
-    .eq('slug', slug)
+    .eq('slug', normalizedSlug)
     .eq('is_active', true)
     .maybeSingle();
 

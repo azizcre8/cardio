@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { normalizeSharedBankSlug } from '@/lib/join-intent';
 import { getSharedBankPreviewData } from '@/lib/shared-bank-preview';
 
 export const alt = 'Cardio shared question bank';
@@ -17,7 +18,8 @@ function clampTitle(title: string) {
 }
 
 export default async function Image({ params }: { params: { slug: string } }) {
-  const preview = await getSharedBankPreviewData(params.slug);
+  const slug = normalizeSharedBankSlug(params.slug) ?? params.slug;
+  const preview = await getSharedBankPreviewData(slug);
   const bankTitle = preview?.bank.title ?? 'Shared Question Bank';
   const questionCount = preview?.questionCount ?? 0;
   const sourceCount = preview?.sourceCount ?? 0;
