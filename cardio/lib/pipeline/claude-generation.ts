@@ -19,6 +19,7 @@ type RawClaudeQuestion = {
 };
 
 const TOKENS_PER_SEGMENT = 140_000;
+const TARGET_QUESTIONS_PER_COVERAGE_SEGMENT = 20;
 const DISCARD_FLAG_REASONS = new Set([
   'QUOTE_NOT_FOUND',
   'SOURCE_QUOTE_INVALID',
@@ -508,6 +509,80 @@ function extractSections(text: string): Array<{ heading: string; content: string
     .filter(section => section.heading && section.content);
 }
 
+function groupTextsIntoCoverageSegments(texts: string[], desiredSegmentCount: number): string[] {
+  if (desiredSegmentCount <= 1 || texts.length <= 1) return [texts.join('\n\n')].filter(Boolean);
+
+  const tokenCounts = texts.map(text => Math.max(1, estimateTokens(text)));
+  const targetTokensPerSegment = tokenCounts.reduce((sum, tokens) => sum + tokens, 0) / desiredSegmentCount;
+  const segments: string[] = [];
+  let current: string[] = [];
+  let currentTokens = 0;
+
+  texts.forEach((text, index) => {
+    const tokens = tokenCounts[index] ?? 1;
+    if (
+      current.length > 0 &&
+      segments.length < desiredSegmentCount - 1 &&
+      currentTokens + tokens > targetTokensPerSegment * 1.15
+    ) {
+      segments.push(current.join('\n\n'));
+      current = [];
+      currentTokens = 0;
+    }
+
+    current.push(text);
+    currentTokens += tokens;
+  });
+
+  if (current.length) segments.push(current.join('\n\n'));
+  return segments.length ? segments : [texts.join('\n\n')].filter(Boolean);
+}
+
+function splitTextEvenly(text: string, desiredSegmentCount: number): string[] {
+  if (desiredSegmentCount <= 1) return [text];
+
+  const segmentLength = Math.ceil(text.length / desiredSegmentCount);
+  const segments: string[] = [];
+  let start = 0;
+  while (start < text.length && segments.length < desiredSegmentCount) {
+    const isLast = segments.length === desiredSegmentCount - 1;
+    let end = isLast ? text.length : Math.min(text.length, start + segmentLength);
+    const boundary = text.slice(end, Math.min(text.length, end + 500)).search(/(?<=[.!?])\s+/);
+    if (!isLast && boundary > 0) end += boundary + 1;
+    const segment = text.slice(start, end).trim();
+    if (segment) segments.push(segment);
+    start = end;
+  }
+
+  return segments.length ? segments : [text];
+}
+
+function splitTextIntoCoverageSegments(pdfText: string, targetCount: number): string[] {
+  const totalTokens = estimateTokens(pdfText);
+  if (totalTokens > TOKENS_PER_SEGMENT) return splitTextIntoSegments(pdfText);
+
+  const desiredSegmentCount = Math.max(1, Math.ceil(targetCount / TARGET_QUESTIONS_PER_COVERAGE_SEGMENT));
+  if (desiredSegmentCount <= 1) return [pdfText];
+
+  const sections = extractSections(pdfText);
+  if (sections.length >= 2) {
+    return groupTextsIntoCoverageSegments(
+      sections.map(section => section.content),
+      Math.min(sections.length, desiredSegmentCount),
+    );
+  }
+
+  const paragraphs = pdfText.split(/\n{2,}/).map(paragraph => paragraph.trim()).filter(Boolean);
+  if (paragraphs.length >= 2) {
+    return groupTextsIntoCoverageSegments(
+      paragraphs,
+      Math.min(paragraphs.length, desiredSegmentCount),
+    );
+  }
+
+  return splitTextEvenly(pdfText, desiredSegmentCount);
+}
+
 function allocateTargetsByTokens(texts: string[], targetCount: number): number[] {
   if (!texts.length || targetCount <= 0) return [];
 
@@ -820,13 +895,10 @@ export async function generateQuestionsWithClaude(
   onProgress?: (msg: string) => void,
   requestStartMs?: number,
 ): Promise<{ questions: Question[]; costUSD: number }> {
-  const totalTokens = estimateTokens(pdfText);
-  // A normal chapter already fits in one Claude context. Splitting that text by
-  // headings made sections run serially under the global deadline, so 20-page
-  // chapters could stop after the first completed sections and save ~20 items.
-  const segments = totalTokens <= TOKENS_PER_SEGMENT
-    ? [pdfText]
-    : splitTextIntoSegments(pdfText);
+  // Bound normal chapters to a few coverage segments. Raw heading sections made
+  // too many serial calls, while one full-document segment made same-prompt
+  // batches duplicate each other and get collapsed by dedup.
+  const segments = splitTextIntoCoverageSegments(pdfText, targetCount);
   if (!segments.length || segments.every(s => !s.trim())) {
     throw new Error('No text segments to generate questions from');
   }
