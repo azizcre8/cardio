@@ -119,7 +119,7 @@ describe('Claude generation source guards', () => {
     expect(question.flag_reason).toBe('SOURCE_QUOTE_INVALID');
   });
 
-  it('does not reject generated questions solely because the source quote could not be matched', () => {
+  it('rejects generated questions when the source quote cannot be verified', () => {
     const question = toQuestion(
       {
         level: 2,
@@ -135,8 +135,8 @@ describe('Claude generation source guards', () => {
       'user-1',
     );
 
-    expect(question.flag_reason).toBeNull();
-    expect(question.flagged).toBe(false);
+    expect(question.flag_reason).toBe('QUOTE_NOT_FOUND');
+    expect(question.flagged).toBe(true);
     expect(question.evidence_match_type).toBe('none');
   });
 

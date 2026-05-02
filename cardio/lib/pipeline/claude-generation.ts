@@ -837,7 +837,9 @@ export function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: strin
     ? 'SOURCE_STEM_COPY'
     : sourceQuoteShapeIssue && isFatalSourceQuoteShapeIssue(sourceQuoteShapeIssue)
       ? 'SOURCE_QUOTE_INVALID'
-      : null;
+      : evidenceResult.evidenceMatchType === 'none' && !isCalculation
+        ? 'QUOTE_NOT_FOUND'
+        : null;
   if (sourceFlagReason) {
     flagged = true;
     flagReason = sourceFlagReason;
