@@ -22,8 +22,9 @@ const TOKENS_PER_SEGMENT = 140_000;
 const TARGET_QUESTIONS_PER_COVERAGE_SEGMENT = 20;
 const SEGMENT_GENERATION_CONCURRENCY = 2;
 const DISCARD_FLAG_REASONS = new Set([
-  'QUOTE_NOT_FOUND',
-  'SOURCE_QUOTE_INVALID',
+  // Evidence validation failures should reduce accepted-quality counts, not
+  // delete most of a chapter's generated bank. Only source-copied stems are
+  // unrecoverable because they duplicate embedded textbook/practice questions.
   'SOURCE_STEM_COPY',
 ]);
 
