@@ -821,10 +821,11 @@ export async function generateQuestionsWithClaude(
   requestStartMs?: number,
 ): Promise<{ questions: Question[]; costUSD: number }> {
   const totalTokens = estimateTokens(pdfText);
-  const singleSegmentSections = totalTokens <= TOKENS_PER_SEGMENT ? extractSections(pdfText) : [];
-  const useSections = singleSegmentSections.length >= 2;
+  // A normal chapter already fits in one Claude context. Splitting that text by
+  // headings made sections run serially under the global deadline, so 20-page
+  // chapters could stop after the first completed sections and save ~20 items.
   const segments = totalTokens <= TOKENS_PER_SEGMENT
-    ? (useSections ? singleSegmentSections.map(section => section.content) : [pdfText])
+    ? [pdfText]
     : splitTextIntoSegments(pdfText);
   if (!segments.length || segments.every(s => !s.trim())) {
     throw new Error('No text segments to generate questions from');
@@ -846,12 +847,7 @@ export async function generateQuestionsWithClaude(
     const segmentTarget = segmentTargets[i] ?? 0;
     if (segmentTarget <= 0 || !segment.trim()) continue;
 
-    const section = useSections ? singleSegmentSections[i] : null;
-    onProgress?.(
-      section
-        ? `Generating questions for section ${i + 1}/${segments.length}: ${section.heading}…`
-        : `Generating questions for segment ${i + 1}/${segments.length}…`,
-    );
+    onProgress?.(`Generating questions for segment ${i + 1}/${segments.length}…`);
 
     const l3Target = segmentTarget >= 2 ? Math.max(1, Math.round(segmentTarget * 0.45)) : 0;
     const l1l2Target = Math.max(0, segmentTarget - l3Target);
