@@ -176,10 +176,22 @@ export function useQuizProgressPersistence({
   rated: Record<number, boolean>;
   resumeAvailable: boolean;
 }) {
+  const latestRef = useRef({ sourceKey, questions, answers, idx, rated, resumeAvailable });
+  latestRef.current = { sourceKey, questions, answers, idx, rated, resumeAvailable };
+
   useEffect(() => {
     if (!questions.length || answers.length !== questions.length || idx >= questions.length || resumeAvailable) return;
     saveQuizProgress(sourceKey, { idx, answers, rated, questionIds: questions.map(q => q.id) });
   }, [answers, idx, questions, rated, resumeAvailable, sourceKey]);
+
+  // Save on unmount so navigating to another tab does not lose in-flight state
+  useEffect(() => {
+    return () => {
+      const s = latestRef.current;
+      if (!s.questions.length || s.answers.length !== s.questions.length || s.idx >= s.questions.length || s.resumeAvailable) return;
+      saveQuizProgress(s.sourceKey, { idx: s.idx, answers: s.answers, rated: s.rated, questionIds: s.questions.map(q => q.id) });
+    };
+  }, []);
 
   function clearProgress() {
     clearQuizProgress(sourceKey);
