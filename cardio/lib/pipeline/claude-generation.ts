@@ -201,6 +201,10 @@ function shouldDiscardGeneratedQuestion(question: Question): boolean {
   return question.flag_reason !== null && DISCARD_FLAG_REASONS.has(question.flag_reason);
 }
 
+function isFatalSourceQuoteShapeIssue(issue: string): boolean {
+  return /multiple-choice option list|test question stem/i.test(issue);
+}
+
 function stripMarkdownFence(text: string): string {
   const trimmed = text.trim();
   const withoutOpen = trimmed.replace(/^```[a-z]*\s*/i, '');
@@ -831,11 +835,9 @@ export function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: strin
   const sourceQuoteShapeIssue = sourceQuote ? validateSourceQuoteShape(sourceQuote) : null;
   const sourceFlagReason = isStemCopiedFromSourceText(stem, pdfText)
     ? 'SOURCE_STEM_COPY'
-    : sourceQuoteShapeIssue
+    : sourceQuoteShapeIssue && isFatalSourceQuoteShapeIssue(sourceQuoteShapeIssue)
       ? 'SOURCE_QUOTE_INVALID'
-      : evidenceResult.evidenceMatchType === 'none' && !isCalculation
-        ? 'QUOTE_NOT_FOUND'
-        : null;
+      : null;
   if (sourceFlagReason) {
     flagged = true;
     flagReason = sourceFlagReason;
@@ -857,7 +859,6 @@ export function toQuestion(raw: RawClaudeQuestion, pdfText: string, pdfId: strin
   const medianOptionLength = median(optionLengths);
   if (medianOptionLength > 0 && wordCount(correctOption) > medianOptionLength * 1.4) {
     optionSetFlags = ['LENGTH_TELL'];
-    flagged = true;
   }
 
   return {

@@ -118,4 +118,51 @@ describe('Claude generation source guards', () => {
     expect(question.flagged).toBe(true);
     expect(question.flag_reason).toBe('SOURCE_QUOTE_INVALID');
   });
+
+  it('does not reject generated questions solely because the source quote could not be matched', () => {
+    const question = toQuestion(
+      {
+        level: 2,
+        topic: 'Venous return',
+        stem: 'Which mechanism helps preserve venous return during acute blood loss?',
+        options: ['Venoconstriction', 'Reduced heart rate', 'Lowered sympathetic tone', 'Arteriolar dilation'],
+        answer: 0,
+        source_quote: 'Sympathetic activation tightens veins and helps shift blood volume toward the heart during hemorrhage.',
+        explanation: 'Venoconstriction that mobilizes venous reservoir blood toward the heart during hemorrhage is correct because it preserves preload. Reduced heart rate and arteriolar dilation would not preserve venous return.',
+      },
+      'During hemorrhage, sympathetic stimulation can constrict veins and move blood from the venous reservoir toward the central circulation.',
+      'pdf-1',
+      'user-1',
+    );
+
+    expect(question.flag_reason).toBeNull();
+    expect(question.flagged).toBe(false);
+    expect(question.evidence_match_type).toBe('none');
+  });
+
+  it('stores length-tell warnings without marking the question rejected', () => {
+    const question = toQuestion(
+      {
+        level: 2,
+        topic: 'Venous return',
+        stem: 'Which mechanism helps preserve venous return during acute blood loss?',
+        options: [
+          'Venoconstriction that mobilizes venous reservoir blood toward the heart during hemorrhage',
+          'Reduced heart rate',
+          'Lowered sympathetic tone',
+          'Arteriolar dilation',
+        ],
+        answer: 0,
+        source_quote: 'During hemorrhage, sympathetic stimulation can constrict veins and move blood toward the central circulation.',
+        explanation: 'Venoconstriction that mobilizes venous reservoir blood toward the heart during hemorrhage is correct because it preserves preload. Reduced heart rate and arteriolar dilation would not preserve venous return.',
+      },
+      'During hemorrhage, sympathetic stimulation can constrict veins and move blood toward the central circulation.',
+      'pdf-1',
+      'user-1',
+    );
+
+    expect(question.flag_reason).toBeNull();
+    expect(question.flagged).toBe(false);
+    expect(question.option_set_flags).toEqual(['LENGTH_TELL']);
+  });
 });
