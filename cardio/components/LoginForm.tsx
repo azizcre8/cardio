@@ -177,14 +177,13 @@ export default function LoginForm() {
               />
               {mode === 'login' && (
                 <div className="text-right">
-                  <button
-                    type="button"
-                    onClick={() => { setMode('forgot'); setError(''); }}
+                  <a
+                    href="/forgot-password"
                     className="text-xs hover:underline"
                     style={{ color: 'var(--text-dim)' }}
                   >
                     Forgot password?
-                  </button>
+                  </a>
                 </div>
               )}
             </div>

@@ -845,27 +845,27 @@ function TodayPanel({
         Your study sources
       </h1>
 
+      {/* Exam countdown */}
+      {daysLeft !== null && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          padding: '9px 14px', borderRadius: 'var(--r2)',
+          background: 'var(--amber-dim)',
+          border: '1px solid rgba(176,106,26,0.2)',
+          fontSize: 12, fontWeight: 500, color: 'var(--amber)',
+          marginBottom: 16, fontFamily: 'var(--font-mono)',
+        }}>
+          <Icon name="flag" size={13} />
+          {daysLeft > 0 ? `${daysLeft} days until exam` : 'Exam day!'}
+        </div>
+      )}
+
       <DashboardPanel
         dashboard={dashboard.data}
         loading={dashboard.loading}
         error={dashboard.error}
         onStartStudy={onStartLibraryStudy}
       />
-
-      {/* Exam countdown */}
-      {daysLeft !== null && (
-        <div style={{
-          marginTop: 16, padding: '10px 14px',
-          borderRadius: 'var(--r2)', fontSize: 12, fontWeight: 600,
-          background: daysLeft <= 3 ? 'var(--red-dim)' : 'var(--accent-dim)',
-          color: daysLeft <= 3 ? 'var(--red)' : 'var(--accent)',
-          border: `1px solid ${daysLeft <= 3 ? 'var(--red)' : 'var(--accent)'}22`,
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <Icon name="flag" size={13} />
-          {daysLeft > 0 ? `${daysLeft} days until exam` : 'Exam day!'}
-        </div>
-      )}
 
       {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24, flexWrap: 'wrap' }}>
@@ -1035,6 +1035,7 @@ function TodayPanel({
                 border: 'none',
                 cursor: 'pointer',
                 padding: 0,
+                fontFamily: 'var(--font-mono)',
               }}
             >
               {label}

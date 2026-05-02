@@ -47,6 +47,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
       letterSpacing: '0.1em',
       textTransform: 'uppercase',
       whiteSpace: 'nowrap',
+      fontFamily: 'var(--font-mono)',
       padding: '2px 4px',
       background: 'none',
       border: 'none',
@@ -166,6 +167,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
             border: '1px solid var(--border)',
             cursor: 'pointer',
             fontSize: '0.9rem',
+            fontFamily: 'var(--font-mono)',
             transition: 'background 0.15s, border-color 0.15s',
           }}
           onMouseEnter={e => {
@@ -191,6 +193,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
               border: `1px solid ${accountOpen ? 'rgba(13,154,170,0.3)' : 'var(--border)'}`,
               cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)',
               fontWeight: 600, letterSpacing: '0.05em', transition: 'background 0.15s, border-color 0.15s',
+              fontFamily: 'var(--font-mono)',
             }}
             onMouseEnter={e => {
               if (!accountOpen) {
@@ -237,7 +240,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
                   <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Plan</div>
                   <span style={{
                     display: 'inline-block',
-                    fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                    fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                     padding: '2px 8px', borderRadius: 20,
                     background: 'var(--accent-dim)', color: 'var(--accent)',
                     border: '1px solid rgba(13,154,170,0.25)',
@@ -252,6 +255,7 @@ export default function AppNav({ view, isJobRunning, darkMode, onSetView, onTogg
                       width: '100%', textAlign: 'left',
                       padding: '8px 16px', background: 'none', border: 'none',
                       fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                      fontFamily: 'var(--font-mono)',
                       cursor: 'pointer', color: 'var(--text-dim)',
                       transition: 'color 0.15s, background 0.15s',
                     }}
