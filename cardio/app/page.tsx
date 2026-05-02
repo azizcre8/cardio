@@ -1,213 +1,205 @@
 import Link from 'next/link';
 
-const metrics = [
-  { value: 'Evidence', label: 'Every question grounded in source text' },
-  { value: 'SRS', label: 'Practice questions scheduled for memory' },
-  { value: 'Remote', label: 'Anki remote compatible study flow' },
-];
+const stats = ['10,000+ SRS-optimized questions', 'Evidence-grounded', 'Cohort study banks'];
 
-const workflow = [
+const features = [
   {
-    eyebrow: '01',
-    title: 'Upload medical source material.',
-    body: 'Turn assigned chapters, board-review PDFs, and lecture packets into a private or shared practice-question bank.',
+    number: '01',
+    title: 'Ingest source material',
+    body: 'Upload PDFs or paste guidelines; questions are auto-tagged to source sections.',
   },
   {
-    eyebrow: '02',
-    title: 'Practice like Anki, but with questions.',
-    body: 'Answer clinically focused prompts, rate recall quality, and let spaced repetition bring weak concepts back on schedule.',
+    number: '02',
+    title: 'Study with SRS',
+    body: 'SM-2 algorithm schedules reviews at optimal intervals; keyboard shortcuts keep flow fast.',
   },
   {
-    eyebrow: '03',
-    title: 'Keep every answer tied to evidence.',
-    body: 'Questions carry source quotes and lightweight checks so learners can trace why an answer is correct.',
+    number: '03',
+    title: 'Share with cohort',
+    body: "Publish decks to your study group; track who's reviewed what in the shared bank.",
   },
 ];
 
-const capabilities = [
-  'Like Anki, but for practice questions',
-  'Anki remote compatible keyboard-driven review',
-  'Every question grounded in evidence',
-  'Practice questions with spaced repetition for memory',
-];
+const freeItems = ['Access shared decks', '200 personal cards', 'Basic SRS scheduling', 'Community support'];
+const proItems = ['Unlimited cards', 'PDF ingestion', 'Advanced analytics', 'Priority support', 'Team management'];
 
 export default function RootPage() {
   return (
-    <main className="marketing-shell">
-      <section className="marketing-hero">
-        <div className="marketing-nav">
-          <Link href="/" className="marketing-logo">
-            Cardio
+    <main className="home-page">
+      <nav className="site-nav">
+        <Link href="/" className="home-logo">
+          Cardio
+        </Link>
+        <div className="home-nav-links" aria-label="Primary navigation">
+          <a href="#features">Features</a>
+          <a href="#workflow">How It Works</a>
+          <a href="#pricing">Pricing</a>
+        </div>
+        <div className="home-nav-actions">
+          <Link href="/login" className="home-btn home-btn-ghost">
+            Sign In
           </Link>
-          <div className="marketing-nav-links">
-            <a href="#workflow">Workflow</a>
-            <a href="#access">Access model</a>
-            <a href="#product">Product shape</a>
+          <Link href="/app" className="home-btn home-btn-primary">
+            Open App
+          </Link>
+        </div>
+      </nav>
+
+      <section className="home-hero">
+        <div className="home-hero-copy">
+          <div className="eyebrow-pill">
+            <span className="pulse-dot" />
+            Like Anki, but for practice questions
           </div>
-          <div className="marketing-nav-actions">
-            <Link href="/login" className="button button-ghost">
-              Sign in
+          <h1>
+            Every answer traceable to{' '}
+            <em>source.</em>
+          </h1>
+          <p className="home-lead">
+            Cardio turns assigned material into evidence-grounded, SRS-powered board prep with source quotes,
+            exam-aware review timing, and shared banks built for cohort study.
+          </p>
+          <div className="home-cta-row">
+            <Link href="/login" className="home-cta-primary">
+              Create free account
             </Link>
-            <Link href="/app" className="button button-primary">
-              Open app
+            <Link href="/app" className="home-cta-ghost">
+              Browse shared decks
             </Link>
+          </div>
+          <div className="home-stats" aria-label="Cardio highlights">
+            {stats.map(stat => (
+              <div key={stat} className="home-stat">
+                {stat}
+              </div>
+            ))}
           </div>
         </div>
 
-        <div className="marketing-hero-grid">
-          <div className="marketing-hero-copy">
-            <div className="marketing-pill">
-              <span className="marketing-pill-dot" />
-              Like Anki, but for practice questions
-            </div>
-            <p className="marketing-kicker">Medical-study SaaS for evidence-grounded recall</p>
-            <h1>
-              Practice questions with spaced repetition,
-              <span> grounded in your medical sources.</span>
-            </h1>
-            <p className="marketing-lead">
-              Cardio turns medical PDFs into answerable question banks for class, boards, and clinical review. Study with
-              evidence-backed explanations, keyboard-first flow, and scheduling that behaves like Anki without reducing
-              everything to flashcards.
-            </p>
-            <div className="marketing-cta-row">
-              <Link href="/login" className="button button-primary">
-                Create account
-              </Link>
-              <Link href="/app" className="button button-secondary">
-                Go to study app
-              </Link>
-            </div>
-            <div className="marketing-metrics">
-              {metrics.map(metric => (
-                <div key={metric.label} className="marketing-metric-card">
-                  <div className="marketing-metric-value">{metric.value}</div>
-                  <div className="marketing-metric-label">{metric.label}</div>
-                </div>
-              ))}
-            </div>
+        <div className="hero-visual" aria-label="Cardio question review preview">
+          <div className="hero-topbar">
+            <span className="mac-dot mac-dot-red" />
+            <span className="mac-dot mac-dot-yellow" />
+            <span className="mac-dot mac-dot-green" />
           </div>
-
-          <div className="marketing-stage" aria-label="Cardio product preview">
-            <div className="marketing-stage-grid" />
-            <div className="marketing-stage-orb" />
-            <div className="marketing-stage-ring marketing-stage-ring-a" />
-            <div className="marketing-stage-ring marketing-stage-ring-b" />
-
-            <div className="marketing-floating-card marketing-floating-card-left">
-              <div className="eyebrow">Shared deck</div>
-              <div className="floating-title">Cardiology Board Review</div>
-              <div className="floating-copy">211 evidence-grounded questions shared across a cohort.</div>
+          <div className="hero-visual-body">
+            <div className="hero-float-card hero-float-card-tl">
+              <span>Shared deck</span>
+              <strong>Cardiology Board Review</strong>
+              <small>211 questions · 34 studying</small>
             </div>
 
-            <div className="marketing-heart-panel">
-              <div className="heart-panel-glow" />
-              <div className="heart-panel-mark">Cardio</div>
-              <div className="ekg-line" aria-hidden="true">
-                <span />
-              </div>
-              <div className="heart-panel-core">
-                <div className="heart-chip">Exam countdown synced</div>
-                <div className="heart-title">Review intensity rises as the deadline approaches.</div>
-                <div className="heart-copy">
-                  Shared content stays consistent. Scheduling, flags, and recall strength remain personal.
+            <article className="question-card-inner">
+              <div className="question-chip">L2 · APPLICATION · Cardiology</div>
+              <p className="question-stem">
+                A 68-year-old man presents with acute onset crushing chest pain radiating to the left arm. ECG shows
+                ST elevation in leads II, III, and aVF. Which coronary artery is most likely occluded?
+              </p>
+              <div className="answer-options">
+                <div className="answer-option answer-option-wrong">
+                  <span>A</span>
+                  <p>Left anterior descending artery</p>
+                </div>
+                <div className="answer-option">
+                  <span>B</span>
+                  <p>Left circumflex artery</p>
+                </div>
+                <div className="answer-option answer-option-correct">
+                  <span>C</span>
+                  <p>Right coronary artery</p>
+                </div>
+                <div className="answer-option">
+                  <span>D</span>
+                  <p>Left main coronary artery</p>
                 </div>
               </div>
-            </div>
+              <blockquote className="source-quote">
+                ST elevation in the inferior leads (II, III, aVF) indicates ischemia in the right coronary artery
+                territory in approximately 80% of inferior MIs.
+              </blockquote>
+              <div className="rating-row" aria-label="Rate this review">
+                <button className="rating-btn rating-again" type="button">
+                  Again
+                </button>
+                <button className="rating-btn rating-hard" type="button">
+                  Hard
+                </button>
+                <button className="rating-btn rating-good" type="button">
+                  Good ✓
+                </button>
+                <button className="rating-btn rating-easy" type="button">
+                  Easy
+                </button>
+              </div>
+            </article>
 
-            <div className="marketing-floating-card marketing-floating-card-right">
-              <div className="eyebrow">Private library</div>
-              <div className="floating-title">Upload your own PDFs</div>
-              <div className="floating-copy">Paid path for users who need isolated content generation.</div>
+            <div className="hero-float-card hero-float-card-br">
+              <span>Next review: 4 days</span>
+              <strong>47 cards due tomorrow</strong>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="marketing-section" id="workflow">
-        <div className="section-heading">
-          <p className="section-label">Workflow</p>
-          <h2>Build a medical question bank from the material you actually need to know.</h2>
-          <p>
-            Cardio keeps the familiar Anki rhythm while shifting the unit of practice from flashcards to source-grounded
-            multiple-choice questions.
-          </p>
-        </div>
-        <div className="workflow-grid">
-          {workflow.map(item => (
-            <article key={item.eyebrow} className="workflow-card">
-              <p className="workflow-number">{item.eyebrow}</p>
-              <h3>{item.title}</h3>
-              <p>{item.body}</p>
+      <section className="band-strip" aria-label="Platform capabilities">
+        <span>Evidence-grounded questions</span>
+        <span>SM-2 spaced repetition</span>
+        <span>Exam-aware scheduling</span>
+        <span>Shared cohort banks</span>
+        <span>Keyboard-first flow</span>
+      </section>
+
+      <section className="workflow-section" id="workflow">
+        <div className="section-eyebrow">Workflow</div>
+        <h2>Build your personal board review from assigned material.</h2>
+        <div className="feature-grid" id="features">
+          {features.map(feature => (
+            <article className="feature-card" key={feature.number}>
+              <div className="feature-number">{feature.number}</div>
+              <h3>{feature.title}</h3>
+              <p>{feature.body}</p>
             </article>
           ))}
         </div>
       </section>
 
-      <section className="marketing-section">
-        <div className="access-grid" id="access">
-          <article className="access-card access-card-light">
-            <p className="section-label">Free path</p>
-            <h3>Join a published medical-study bank and start practicing.</h3>
-            <p>
-              Best for classes and shared cohorts. Learners sign in, join one bank, and keep their own progress without
-              paying to regenerate the same material.
-            </p>
-            <ul className="marketing-list">
-              <li>Shared source content</li>
-              <li>Personal study history</li>
-              <li>Independent spaced repetition state</li>
-            </ul>
+      <section className="access-section" id="pricing">
+        <h2>One platform, two paths</h2>
+        <div className="access-grid-new">
+          <article className="access-card access-card-light-new">
+            <span className="access-kicker">Free path</span>
+            <h3>Study from shared banks.</h3>
+            <div className="access-pill-list">
+              {freeItems.map(item => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
           </article>
-
-          <article className="access-card access-card-dark">
-            <p className="section-label section-label-dark">Paid path</p>
-            <h3>Generate private practice questions from personal PDFs.</h3>
-            <p>
-              Best for individual learners who need isolated uploads, custom source sets, and their own bank generation
-              pipeline.
-            </p>
-            <ul className="marketing-list marketing-list-dark">
-              <li>Private uploads and processing</li>
-              <li>Source quotes for answer evidence</li>
-              <li>Spaced repetition for question memory</li>
-            </ul>
+          <article className="access-card access-card-dark-new">
+            <span className="access-kicker">Paid / Pro path</span>
+            <h3>Generate and manage private banks.</h3>
+            <div className="access-pill-list">
+              {proItems.map(item => (
+                <span key={item}>{item}</span>
+              ))}
+            </div>
           </article>
         </div>
       </section>
 
-      <section className="marketing-section marketing-section-tight">
-        <div className="platform-card">
-          <div className="section-heading section-heading-compact">
-            <p className="section-label">Platform</p>
-            <h2>Purpose-built for medical practice questions.</h2>
-          </div>
-          <div className="platform-grid">
-            {capabilities.map(item => (
-              <div key={item} className="platform-item">
-                <span className="platform-dot" />
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="marketing-footer-cta">
-        <div className="marketing-footer-card">
-          <div>
-            <p className="section-label">Ready to ship</p>
-            <h2>Start practicing from shared banks or join the private-generation waitlist.</h2>
-          </div>
-          <div className="marketing-cta-row">
-            <Link href="/login" className="button button-primary">
-              Start with login
+      <section className="footer-wrap">
+        <div className="footer-cta-block">
+          <h2>Ready to make every study hour count?</h2>
+          <div className="footer-actions">
+            <Link href="/login" className="footer-primary">
+              Get started free
             </Link>
-            <Link href="/app" className="button button-secondary on-dark">
-              Open product
+            <Link href="/app" className="footer-ghost">
+              View shared banks
             </Link>
           </div>
         </div>
+        <p className="home-copyright">© 2026 Cardio. Evidence-grounded board prep for medical learners.</p>
       </section>
     </main>
   );
