@@ -20,6 +20,7 @@ type RawClaudeQuestion = {
 
 const TOKENS_PER_SEGMENT = 140_000;
 const TARGET_QUESTIONS_PER_COVERAGE_SEGMENT = 20;
+const SEGMENT_GENERATION_CONCURRENCY = 2;
 const DISCARD_FLAG_REASONS = new Set([
   'QUOTE_NOT_FOUND',
   'SOURCE_QUOTE_INVALID',
@@ -909,15 +910,14 @@ export async function generateQuestionsWithClaude(
 
   let costUSD = 0;
   const questions: Question[] = [];
-  for (let i = 0; i < segments.length; i += 1) {
+  const generateSegment = async (i: number): Promise<{ questions: Question[]; costUSD: number }> => {
     if (Date.now() > GENERATION_DEADLINE_MS) {
-      onProgress?.(`Generation time limit reached — saving ${questions.length} questions generated so far`);
-      break;
+      return { questions: [], costUSD: 0 };
     }
 
     const segment = segments[i] ?? '';
     const segmentTarget = segmentTargets[i] ?? 0;
-    if (segmentTarget <= 0 || !segment.trim()) continue;
+    if (segmentTarget <= 0 || !segment.trim()) return { questions: [], costUSD: 0 };
 
     onProgress?.(`Generating questions for segment ${i + 1}/${segments.length}…`);
 
@@ -984,7 +984,31 @@ export async function generateQuestionsWithClaude(
     if (sourced.length < valid.length) {
       console.warn(`[generation] Discarded ${valid.length - sourced.length} questions copied from source MCQs or lacking valid body-text evidence`);
     }
-    questions.push(...sourced);
+    return { questions: sourced, costUSD: segCost };
+  };
+
+  for (let i = 0; i < segments.length; i += SEGMENT_GENERATION_CONCURRENCY) {
+    if (Date.now() > GENERATION_DEADLINE_MS) {
+      onProgress?.(`Generation time limit reached — saving ${questions.length} questions generated so far`);
+      break;
+    }
+
+    const groupIndexes = segments
+      .slice(i, i + SEGMENT_GENERATION_CONCURRENCY)
+      .map((_, offset) => i + offset);
+    // Coverage segments are independent. Running two at a time keeps 80-100
+    // question chapters under the route timeout without returning to duplicate
+    // full-document batches.
+    const settledSegments = await Promise.allSettled(groupIndexes.map(index => generateSegment(index)));
+    for (const result of settledSegments) {
+      if (result.status === 'fulfilled') {
+        costUSD += result.value.costUSD;
+        questions.push(...result.value.questions);
+      } else {
+        console.warn('[generation] Segment generation failed:', result.reason);
+        if (!questions.length) throw result.reason;
+      }
+    }
   }
 
   const dedupResult = await dedupQuestions(questions, {});

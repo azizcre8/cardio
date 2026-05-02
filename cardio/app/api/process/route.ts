@@ -165,12 +165,15 @@ export async function POST(req: NextRequest) {
         fail(msg);
       };
 
-      const INTERNAL_TIMEOUT_MS = 270_000;
+      // Leave enough room under Vercel's 300s cap for final DB writes, but do
+      // not fail long-running generations at 270s when results may be seconds
+      // away from being persisted.
+      const INTERNAL_TIMEOUT_MS = 285_000;
       const timeoutHandle = setTimeout(() => {
         if (!isClosed) {
           timedOut = true;
           void (async () => {
-            await failJobAndStop('Processing timed out after 4.5 minutes. Try a shorter PDF or lower density setting.');
+            await failJobAndStop('Processing timed out after 4.75 minutes. Try a shorter PDF or lower density setting.');
           })();
         }
       }, INTERNAL_TIMEOUT_MS);
