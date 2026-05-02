@@ -31,20 +31,13 @@ export async function analyzePdfClient(file: File): Promise<AnalyzeResult> {
   const avgPerPage = sampleCount > 0 ? sampleWords / sampleCount : 280;
   const estimatedTotalWords = Math.round(avgPerPage * pageCount);
 
-  const CONCEPTS_PER_CHUNK = 5;
-  const importanceDist = { high: 0.33, medium: 0.40, low: 0.27 };
-
   const estimates: AnalyzeResult['estimates'] = {};
   for (const [mode, cfg] of Object.entries(DENSITY_CONFIG)) {
     const chunks = Math.max(1, Math.ceil(estimatedTotalWords / cfg.words));
-    const concepts = chunks * CONCEPTS_PER_CHUNK;
-    const avgQsPerConcept = Object.entries(importanceDist).reduce((sum, [imp, frac]) => {
-      const levels = cfg.levels[imp as keyof typeof cfg.levels] ?? [];
-      return sum + frac * levels.length;
-    }, 0);
-    const questionsMin = Math.max(1, Math.round(concepts * avgQsPerConcept * 0.65));
-    const questionsMax = Math.max(1, Math.round(concepts * avgQsPerConcept * 0.88));
-    const timeSec = Math.round(concepts * 14 + 60);
+    const targetQuestions = Math.max(1, Math.round(pageCount * cfg.questionsPerPage));
+    const questionsMin = Math.max(1, Math.round(targetQuestions * 0.75));
+    const questionsMax = Math.max(1, Math.round(targetQuestions * 1.25));
+    const timeSec = Math.round(targetQuestions * 5 + chunks * 10 + 60);
     estimates[mode] = { questionsMin, questionsMax, timeSec };
   }
 

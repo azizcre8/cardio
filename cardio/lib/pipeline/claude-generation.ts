@@ -391,7 +391,7 @@ STEP 1 — COVERAGE MAP (do this silently before generating):
 Identify every major section or topic in the provided medical text. Divide ${targetCount} questions proportionally across those sections so no single section receives more than 30% of the total questions.
 
 STEP 2 — GENERATE only 1st-order and 2nd-order questions:
-1. Distribute questions across the ENTIRE document per your coverage map
+1. Generate exactly ${targetCount} questions. Distribute them across the ENTIRE document per your coverage map.
 2. Level mix: ~25% 1st-order (recall of specific values/facts), ~75% 2nd-order (mechanism, cause-effect, application). Do NOT generate any 3rd-order questions.
 3. LOW DISCRIMINABILITY — answer choices must be intentionally similar (e.g. nearby numbers, related mechanisms, related anatomical structures). This is the most important requirement.
 4. EQUAL OPTION LENGTH — all answer choices must be approximately the same length. The correct answer must NEVER be the longest option.
@@ -425,7 +425,7 @@ STEP 1 — COVERAGE MAP (do this silently before generating):
 Identify every major clinical concept, mechanism, or syndrome in the provided medical text. Divide ${targetCount} questions across those concepts so each is represented.
 
 STEP 2 — GENERATE only 3rd-order clinical vignette questions:
-1. When the text contains or implies clinical content, open questions with a patient scenario ('A [age]-year-old [sex] presents with...'). When the text is purely basic science, write 3rd-order questions that require multi-step reasoning or synthesis across concepts instead.
+1. Generate exactly ${targetCount} questions. When the text contains or implies clinical content, open questions with a patient scenario ('A [age]-year-old [sex] presents with...'). When the text is purely basic science, write 3rd-order questions that require multi-step reasoning or synthesis across concepts instead.
 2. Cover different clinical scenarios — vary patient age, sex, and presenting complaint across questions
 3. LOW DISCRIMINABILITY — answer choices must be intentionally similar (related mechanisms, related diagnoses). This is the most important requirement.
 4. EQUAL OPTION LENGTH — all answer choices must be approximately the same length. The correct answer must NEVER be the longest option.
@@ -639,7 +639,7 @@ async function callClaude(
   return { rawQuestions, costUSD };
 }
 
-const GENERATION_BATCH_SIZE = 30;
+const GENERATION_BATCH_SIZE = 10;
 
 async function callClaudeInBatches(
   buildInstructionsFn: (count: number) => string,
@@ -829,7 +829,7 @@ export async function generateQuestionsWithClaude(
   if (!segments.length || segments.every(s => !s.trim())) {
     throw new Error('No text segments to generate questions from');
   }
-  const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 120_000;
+  const GENERATION_DEADLINE_MS = (requestStartMs ?? Date.now()) + 240_000;
   const segmentTargets = segments.length === 1
     ? [Math.max(0, targetCount)]
     : allocateTargetsByTokens(segments, targetCount);
